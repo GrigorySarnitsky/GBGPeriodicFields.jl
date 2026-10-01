@@ -29,6 +29,7 @@ const NO_DISPLAY = Dict(
   :_LazyWeight    => "pass-local weight adapter, built and consumed inside one reduction",
   :_MapValues     => "pass-local values function, built and consumed inside one `map!` pass",
   :_FiberGather   => "pass-local values function, built and consumed inside one mapped reduction",
+  :_RadialOffset  => "pass-local carrier of a radial exponent offset's symbol, built and consumed inside one `exponential_convolve!` pass",
 )
 
 

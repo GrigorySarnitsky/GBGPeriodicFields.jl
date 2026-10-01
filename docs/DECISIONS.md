@@ -3837,3 +3837,30 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       source written into a `Float32` point set was rounded without complaint, the silent conversion
       invariant 14 forbids. It is refused now, and `test/regressions/pointset-adapt-converts-precision.jl`
       pins it.
+92. **The exponent offset of `exponential_convolve!` may be a radial kernel** (2026-10-01, owner-approved; requested by `GBGHomogeneousTurbulence`). The offset ``\hat w`` in ``\exp(c |k|^2 + s \hat w)`` was
+    accepted only as a stored scalar field. The consumer's steady linear forcing has a rate that is a
+    function of ``|k|^2`` alone, its band, so it held a field of zeros but for a few shells: about 129
+    MiB at ``256^3`` in `Float64` per forced field, resident for the whole run.
+
+    - **What changed.** Each form taking an offset now takes either a stored field, as before, or a
+      `RadialKernel`. A radial offset is evaluated where the exponent is formed: on the scalar route as
+      part of the same lazy broadcast, and on the per-mode route of decision 79 from the ``|k|^2`` the
+      kernel already builds, once per mode. Nothing of it is stored or read. The two kinds give
+      bitwise the same result, pinned in `test/convolution.jl` over tensor orders, both element types,
+      a permuted layout, both forms, the accumulate weights and the threaded loop.
+
+    - **Why not one radial symbol through `convolve!`.** The whole factor
+      ``\exp(c |k|^2 + s \sigma(|k|^2))`` could already be written as one radial kernel and applied with
+      `convolve!` or the kernel-composed `combine!`. On a vector field that route evaluates the
+      exponential once per component, the cost decision 79 removed from this operation and the one
+      measured again in `weighted_inner` on 2026-09-30. The offset was widened instead, so the
+      exponential stays once per mode.
+
+    - **The stored form stays.** An offset that is not a function of ``|k|^2`` alone, an anisotropic
+      or random per-mode rate, still needs a field. A radial offset whose symbol is complex is refused,
+      the exponent being real; a kernel built for another box or storage family is refused as every
+      kernel is.
+
+    - **Cost.** Zero bytes on the serial lane in every form, and the traffic audit shows only the
+      source and destination, where the stored offset adds one read per mode. On a device the symbol is
+      a comparison per mode against a complex read per mode.

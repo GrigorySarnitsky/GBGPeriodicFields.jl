@@ -1202,6 +1202,24 @@ function run_value_lane(configs)
                         field_data(exponential_convolve!(similar_field(sh, Val(0)), α, sh, β, sh2,
                                                          multipliers, exponent2, offset_scale, offset_field)),
                         ref_convolve(α .* field_data(sh) .+ β .* field_data(sh2), symbol2)))
+      # A RADIAL offset (2026-10-01): ŵ = the band indicator, a function of |k|² alone, evaluated per
+      # mode. The reference is the same exp(c|k|² + s·ŵ) written over the raw squared wavenumber, on the
+      # scalar route and, through the vector field uh, the per-mode route.
+      radial_offset = spectral_band(multipliers, T(1), cutoff)
+      band_values = ref_spectral_band(grid, layout, size(field_data(sh))[1:3], T(1), cutoff)
+      symbol3 = complex.(ref_exponential_symbol(grid, layout, size(field_data(sh))[1:3], exponent2) .*
+                         exp.(offset_scale .* band_values))
+      push!(generated, (:exponential_convolve,
+                        field_data(exponential_convolve(sh, multipliers, exponent2, offset_scale, radial_offset)),
+                        ref_convolve(field_data(sh), symbol3)))
+      push!(generated, (:exponential_convolve!,
+                        field_data(exponential_convolve!(similar_field(uh, Val(1)), uh, multipliers,
+                                                         exponent2, offset_scale, radial_offset)),
+                        field_data(uh) .* symbol3))
+      push!(generated, (:exponential_convolve!,
+                        field_data(exponential_convolve!(similar_field(uh, Val(1)), α, uh, β, uh,
+                                                         multipliers, exponent2, offset_scale, radial_offset)),
+                        (α .* field_data(uh) .+ β .* field_data(uh)) .* symbol3))
 
       # The two-field CO-correlation, the Wiener–Khinchin dual of the co-spectrum.
       separations, cross_correlation = radial_correlation(sh, sh2, plans)

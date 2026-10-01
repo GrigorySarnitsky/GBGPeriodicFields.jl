@@ -83,6 +83,10 @@ const INVOCATIONS = Dict{Tuple{Symbol, Symbol}, Function}(
   (:combine!, :kernel)                  => (c, k) -> combine!(vspec(c), 0.3, vspec(c), 0.7, vspec(c), k),
   (:weighted_inner, :kernel)            => (c, k) -> weighted_inner(vspec(c), k),
   (:materialize_kernel!, :kernel)       => (c, k) -> materialize_kernel!(StoredKernel(sspec(c)), k),
+  (:exponential_convolve!, :kernel)     => (c, k) -> exponential_convolve!(vspec(c), vspec(c),
+                                             carrier_of(Val(:multipliers), c), -0.1, 0.01, k),   # a radial offset
+  (:exponential_convolve, :kernel)      => (c, k) -> exponential_convolve(vspec(c),
+                                             carrier_of(Val(:multipliers), c), -0.1, 0.01, k),
 
   # --- transform plans ---
   (:to_physical, :plans)                => (c, k) -> to_physical(sspec(c), k),

@@ -485,7 +485,12 @@ DifferentialOperators = 90
   # window at the grid spacing composed with itself, and keeps its one method.
   # 116 → 117: `materialize_kernel!` (decision 90), a kernel evaluated into an existing
   # `StoredKernel` — one method, taking a kernel of any of the four storage classes.
-Convolution = 117
+  # 117 → 125: a radial exponent offset for `exponential_convolve!` (decision 92, 2026-10-01). The
+  # public methods are unchanged in number, their offset slot widened to a stored field or a radial
+  # kernel; the eight are the helpers that keep the two kinds apart — `_check_offset_compatibility`,
+  # `_offset_broadcast_data` and `_offset_mode_data` two each, and one more `_exponential_exponent`
+  # (the radial symbol evaluated from |k|²) and `_exponential_factor_type`.
+Convolution = 125
   # 83 → 103: the exponential fiber hoist (decision 79, IT item 2). The exponential family's R ≥ 1
   # forms moved from the fused broadcast to a decision-38 kernel pair — `exp` once per mode, reused
   # across the fiber, bitwise identical — so the module gained the two `_modes!` dispatchers with

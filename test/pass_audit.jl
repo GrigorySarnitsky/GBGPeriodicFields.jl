@@ -359,6 +359,11 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
       # mode-loop now reads the offset field once per mode and reuses the factor across components,
       # exactly the fix the old note priced. Frozen at the fused ideal.
       Traffic("ŵ", carr(w), (M, 0)))
+    # A radial offset (2026-10-01) is evaluated, not read: the source and destination are the whole
+    # traffic, the same as the plain form, where the stored offset adds M reads.
+    audit(() -> exponential_convolve!(d, f, multipliers, -0.1, 0.01, spectral_band(multipliers, 1, 3)),
+      "exponential_convolve! radial offset",
+      Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))
     audit(() -> exponential_convolve!(d, 0.3, a, 0.7, b, multipliers, -0.1),
       "exponential_convolve! two-operand",
       Traffic("a", carr(a), (3M, 0)), Traffic("b", carr(b), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))

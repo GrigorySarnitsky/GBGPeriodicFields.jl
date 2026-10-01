@@ -212,6 +212,13 @@ _sum_all(xs...) = sum(xs)                                                 # any 
       @alloc_below field_threshold exponential_convolve!(ssd, ss, multipliers, T(-0.1), T(0.01), kernel_field)
       @alloc_below field_threshold exponential_convolve!(svd, T(0.3), sv, T(0.7), sv, multipliers, T(-0.1))
       @alloc_below field_threshold exponential_convolve!(ssd, T(0.3), ss, T(0.7), ss, multipliers, T(-0.1), T(0.01), kernel_field)
+      # A RADIAL offset (2026-10-01) is evaluated per mode and stores nothing: the scalar route and the
+      # per-mode route of both forms, at the tight bound.
+      radial_offset = spectral_band(multipliers, T(1), T(3))
+      @alloc_below threshold exponential_convolve!(ssd, ss, multipliers, T(-0.1), T(0.01), radial_offset)
+      @alloc_below threshold exponential_convolve!(svd, sv, multipliers, T(-0.1), T(0.01), radial_offset)
+      @alloc_below threshold exponential_convolve!(svd, sv, multipliers, T(-0.1), T(0.01), radial_offset, T(0.5), T(1))
+      @alloc_below threshold exponential_convolve!(svd, T(0.3), sv, T(0.7), sv, multipliers, T(-0.1), T(0.01), radial_offset)
       @alloc_below field_threshold combine!(ssd, T(0.3), ss, T(0.7), ss, kernel)
       @alloc_below field_threshold combine!(svd, T(0.3), sv, T(0.7), sv, kernel)
       @alloc_below field_threshold combine!(std_, T(0.3), st, T(0.7), st, kernel)

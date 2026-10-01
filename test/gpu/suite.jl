@@ -480,6 +480,12 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # the fiber-extruded offset: a VECTOR field with the per-mode ŵ (the pass-audit ŵ row's GPU twin)
       @test matches(exponential_convolve(u_spec_d, mult_d, T(-1) / 20, T(1) / 100, k2_d),
                     exponential_convolve(u_spec_h, mult_h, T(-1) / 20, T(1) / 100, k2_h))
+      # a RADIAL offset, evaluated per mode on the device (2026-10-01): scalar and vector
+      band_h, band_d = spectral_band(mult_h, T(1) / 2, T(5) / 2), spectral_band(mult_d, T(1) / 2, T(5) / 2)
+      @test matches(exponential_convolve(phi_spec_d, mult_d, T(-1) / 20, T(3) / 10, band_d),
+                    exponential_convolve(phi_spec_h, mult_h, T(-1) / 20, T(3) / 10, band_h))
+      @test matches(exponential_convolve(u_spec_d, mult_d, T(-1) / 20, T(3) / 10, band_d),
+                    exponential_convolve(u_spec_h, mult_h, T(-1) / 20, T(3) / 10, band_h))
       combined_h = T(1) * u_spec_h;  combined_d = on_device(combined_h)
       exponential_convolve!(combined_h, T(3) / 10, u_spec_h, T(7) / 10, combined_h, mult_h, T(-1) / 20)
       exponential_convolve!(combined_d, T(3) / 10, u_spec_d, T(7) / 10, combined_d, mult_d, T(-1) / 20)

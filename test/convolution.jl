@@ -763,6 +763,56 @@ end
 # materialize_kernel!: the in-place evaluation of a kernel into an existing StoredKernel. The oracle for
 # the band is the membership test written from its definition over the transform's own frequencies,
 # sharing no code with the package's wavenumber arrays.
+# exponential_convolve! with a RADIAL offset (2026-10-01): ŵ a function of |k|² alone, evaluated per mode
+# where the exponent is formed. The oracle is the factor written from its definition over the
+# transform's own frequencies, sharing no code with the package's wavenumber arrays; the stored-field
+# offset holding the same values must agree BIT FOR BIT, on the scalar route and the per-mode route.
+@testset "exponential_convolve! with a radial offset ($T)" for T in (Float64, Float32)
+  for (sizes, layout) in (((8, 6, 5), RealFourierLayout()), ((7, 6, 6), RealFourierLayout((2, 1, 3))))
+    grid = Grid3D(sizes, T.((2π, 4π, 2π)))
+    fold = layout.fft_dims[1]
+    frequencies = ntuple(a -> (a == fold ? rfftfreq(sizes[a], sizes[a]) : fftfreq(sizes[a], sizes[a])) .*
+                              T(2π / grid.domain_size[a]), 3)
+    for R in (0, 1, 2)
+      shape = field_spectral_shape(grid, layout, Val(R))
+      build(x) = R == 0 ? ScalarFieldSpectral(x, grid, layout) : R == 1 ? VectorFieldSpectral(x, grid, layout) :
+                          TensorFieldSpectral{2}(x, grid, layout)
+      f, b = build(randn(Complex{T}, shape...)), build(randn(Complex{T}, shape...))
+      multipliers = FieldSpectralMultipliers(f)
+      low, high, c, s = T(0.75), T(2.25), T(-1) / 20, T(3) / 10
+      band = spectral_band(multipliers, low, high)
+      # The factor at each stored mode, from the definition.
+      k2 = [T(frequencies[1][i])^2 + T(frequencies[2][j])^2 + T(frequencies[3][l])^2
+            for i in eachindex(frequencies[1]), j in eachindex(frequencies[2]), l in eachindex(frequencies[3])]
+      factor = exp.(c .* k2 .+ s .* T.(low^2 .<= k2 .<= high^2))
+      expected = field_data(f) .* factor
+      out = similar_field(f, Val(R))
+      @test field_data(exponential_convolve!(out, f, multipliers, c, s, band)) ≈ expected rtol = 64 * eps(T)
+      # Bitwise the stored form of the same offset, single- and two-operand, α/β and the allocating form.
+      stored = materialize_kernel(band).field
+      for (α, β) in ((one(T), zero(T)), (T(0.7), T(0.4)))
+        d1, d2 = similar_field(f, Val(R)), similar_field(f, Val(R))
+        field_data(d1) .= 1; field_data(d2) .= 1
+        exponential_convolve!(d1, f, multipliers, c, s, band, α, β)
+        exponential_convolve!(d2, f, multipliers, c, s, stored, α, β)
+        @test field_data(d1) == field_data(d2)
+        exponential_convolve!(d1, α, f, β, b, multipliers, c, s, band)
+        exponential_convolve!(d2, α, f, β, b, multipliers, c, s, stored)
+        @test field_data(d1) == field_data(d2)
+      end
+      @test field_data(exponential_convolve(f, multipliers, c, s, band)) ==
+            field_data(exponential_convolve(f, multipliers, c, s, stored))
+      # Refused: a complex symbol, and a kernel built for another box.
+      @test_throws ArgumentError exponential_convolve!(out, f, multipliers, c, s, radial_kernel(k -> complex(k), multipliers))
+      other = Grid3D(sizes, T.((2π, 2π, 2π)))
+      foreign = spectral_band(FieldSpectralMultipliers(ScalarFieldSpectral(
+        zeros(Complex{T}, field_spectral_shape(other, layout, Val(0))...), other, layout)), low, high)
+      @test_throws ArgumentError exponential_convolve!(out, f, multipliers, c, s, foreign)
+    end
+  end
+end
+
+
 @testset "materialize_kernel!: a kernel evaluated into existing storage ($T)" for T in (Float64, Float32)
   grid = Grid3D((8, 6, 5), T.((2π, 4π, 2π)))
   layout = RealFourierLayout()

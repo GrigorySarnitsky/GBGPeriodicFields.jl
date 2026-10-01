@@ -715,7 +715,9 @@ accumulate form (incl. R=2), in-place aliasing safety, a **mixed-parity (8,7,6) 
 Nyquist), the **lazy exponential kernel** `exponential_convolve!` (decision 33: equality against the
 same kernel stored and applied with `convolve!`, the independent single-mode eigenvalue oracle
 ``e^{c}\cos x``, the α/β accumulate, the scale-times-field offset, both two-operand forms equal to
-the sequential `combine!`-then-convolve pair, and the in-place filtered accumulate), the
+the sequential `combine!`-then-convolve pair, and the in-place filtered accumulate; and, decision 92,
+the radial offset against a factor written from its definition and bitwise against the same offset
+stored as a field), the
 **kernel-composed `combine!`** (fused equals sequential over scalar and vector fields, the
 ``b = \texttt{dest}`` accumulate, the kernel aliasing the destination, and the physical absence), the `spectral_band` annular band-pass (`spectral_cutoff` as its `wavenumber_low = 0` case, idempotent, a ``|k|^2``
 membership oracle) and `radial_kernel` (the builder for an arbitrary real function of ``|k|^2``, checked at
