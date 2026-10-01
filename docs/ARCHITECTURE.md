@@ -430,7 +430,9 @@ follows it, so a CUDA run can hold fields larger than the card with no change to
 
 ## 4. Spectral machinery
 
-`FieldTransformPlans` owns the FFT plans (per backend). Forward transforms are
+`FieldTransformPlans` owns the FFT plans (per backend). They are built from a pair of fields, or from
+a storage family with the grid and layout alone (decision 93): a transform is defined on the box, so the
+box is all a plan needs. Forward transforms are
 unnormalized; inverse transforms carry the normalization (AbstractFFTs
 convention) — this single convention choice propagates into the zero-mode constant
 updates described above.

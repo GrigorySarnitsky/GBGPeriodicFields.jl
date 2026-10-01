@@ -22,6 +22,9 @@
 using Test
 using GBGPeriodicFields
 using Statistics: mean, std, var, cov      # the umbrella re-exports these four too; explicit here so the file reads standalone
+# HDF5 is optional here: the persistence rows run where the backend's environment carries it.
+const _HAVE_HDF5 = Base.find_package("HDF5") !== nothing
+_HAVE_HDF5 && @eval using HDF5
 
 const F = GBGPeriodicFields.Fields
 const IP = GBGPeriodicFields.Points
@@ -945,6 +948,28 @@ end
       @test Array(field_data(device_corrupt)) == field_data(host_projected)
       device_two = reality_projection!(adapt(AT, similar_field(host_corrupt, Val(0))), adapt(AT, host_corrupt))
       @test Array(field_data(device_two)) == field_data(host_projected)
+      # Plans built from the storage family alone (decision 93) transform on the device exactly as the
+      # field-built ones do.
+      family_plans = FieldTransformPlans(AT, grid, layout)
+      @test Array(field_data(to_spectral(device_u, family_plans))) ==
+            Array(field_data(to_spectral(device_u, device_plans)))
+      # read_field! into a DEVICE field stages one component at a time through the host, and a device
+      # field is written through its host copy (decision 93).
+      if _HAVE_HDF5
+        h5_path = tempname() * ".h5"
+        host_spectral = to_spectral(host_u, host_plans)
+        h5open(h5_path, "w") do file
+          write_field(file, "host", host_spectral)
+          write_field(file, "device", adapt(AT, host_spectral))
+        end
+        device_destination = adapt(AT, similar_field(host_spectral, Val(1)))
+        h5open(h5_path, "r") do file
+          @test read_field!(device_destination, file, "host") === device_destination
+          @test Array(field_data(device_destination)) == field_data(host_spectral)
+          @test read(file["device"]["data"]) == field_data(host_spectral)
+        end
+        rm(h5_path)
+      end
       # The mean-free projector and the in-place kernel evaluation (decision 90): both must write a
       # device array without a scalar index, and agree bitwise with the host.
       host_spectral_u = to_spectral(host_u, host_plans)

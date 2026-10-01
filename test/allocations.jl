@@ -717,4 +717,5 @@ GBGCodingTools.TestHarness.allocation_completeness(GBGPeriodicFields,
       :setindex!             => "the AbstractArray interface: a single-element write, not a field-shaped pass",
       :set_fft_threads!      => "a configuration setter, not a field operation: it re-plans FFTW and allocates by design",
       :set_threading_cutoff! => "a configuration setter, not a field operation",
+      :read_field!           => "HDF5 I/O, a method of the weak-dependency extension this file does not load; its bound, below one eighth of the field read at 24³, is asserted in test/hdf5.jl",
     ))

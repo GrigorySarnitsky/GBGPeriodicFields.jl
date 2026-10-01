@@ -3864,3 +3864,36 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     - **Cost.** Zero bytes on the serial lane in every form, and the traffic audit shows only the
       source and destination, where the stored offset adds one read per mode. On a device the symbol is
       a comparison per mode against a complex read per mode.
+93. **Plans need no fields, and field persistence adds no copy** (2026-10-01, owner-approved; requested
+    by `GBGHomogeneousTurbulence`). The consumer measured three transient allocations at its largest
+    grids that bought it nothing, each the size of a field.
+
+    - **Plans from a storage family.** `FieldTransformPlans` took a physical and a spectral field and
+      read from them only their grid, layout and storage family, so a consumer holding no field
+      allocated two templates to build its plans. The new form `FieldTransformPlans(family, grid[,
+      layout])` takes those three directly, the route decision 74 opened for the field constructors; a
+      transform is defined on the box (decision 76), so the box is all a plan needs. The two forms give
+      bitwise the same transforms, pinned in `test/fields.jl`.
+
+    - **Planning touches no caller array.** Both forms now plan on one-component arrays of their own,
+      so a timed plan search (`FFTW.MEASURE`) no longer overwrites the caller's fields. What remains
+      while planning is about three scalar fields' worth at ``64^3``: two for those arrays and one
+      inside `FFTW.jl`'s inverse planner, which is the library's.
+
+    - **A host write makes no copy.** `write_field` and `write_points` passed `Array(data)` to HDF5,
+      which copies a host array as well as moving a device one. A host array is now written as it
+      stands: a ``24^3`` vector field writes with 2.8 KB allocated against its 835 KB. A device array is
+      still moved to the host, the one copy it needs.
+
+    - **`read_field!` reads into an existing field.** `read_field` allocates the field it returns, which
+      a consumer restoring a checkpoint into fields it already holds pays as a second copy of its
+      state. `read_field!(destination, parent, name)` fills the destination instead. It first refuses
+      every mismatch with the stored group (type, element type, grid, layout, tensor order), so a
+      refused read leaves the destination as it was.
+
+    - **How it reads.** A host destination is read straight from the dataset, 5.7 KB at the same size.
+      Any other storage is filled one component at a time through a one-component host buffer, so a
+      device restore holds one component on the host rather than the field.
+
+    - **What was not changed.** The allocating `read_field` stays, a reader with no field to fill being
+      the common case. No `read_points!` was added: the consumer asked for fields only.

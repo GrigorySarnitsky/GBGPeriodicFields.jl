@@ -330,9 +330,8 @@ function run_hist(p::Params)
   # the one-time planning cost amortizes over thousands of transforms. (The sharper case for `MEASURE`
   # is single precision, where `ESTIMATE` can mis-plan badly on some CPUs — up to ``\sim\!5\times`` slower
   # at ``256^{3}`` — but this run is `Float64` throughout, so amortization is the reason here.)
-  # `MEASURE` overwrites its input arrays while
-  # planning, so we plan on the zero-filled `uphys0` / `uspec0` scaffolds before seeding the initial
-  # condition below.
+  # `MEASURE` overwrites the arrays it plans on, but the package plans on arrays of its own, so `uphys0`
+  # and `uspec0` keep their contents and the order of planning and seeding does not matter.
   # One plan pair serves scalars, vectors and tensors alike: a transform is a property of the box, and a field whose
   # value has ``R`` indices is that transform per component, so the scalar divergence diagnostic reuses these
   # vector plans rather than planning a second pair of its own.

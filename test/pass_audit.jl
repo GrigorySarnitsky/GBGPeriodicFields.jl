@@ -473,4 +473,5 @@ GBGCodingTools.TestHarness.traffic_completeness(GBGPeriodicFields,
       :setindex!             => "the AbstractArray interface: a single-element write, not a field-shaped pass",
       :set_fft_threads!      => "a configuration setter, not a field operation",
       :set_threading_cutoff! => "a configuration setter, not a field operation",
+      :read_field!           => "HDF5 I/O, a method of the weak-dependency extension: its traffic is the file's, and test/hdf5.jl checks it reads the raw dataset exactly",
     ))

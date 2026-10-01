@@ -252,7 +252,10 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   and `jet.jl` (`JET` `@test_call` static analysis of the public operations), and `hdf5.jl` (the
   `write_field`/`read_field` and `write_points`/`read_points` HDF5 persistence round trips — every field
   type, every point type, the self-description attributes, and the corrupted-group error paths for both
-  families — run with the `HDF5` weak dependency loaded).
+  families, and `read_field!` (decision 93) filling all six field types in place against the raw
+  dataset, through the staged path a non-`Array` destination takes, refusing five mismatches with the
+  destination left untouched, and reading and writing a host field at ``24^3`` in under an eighth of
+  its bytes — run with the `HDF5` weak dependency loaded).
 - **`test/method_parity.jl`** — the spec-lock: per-generic method counts (the
   206-method field surface and the separate 122-method point-value surface) plus
   `detect_ambiguities` (from `Test`) over the whole package. The explicit `multiply!`

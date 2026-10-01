@@ -430,7 +430,10 @@ FiberSections = 114   # + _section_tensor_order, cartesian _index_ranges, _check
   # 189 → 184: GBGCodingTools rc.38 (2026-09-29) stops counting compiler-generated names (`#809#val`
   # and the like), which own methods in the module but are never the package's own. No method
   # changed; the old count included them, and on Julia 1.13 many more appear, which is how it surfaced.
-Fields = 184
+  # 184 → 185: `_field_transform_plans` (decision 93, 2026-10-01), the planning body now shared by
+  # the field-taking `FieldTransformPlans` and the new family-taking one (a constructor of the type,
+  # counted with the type rather than here). `read_field!`'s methods live in the HDF5 extension.
+Fields = 185
   # 176 → 177: no method was added. The count moved when the parity check moved to
   # GBGCodingTools.TestHarness (2026-09-27), whose surface walk descends into Base's submodules and so
   # sees this module's `Base.Broadcast.broadcastable` method, which the package's own scan never did.

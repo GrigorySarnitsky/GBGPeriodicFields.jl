@@ -131,6 +131,7 @@ set_fft_threads!
 ```@docs
 write_field
 read_field
+read_field!
 ```
 
 ## Internal API

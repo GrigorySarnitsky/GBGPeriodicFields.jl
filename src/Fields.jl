@@ -77,6 +77,7 @@ export Grid3D,
        TensorFieldSpectral,
        write_field,
        read_field,
+       read_field!,
        FieldTransformPlans,
        FieldSpectralMultipliers,
        to_physical!,
@@ -1343,15 +1344,29 @@ end
       fft_timelimit = Inf,
     ) where {T<:AbstractFloat, R}
 
+    FieldTransformPlans(
+      family::Type{<:AbstractArray},
+      grid::Grid3D{T},
+      layout::RealFourierLayout = RealFourierLayout();
+      fft_flags = nothing,
+      fft_timelimit = Inf,
+    ) where {T<:AbstractFloat}
+
 Forward and inverse FFT plans connecting compatible fields represented in physical and spectral space.
 
 # Arguments
 
-- `physical` — the field supplying the real-space storage array to plan against.
-- `spectral` — the field supplying the real-to-complex Fourier coefficient array.
+- `physical` — a field in physical representation, supplying the grid, the layout and the storage
+  family; its values are never read or written.
+- `spectral` — a field in spectral representation on the same grid and layout, likewise only a
+  template.
+- `family`, `grid`, `layout` — in place of the two fields: the storage family (`Array`, `CuArray`,
+  `ROCArray`), the [`Grid3D`](@ref) and the [`RealFourierLayout`](@ref), defaulting to the standard
+  one. This form needs no fields at all, the plans being built on one-component arrays of their own
+  either way.
 - `fft_flags` — an optional backend-specific FFT planner flag.
 - `fft_timelimit` — the planner time limit, used when `fft_flags` is given.
-Only the spatial dimensions `field_layout(physical).fft_dims` are transformed; tensor-fiber dimensions are left untransformed.
+Only the spatial dimensions, the layout's `fft_dims`, are transformed; tensor-fiber dimensions are left untransformed.
 
 The plans are backend-, array-type- and scalar-type-specific, and **carry no tensor order**: a real
 Fourier transform on a periodic box is defined on the box, and a rank-``R`` field is that transform
@@ -1367,16 +1382,16 @@ tensor order.
     and at ``512^3`` still slower than `Float64` serially and at two threads, the gap closing (and
     reversing) only as more threads are added. For a
     long CPU run, pass `fft_flags = FFTW.MEASURE` (or `FFTW.PATIENT`): the one-time timed plan search
-    costs seconds and removes the guess. `MEASURE` **overwrites both reference arrays while
-    planning**, so construct the plans on scratch or zero-filled fields before seeding data. The
+    costs seconds and removes the guess. `MEASURE` overwrites the arrays it plans on, which are
+    one-component arrays the constructor allocates itself, so the caller's fields are untouched. The
     setting is CPU-specific — the GPU FFT libraries take no planner flag and are unaffected — and
     the default stays `ESTIMATE` because it is instant, deterministic, and right for tests and short
     sessions.
 
 # Fields
 
-- `grid::G` — the [`Grid3D`](@ref) for which the plans were constructed.
-- `fourier_layout::L` — the [`RealFourierLayout`](@ref) for which the plans were constructed.
+- `grid::G` — the `Grid3D` for which the plans were constructed.
+- `fourier_layout::L` — the `RealFourierLayout` for which the plans were constructed.
 - `plan_forward_fft::PF` — the plan transforming physical values to spectral coefficients, for **one
   component**.
 - `plan_inverse_fft::PI` — the plan transforming spectral coefficients to physical values, for one
@@ -1445,12 +1460,36 @@ function FieldTransformPlans(physical::AbstractFieldPhysical{T, R}, spectral::Ab
   field_layout(physical) == field_layout(spectral) || throw(ArgumentError("field Fourier layouts must be equal"))
 
   grid, layout = field_grid(physical), field_layout(physical)
-  fft_dims = layout.fft_dims
-
   # One component, not one field: the prototypes carry the base shape at tensor order zero, so the
   # resulting plans serve a scalar, a vector and a tensor field alike.
   physical_prototype = similar(field_data(physical), T, field_physical_shape(grid, Val(0)))
   spectral_prototype = similar(field_data(spectral), Complex{T}, field_spectral_shape(grid, layout, Val(0)))
+  return _field_transform_plans(physical_prototype, spectral_prototype, grid, layout, fft_flags, fft_timelimit)
+end
+
+
+# From the storage family alone (2026-10-01, the decision-74 pattern): a consumer holding only the
+# domain no longer allocates two fields to hand in as templates, the prototypes being one component
+# each and built here either way.
+function FieldTransformPlans(family::Type{<:AbstractArray}, grid::Grid3D{T},
+    layout::RealFourierLayout = RealFourierLayout(); fft_flags = nothing, fft_timelimit = Inf) where {T<:AbstractFloat}
+  _check_family_element_type(family, grid)
+  physical_prototype = _allocated_field_storage(family, T, field_physical_shape(grid, Val(0)))
+  spectral_prototype = _allocated_field_storage(family, Complex{T}, field_spectral_shape(grid, layout, Val(0)))
+  return _field_transform_plans(physical_prototype, spectral_prototype, grid, layout, fft_flags, fft_timelimit)
+end
+
+
+"""
+    _field_transform_plans(physical_prototype, spectral_prototype, grid, layout,
+                           fft_flags, fft_timelimit)
+
+Plan the forward and inverse transforms on two one-component prototype arrays and assemble the
+[`FieldTransformPlans`](@ref), the shared body of its two constructors.
+"""
+function _field_transform_plans(physical_prototype, spectral_prototype, grid::Grid3D{T}, layout,
+    fft_flags, fft_timelimit) where {T}
+  fft_dims = layout.fft_dims
 
   host_aligned, device_aligned = _component_offsets_align(grid, layout, T)
   on_host = physical_prototype isa Array
@@ -2252,7 +2291,8 @@ become attributes — a `type` tag, a schema `version`, a `representation` tag (
 `"spectral"`), the [`Grid3D`](@ref) geometry (`grid_size`,
 `domain_size`, `origin`), the Fourier layout (`fft_dims`), the element type, and the tensor order — so any
 HDF5 tool can read it. A **physical** field stores a real array; a field in **spectral** representation
-stores its complex half-spectrum. A device (GPU) array is copied to the host on write. The sugar
+stores its complex half-spectrum. A host array is written directly, without a copy, and a device (GPU)
+array is copied to the host on write. The sugar
 `parent[name] = field` is equivalent.
 
 Because `parent` is a handle you opened and own, this never opens or closes a file: a caller bundles a
@@ -2280,7 +2320,8 @@ dispatching on the stored `type` attribute to return the reconstructed field in 
 Fourier layout, the element type, and the tensor order are recovered bit-for-bit.
 
 The reconstructed field is a host (CPU) object regardless of where the written one lived; move it to a
-device with [`adapt`](@ref) or [`adapt!`](@ref) afterward if needed.
+device with [`adapt`](@ref) or [`adapt!`](@ref) afterward if needed, or read into a field that
+already exists with [`read_field!`](@ref), which needs no second copy.
 
 Here `parent` is an open HDF5 `File` or `Group` holding the group, and `name` is the name (or path) of
 that field group under `parent`.
@@ -2288,6 +2329,32 @@ that field group under `parent`.
 Provided by a package extension, so it is available only when [`HDF5.jl`](https://github.com/JuliaIO/HDF5.jl) is loaded.
 """
 function read_field end
+
+
+"""
+    read_field!(destination::AbstractField, parent::HDF5.H5DataStore, name::AbstractString)
+
+Read the field written by [`write_field`](@ref) under `parent` as `name` into `destination`, a field
+that already exists, and return `destination`.
+
+Use this in-place form when `destination` is already allocated; the allocating [`read_field`](@ref)
+returns a fresh result instead. It makes no second copy of the field: a host destination is read
+straight into its storage, and a device destination is staged through the host one fiber component
+at a time, so the extra memory is one component rather than the whole field.
+
+# Arguments
+
+- `destination` — the field to fill. It must be of the stored type and match the stored
+  [`Grid3D`](@ref), Fourier layout, tensor order and element type; a mismatch is refused with a
+  message naming what differs, and nothing is written. Its storage family is its own, host or device.
+- `parent` — an open HDF5 `File` or `Group` holding the group.
+- `name` — the name (or path) of that field group under `parent`.
+
+The stored group is validated exactly as `read_field` validates it.
+
+Provided by a package extension, so it is available only when [`HDF5.jl`](https://github.com/JuliaIO/HDF5.jl) is loaded.
+"""
+function read_field! end
 
 
 # ---------------------------------------------------------------------------------------------

@@ -407,3 +407,72 @@ end
     end
   end
 end
+
+
+# read_field! and the copy-free write (2026-10-01, from the consumer's temporary-memory ledger). The
+# oracle for a read is the raw dataset read with HDF5's own API, sharing no code with the package.
+@testset "HDF5: read_field! fills an existing field, and a host write makes no copy ($T)" for T in (Float64, Float32)
+  sizes = (8, 6, 5)
+  grid = Grid3D(sizes, T.((2π, 4π, 2π)))
+  layout = RealFourierLayout((2, 1, 3))
+  path = tempname() * ".h5"
+  makers = (
+    (R, a) -> R == 0 ? ScalarFieldPhysical(a, grid, layout) : R == 1 ? VectorFieldPhysical(a, grid, layout) :
+                       TensorFieldPhysical{2}(a, grid, layout),
+    (R, a) -> R == 0 ? ScalarFieldSpectral(a, grid, layout) : R == 1 ? VectorFieldSpectral(a, grid, layout) :
+                       TensorFieldSpectral{2}(a, grid, layout))
+  shapes = ((R) -> field_physical_shape(grid, Val(R)), (R) -> field_spectral_shape(grid, layout, Val(R)))
+  elements = (T, Complex{T})
+  h5open(path, "w") do file
+    for (k, make) in enumerate(makers), R in (0, 1, 2)
+      field = make(R, randn(elements[k], shapes[k](R)...))
+      write_field(file, "f$(k)_$(R)", field)
+    end
+  end
+  h5open(path, "r") do file
+    for (k, make) in enumerate(makers), R in (0, 1, 2)
+      name = "f$(k)_$(R)"
+      stored = read(file[name]["data"])                       # the raw oracle
+      destination = make(R, zeros(elements[k], shapes[k](R)...))
+      @test read_field!(destination, file, name) === destination
+      @test field_data(destination) == stored
+      # Storage that is not a plain Array takes the one-component staging path.
+      wrapped = make(R, PermutedDimsArray(zeros(elements[k], shapes[k](R)...), ntuple(identity, 3 + R)))
+      read_field!(wrapped, file, name)
+      @test field_data(wrapped) == stored
+    end
+    # Refused, and nothing written: another type, another tensor order, another precision, another
+    # layout, another box.
+    name = "f1_1"
+    sentinel(field) = (fill!(field_data(field), 7); field)
+    other_T = T === Float64 ? Float32 : Float64
+    refusals = (
+      sentinel(ScalarFieldPhysical(zeros(T, sizes...), grid, layout)),
+      sentinel(VectorFieldSpectral(Array, grid, layout)),
+      sentinel(VectorFieldPhysical(zeros(other_T, sizes..., 3), Grid3D(sizes, other_T.((2π, 4π, 2π))), layout)),
+      sentinel(VectorFieldPhysical(zeros(T, sizes..., 3), grid, RealFourierLayout())),
+      sentinel(VectorFieldPhysical(zeros(T, sizes..., 3), Grid3D(sizes, T.((2π, 2π, 2π))), layout)))
+    for destination in refusals
+      @test_throws ArgumentError read_field!(destination, file, name)
+      @test all(==(7), field_data(destination))
+    end
+  end
+  rm(path)
+
+  # Neither verb copies the field: at 24³ a vector field is 324 KiB in Float64, against HDF5's own
+  # fixed bookkeeping of a few KiB per call, which a field-sized copy would dwarf.
+  big = Grid3D((24, 24, 24), T.((2π, 2π, 2π)))
+  field = VectorFieldPhysical(randn(T, 24, 24, 24, 3), big)
+  destination = VectorFieldPhysical(zeros(T, 24, 24, 24, 3), big)
+  path = tempname() * ".h5"
+  h5open(path, "w") do file
+    write_field(file, "warm", field)
+    @test @allocated(write_field(file, "u", field)) < sizeof(field_data(field)) ÷ 8
+  end
+  h5open(path, "r") do file
+    read_field!(destination, file, "u")
+    @test @allocated(read_field!(destination, file, "u")) < sizeof(field_data(destination)) ÷ 8
+    @test field_data(destination) == field_data(field)
+  end
+  rm(path)
+end

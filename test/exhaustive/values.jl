@@ -272,6 +272,9 @@ function run_value_lane(configs)
     cutoff = T(3)
     spectral_comparisons = LEDGER_FIXTURES_ONLY ? () : (
       (:to_spectral,   field_data(sh),                       ref_dft_forward(ds, grid, layout)),
+      # Plans built from the storage family alone (2026-10-01), against the same literal DFT sum.
+      (:to_spectral,   field_data(to_spectral(s, FieldTransformPlans(Array, grid, layout))),
+                                                             ref_dft_forward(ds, grid, layout)),
       (:to_physical,   field_data(to_physical(sh, plans)),   ref_dft_inverse(field_data(sh), grid, layout)),
       # ABOVE R = 0. The transform was anchored to a raw-array oracle only for a scalar, while every
       # spectral vector and tensor operation in the suite takes its transformed input on trust — so a
@@ -718,6 +721,13 @@ function run_value_lane(configs)
         (read_field(file, "scalar"), read_field(file, "tensor"), read_field(file, "spectral"),
          read_field(file, "spectral_tensor"), read_points(file, "qv"), read_points(file, "qt"))
       end
+      # Into fields that already exist (2026-10-01): each destination filled from the same group, the
+      # oracle being the raw dataset's values as above.
+      filled = HDF5.h5open(path, "r") do file
+        (read_field!(similar_field(u, Val(1)), file, "field"),
+         read_field!(similar_field(sh, Val(0)), file, "spectral"),
+         read_field!(similar_field(Ah, Val(2)), file, "spectral_tensor"))
+      end
       ((:write_field,  vec(stored_field),                 vec(du)),
        (:write_points, vec(stored_points),                vec(point_positions(points))),
        (:read_field,   field_data(recovered_field),       du),
@@ -728,6 +738,9 @@ function run_value_lane(configs)
        (:read_field,   field_data(others[2]),             dA),
        (:read_field,   field_data(others[3]),             field_data(sh)),
        (:read_field,   field_data(others[4]),             field_data(Ah)),
+       (:read_field!,  field_data(filled[1]),             du),
+       (:read_field!,  field_data(filled[2]),             field_data(sh)),
+       (:read_field!,  field_data(filled[3]),             field_data(Ah)),
        (:read_field,   [typeof(others[1]) === typeof(s), typeof(others[2]) === typeof(A),
                         typeof(others[3]) === typeof(sh), typeof(others[4]) === typeof(Ah)],
                        [true, true, true, true]),

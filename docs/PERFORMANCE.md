@@ -123,7 +123,8 @@ What bounds each public operation class — the mental model a benchmark either 
   being comparable across process shapes, so the row would measure the harness's memory history.
   **Scheme persistence** (decision 75) has none because it writes four HDF5 attributes and there is
   no persistence class to put it in — inventing one to time a constant would measure the library
-  rather than the package.
+  rather than the package. Neither has **field persistence**: its time is the HDF5 library's, and
+  the package's share, adding no copy, is asserted in `test/hdf5.jl` rather than timed (decision 93).
 - **Base-space motion** (decision 73) → four rows in the `transfer` class (`displace!` one- and
   three-term, the three-term torus arity, and `wrap!`): ``O(M)`` streaming over ``(M, 3)`` arrays,
   bandwidth-trivial beside a gather — 30–300× cheaper than the `CatmullRom` gather at the same point
@@ -390,8 +391,8 @@ artifact among the reasons no x86 CPU result transfers to `aarch64`. An `ESTIMAT
 mis-plans single precision on two unrelated x86 microarchitectures is more likely to do so on a third
 platform, not less — so `MEASURE` should be in the first Arrhenius measurement, not discovered there. The default stays `ESTIMATE` (cheap, deterministic, right for
 tests and short runs); the escape hatch already exists,
-`FieldTransformPlans(phys, spec; fft_flags = FFTW.MEASURE)` (or `FFTW.PATIENT`). `MEASURE` overwrites its
-input arrays while planning, so build the plans on scratch fields before seeding data. The forced-HIT CPU
+`fft_flags = FFTW.MEASURE` (or `FFTW.PATIENT`) on either `FieldTransformPlans` form. `MEASURE`
+overwrites the arrays it plans on, which since decision 93 are the plans' own, never the caller's fields. The forced-HIT CPU
 example (`examples/HIST_CPU.jl`) now plans with `MEASURE`. **Update (2026-07-21, the 512³ sweep):** the
 mis-plan persists into the CPU production band — at 512³ the `ESTIMATE`d scalar `Float32` c2r ties the
 `Float64` one to three digits (402.297 vs 402.195 ms, t8), single precision buying *nothing* — so the

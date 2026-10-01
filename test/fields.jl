@@ -534,6 +534,36 @@ end
 end
 
 
+# FieldTransformPlans from the storage family alone (2026-10-01): the same plans as the field-taking
+# form, so transforms agree bit for bit, with no template fields from the caller.
+@testset "FieldTransformPlans(family, grid, layout) ($T)" for T in (Float64, Float32)
+  for (sizes, layout) in (((8, 6, 5), RealFourierLayout()), ((7, 6, 6), RealFourierLayout((3, 1, 2))))
+    grid = Grid3D(sizes, T.((2pi, 4pi, 2pi)))
+    physical = VectorFieldPhysical(randn(T, sizes..., 3), grid, layout)
+    template = VectorFieldSpectral(Array, grid, layout)
+    from_fields = FieldTransformPlans(physical, template)
+    from_family = FieldTransformPlans(Array, grid, layout)
+    @test from_family.grid == grid && from_family.fourier_layout == layout
+    @test field_data(to_spectral(physical, from_family)) == field_data(to_spectral(physical, from_fields))
+    spectral = to_spectral(physical, from_fields)
+    @test field_data(to_physical(spectral, from_family)) == field_data(to_physical(spectral, from_fields))
+    # The layout defaults to the standard one.
+    @test FieldTransformPlans(Array, grid).fourier_layout == RealFourierLayout()
+    # A family declaring another precision, or a complex element, is refused.
+    other = T === Float64 ? Float32 : Float64
+    @test_throws ArgumentError FieldTransformPlans(Array{other}, grid, layout)
+    @test_throws ArgumentError FieldTransformPlans(Array{Complex{T}}, grid, layout)
+  end
+  # A timed plan search plans on arrays of its own: the caller's template fields are untouched.
+  grid = Grid3D((8, 8, 8), T.((2pi, 2pi, 2pi)))
+  physical = ScalarFieldPhysical(randn(T, 8, 8, 8), grid)
+  spectral = ScalarFieldSpectral(randn(Complex{T}, field_spectral_shape(grid, RealFourierLayout(), Val(0))...), grid)
+  before_p, before_s = copy(field_data(physical)), copy(field_data(spectral))
+  FieldTransformPlans(physical, spectral; fft_flags = GBGPeriodicFields.Fields.FFTW.MEASURE)
+  @test field_data(physical) == before_p && field_data(spectral) == before_s
+end
+
+
 @testset "allocating constructors (family, grid[, layout]) — decision 74" begin
   for T in (Float64, Float32)
     grid = Grid3D((8, 6, 4), (T(2π), T(4π), T(6π)))          # anisotropic, mixed parity
