@@ -9,7 +9,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § 12. Reductions",278,278,0
 "ARCHITECTURE.md § 2. The central principle: the architecture follows establish",101,101,0
 "ARCHITECTURE.md § 3. Types and memory layout",283,115,0
-"ARCHITECTURE.md § 4. Spectral machinery",604,160,0
+"ARCHITECTURE.md § 4. Spectral machinery",640,160,0
 "ARCHITECTURE.md § 5. Validation design",211,129,0
 "ARCHITECTURE.md § 7. Aliasing policy",212,76,0
 "ARCHITECTURE.md § 8. Broadcasting",155,97,0
@@ -179,6 +179,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 90",706,107,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 91",373,104,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 92",331,93,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 93",374,84,0
 "DifferentialOperators.jl :: DifferentialOperators",348,174,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",89,83,0
 "DifferentialOperators.jl :: _apply_spectral_divergence!(destination_component,",104,48,0
@@ -327,7 +328,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: FieldPhysicalBroadcastStyle{N}",38,37,0
 "Fields.jl :: FieldSpectralBroadcastStyle{N}",36,35,0
 "Fields.jl :: FieldSpectralMultipliers(",582,135,0
-"Fields.jl :: FieldTransformPlans(",451,168,1
+"Fields.jl :: FieldTransformPlans(",532,170,1
 "Fields.jl :: Fields",494,443,0
 "Fields.jl :: Grid3D(",232,66,0
 "Fields.jl :: RealFourierLayout()",73,33,0
@@ -358,6 +359,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _context_grid(object)",70,69,0
 "Fields.jl :: _context_layout(object)",10,9,0
 "Fields.jl :: _field_physical_of_order(data, grid, layout, ::Val{R})",79,54,0
+"Fields.jl :: _field_transform_plans(physical_prototype, spectral_prototyp",28,22,0
 "Fields.jl :: _first_field(x)",42,41,0
 "Fields.jl :: _init_fft_threads()",36,35,0
 "Fields.jl :: _is_canonical(multipliers::FieldSpectralMultipliers)",90,74,0
@@ -401,7 +403,8 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: field_spectral_shape(",56,34,0
 "Fields.jl :: field_tensor_order(",22,8,0
 "Fields.jl :: mean_free_projection!(field::AbstractFieldSpectral) -> field",201,76,0
-"Fields.jl :: read_field(parent::HDF5.H5DataStore, name::AbstractString)",122,54,0
+"Fields.jl :: read_field!(destination::AbstractField, parent::HDF5.H5DataS",178,68,0
+"Fields.jl :: read_field(parent::HDF5.H5DataStore, name::AbstractString)",137,54,0
 "Fields.jl :: reality_projection!(destination::AbstractFieldSpectral,",337,87,0
 "Fields.jl :: reality_residual(field::AbstractFieldSpectral) -> Real",456,99,1
 "Fields.jl :: set_fft_threads!(n)",50,49,0
@@ -410,7 +413,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: to_physical(",114,83,0
 "Fields.jl :: to_spectral!(",159,53,1
 "Fields.jl :: to_spectral(",90,59,0
-"Fields.jl :: write_field(parent::HDF5.H5DataStore, name::AbstractString, ",244,87,0
+"Fields.jl :: write_field(parent::HDF5.H5DataStore, name::AbstractString, ",254,97,0
 "Fields.md § Internal API",32,32,0
 "Fields.md § Moving between grid resolutions",111,111,0
 "Fields.md § Moving between storage families",110,110,0
@@ -450,7 +453,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.md § Traversal order",31,31,0
 "PERFORMANCE.md § (preamble)",22,22,1
 "PERFORMANCE.md § 1. Philosophy",812,510,0
-"PERFORMANCE.md § 2. The performance model",817,402,0
+"PERFORMANCE.md § 2. The performance model",843,428,0
 "PERFORMANCE.md § 3. Best practices",367,120,0
 "PERFORMANCE.md § 4. What we have found",86,86,0
 "PERFORMANCE.md § 4. What we have found / finding (a)",104,59,0
@@ -479,7 +482,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § 4. What we have found / finding (e)",50,50,0
 "PERFORMANCE.md § 4. What we have found / finding (f)",247,247,0
 "PERFORMANCE.md § 4. What we have found / finding (g)",282,282,0
-"PERFORMANCE.md § 4. What we have found / finding (h)",726,305,0
+"PERFORMANCE.md § 4. What we have found / finding (h)",730,309,0
 "PERFORMANCE.md § 4. What we have found / finding (i)",504,129,0
 "PERFORMANCE.md § 4. What we have found / finding (j)",259,145,0
 "PERFORMANCE.md § 4. What we have found / finding (k)",423,263,0
@@ -579,7 +582,7 @@ unit,words,longest_paragraph,admonitions
 "Reductions.md § Moments and order statistics",76,43,0
 "TESTING.md § (preamble)",22,22,1
 "TESTING.md § 1. Philosophy",699,215,0
-"TESTING.md § 2. Layout",2113,2113,0
+"TESTING.md § 2. Layout",2160,2160,0
 "TESTING.md § 3. Writing a test here",357,267,0
 "TESTING.md § 4. The coverage contract",805,482,0
 "TESTING.md § 4. The coverage contract / item 1",8,8,0
