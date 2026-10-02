@@ -1,7 +1,7 @@
-<!-- gbg:managed begin v2.0.0-rc.49 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.51 — rewritten by `gbg sync`; do not edit -->
 # Testing protocol — `RULE.TEST.*`
 
-What a test is for, where its oracle comes from, and when a thing is done. 10 rules, written from the rule values themselves,
+What a test is for, where its oracle comes from, and when a thing is done. 11 rules, written from the rule values themselves,
 so a rule reworded here was reworded in the program that checks it.
 
 ### RULE.TEST.ALLOC_ZERO
@@ -73,5 +73,12 @@ In a package that declares the traffic audit, every audited operation has a froz
 A raised count is a fusion regression unless a new holder justifies it; the frozen values are refrozen in the same commit as the change, with the reason.
 
 Covered by the session, as an instruction: followed while working, checked by nothing. Nothing checks it: an instruction to the session of a package that has declared this contract by calling `TestHarness.traffic_completeness` from its suite, where that suite checks it; a package that has not declared it is not bound, and nothing checks it here
+
+### RULE.TEST.SEED_PARITY
+In a package that declares seed parity, one seed gives the same draws on every backend it runs: a draw the run uses as drawn is bitwise equal, one it sees through a transform agrees within a stated bound in machine epsilon, and a run from another seed is told apart on every draw.
+
+Runs on two machines are then comparable and a regression is reproducible on either. How a package meets it is its own: drawing on the host and moving the numbers, or one counter-based generator on both, which only the comparison shows to agree.
+
+Covered by the session, as an instruction: followed while working, checked by nothing. Nothing checks it: an instruction to the session of a package that has declared this contract by calling `TestHarness.seed_parity` from its GPU tests, where those tests check it; without a GPU they record a skip, never a pass, so it cannot run on CI; a package that has not declared it is not bound, and nothing checks it here
 
 <!-- gbg:managed end -->

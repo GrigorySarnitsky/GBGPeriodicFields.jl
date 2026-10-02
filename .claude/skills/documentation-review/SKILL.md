@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.49 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.51 — rewritten by `gbg sync`; do not edit -->
 # /documentation-review
 
 Documentation is true to the code, correct, consistent and self-contained; the change guard, the checks and a verifier agent check each fix.
@@ -43,8 +43,8 @@ that stopped in the middle has spent its agents for nothing.
    verifier per place then judges the pass's fixes with the diff; a pass that committed nothing
    closes the run instead.
 6. `gbg run close` — writes the record and the report, and puts what is still open on the owner's
-   work queue. COMMIT `.gbg/runs/<id>/` yourself: `gbg docfix commit` leaves it out on purpose, and
-   nothing else commits it. A fix may grow a unit of prose by a small allowance — ten words, or five
+   work queue. COMMIT `.gbg/runs/<id>/` yourself, and `.gbg/questions.json` if it changed:
+   `gbg docfix commit` leaves both out on purpose, and nothing else commits them. A fix may grow a unit of prose by a small allowance — ten words, or five
    percent — and the close re-records what grew in the prose-shape baseline: commit that file with
    the record. More than the allowance is refused inside a run, as a code change would be. A run ENDED EARLY with `gbg run abandon` keeps its
    record only if an agent RAN, and is committed the same way; one that launched nothing is deleted by the

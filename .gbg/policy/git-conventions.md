@@ -1,7 +1,7 @@
-<!-- gbg:managed begin v2.0.0-rc.49 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.51 — rewritten by `gbg sync`; do not edit -->
 # Git conventions — `RULE.GIT.*`
 
-What a commit carries, where it goes, and what is never committed. 8 rules, written from the rule values themselves,
+What a commit carries, where it goes, and what is never committed. 9 rules, written from the rule values themselves,
 so a rule reworded here was reworded in the program that checks it.
 
 ### RULE.GIT.BRANCH
@@ -44,6 +44,13 @@ Covered by the session, as an instruction: followed while working, checked by no
 Commit ⇒ push, directly on the configured branch; no feature branches.
 
 The repository is private and synced across machines through GitHub, so work is committed on the default branch and pushed in the same step; GitHub is the cross-machine sync path and the docs site deploys on push. Stage with `git add -u` plus every new file by name, never `-A`.
+
+Covered by a program in the end-of-turn hook, which reads the branch and the commits not yet pushed — weaker than a build check, since a hook can be skipped and a failing test cannot.
+
+### RULE.GIT.RECORDS
+A record the tool keeps for the owner — `.gbg/questions.json`, and a closed run under `.gbg/runs/` — is committed, never left untracked or modified; an open run's is committed at its close.
+
+It holds the owner's rulings and the runs' findings. Uncommitted, they exist on one machine only, and a session on the other neither sees them nor knows that a question's id is taken. No verb commits it: `gbg answer` and the review's skill say so, and the session commits.
 
 Covered by a program in the end-of-turn hook, which reads the branch and the commits not yet pushed — weaker than a build check, since a hook can be skipped and a failing test cannot.
 
