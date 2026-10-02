@@ -1836,13 +1836,16 @@ function _check_kernel_compatibility end
 
     FieldSpectralMultipliers(field::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
 
+    FieldSpectralMultipliers(family::Type{<:AbstractArray}, grid::Grid3D{T},
+                             fourier_layout::RealFourierLayout = RealFourierLayout())
+
 One-dimensional Fourier wavenumber arrays for the operators applied coefficientwise in spectral
 representation — derivatives, the Laplacian, and the Helmholtz projection.
 
 # Arguments
 
 - `grid`, `fourier_layout` — the [`Grid3D`](@ref) and [`RealFourierLayout`](@ref) the multipliers are
-  built for. The two-argument forms take them from `field` instead.
+  built for. The forms taking `field` read them from it instead.
 - `wavenumber_1`, `wavenumber_2`, `wavenumber_3` — the per-axis **derivative** wavenumbers, written
   ``a`` where the operators' formulas need to name them apart from the true wavenumber ``k``. They are
   the angular wavenumbers of first derivatives, through multiplication by
@@ -1854,6 +1857,9 @@ representation — derivatives, the Laplacian, and the Helmholtz projection.
 - `field` — in the one-argument convenience form, the field whose grid and layout the multipliers are
   built from; both families are then derived with the correct Nyquist treatment and allocated on that
   field's storage backend.
+- `family` — in place of `field`: the storage family (`Array`, `CuArray`, `ROCArray`) the arrays are
+  allocated in, with `grid` and `fourier_layout` given directly, the layout defaulting to the standard
+  one. The arrays are derived exactly as from a field, so a caller holding no field needs none.
 
 Each array runs along one spatial axis in the FFT frequency ordering of `fourier_layout`; the half axis `fourier_layout.fft_dims[1]` stores only the nonnegative frequencies.
 The arrays must live on storage (CPU or GPU) matching the fields the multipliers are applied to.
@@ -1861,7 +1867,7 @@ The arrays must live on storage (CPU or GPU) matching the fields the multipliers
 The two array families are stored independently rather than squaring one to obtain the other,
 because on even grids they use different conventions for the Nyquist mode (the highest representable frequency).
 The two explicit constructors take both families from the caller and check only their lengths; the
-one-argument constructor derives them, which is what makes them canonical (see the `Canonical`
+field and family constructors derive them, which is what makes them canonical (see the `Canonical`
 parameter below).
 
 The wavenumbers it derives are the physical angular wavenumbers ``k = 2\\pi n / L``
@@ -1872,8 +1878,8 @@ zero, so that derivatives of real fields stay real, while its squared wavenumber
 exact Nyquist mode and no special treatment is applied.
 
 Whether the arrays were derived from the grid or supplied by the caller is recorded in the type, as a
-final `Canonical` parameter: the convenience constructor marks them canonical, the explicit ones do
-not. It is in the type rather than in a field because it decides, statically, whether two multiplier
+final `Canonical` parameter: the field and family constructors mark them canonical, the explicit
+ones do not. It is in the type rather than in a field because it decides, statically, whether two multiplier
 sets provably hold the same coordinates — two canonical sets on a matching grid and layout are derived
 the same way from the same inputs, so they agree by construction. That is what lets [`convolve`](@ref GBGPeriodicFields.Convolution.convolve) collapse
 two radial kernels into one without testing anything at run time, and it is why a caller supplying its
@@ -1984,11 +1990,30 @@ end
 
 # The convenience constructor. Its docstring is merged into the type's, which is where every other
 # multi-constructor type in the package documents its constructors.
-function FieldSpectralMultipliers(field::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
-  grid = field_grid(field)
-  fourier_layout = field_layout(field)
+FieldSpectralMultipliers(field::AbstractFieldSpectral{T}) where {T<:AbstractFloat} =
+  _canonical_multipliers(field_data(field), field_grid(field), field_layout(field))
+
+
+# From a storage family (decision 94): the field form reads from its field only the grid, the layout
+# and the storage family the axis arrays are allocated in, so the three are taken directly and a
+# caller holding no field allocates none. The reference is an empty array of the family — `similar`
+# needs one to name the family, and an empty one costs a header.
+function FieldSpectralMultipliers(family::Type{<:AbstractArray}, grid::Grid3D{T},
+    fourier_layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
+  _check_family_element_type(family, grid)
+  return _canonical_multipliers(_allocated_field_storage(family, T, (0,)), grid, fourier_layout)
+end
+
+
+"""
+    _canonical_multipliers(reference, grid, fourier_layout)
+
+Derive both wavenumber families from `grid` and `fourier_layout` on the storage family of
+`reference`, and mark the result canonical — the shared body of the field and family constructors of
+[`FieldSpectralMultipliers`](@ref), so the two cannot derive different coordinates.
+"""
+function _canonical_multipliers(reference::AbstractArray, grid::Grid3D{T}, fourier_layout::RealFourierLayout) where {T<:AbstractFloat}
   half_dimension = fourier_layout.fft_dims[1]
-  reference = field_data(field)
 
   wavenumber_1, squared_wavenumber_1 = _axis_wavenumber_arrays(reference, grid.grid_size[1], grid.domain_size[1], 1 == half_dimension)
   wavenumber_2, squared_wavenumber_2 = _axis_wavenumber_arrays(reference, grid.grid_size[2], grid.domain_size[2], 2 == half_dimension)

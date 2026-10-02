@@ -953,6 +953,13 @@ end
       family_plans = FieldTransformPlans(AT, grid, layout)
       @test Array(field_data(to_spectral(device_u, family_plans))) ==
             Array(field_data(to_spectral(device_u, device_plans)))
+      # So are multipliers (decision 94): the same device arrays as the moved host multipliers, and
+      # the same canonical type.
+      family_multipliers = FieldSpectralMultipliers(AT, grid, layout)
+      @test family_multipliers.wavenumber_1 isa AT
+      @test typeof(family_multipliers) === typeof(device_multipliers)
+      @test Array(family_multipliers.wavenumber_2) == host_multipliers.wavenumber_2
+      @test Array(family_multipliers.squared_wavenumber_3) == host_multipliers.squared_wavenumber_3
       # read_field! into a DEVICE field stages one component at a time through the host, and a device
       # field is written through its host copy (decision 93).
       if _HAVE_HDF5

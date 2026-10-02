@@ -426,6 +426,9 @@ function run_value_lane(configs)
                         ref_anterpolate_catmull_rom(point_values(q), grid, point_positions(outside), 0)),
       # ── the spectral operators and their in-place twins ───────────────────────────────────────
       (:gradient,       field_data(gradient(sh, multipliers)),  ref_gradient(field_data(sh), grid, layout)),
+      # Multipliers built from the storage family alone (decision 94), against the same oracle.
+      (:gradient,       field_data(gradient(sh, FieldSpectralMultipliers(Array, grid, layout))),
+                        ref_gradient(field_data(sh), grid, layout)),
       # The JACOBIAN mode, with its index convention actually pinned. `gradient(vector)` was exercised
       # only through `symmetric_gradient = sym(gradient(u))`, and `sym(M) = sym(Mᵀ)` erases a transposed
       # fiber-index pair before the comparison sees it.

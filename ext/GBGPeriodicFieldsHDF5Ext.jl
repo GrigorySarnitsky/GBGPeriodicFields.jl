@@ -156,9 +156,11 @@ function read_field!(destination::AbstractField, parent::HDF5.H5DataStore, name:
     "read_field!: group \"$name\" holds a $(replace(tag, "GBGPeriodicFields." => "")), but the " *
     "destination is a $(nameof(typeof(destination)))"))
   storage = field_data(destination)
+  # The precision is named by the field's real scalar type, never the complex storage element a field
+  # in spectral representation keeps, complex arrays being storage detail (invariant 2).
   eltype(dataset) == eltype(storage) || throw(ArgumentError(
-    "read_field!: group \"$name\" stores $(eltype(dataset)) values, but the destination holds " *
-    "$(eltype(storage)); reading does not convert between precisions"))
+    "read_field!: group \"$name\" holds a $(real(eltype(dataset))) field, but the destination is " *
+    "$(field_scalar_type(destination)); reading does not convert between precisions"))
   grid = _reconstruct_grid(g, field_scalar_type(destination))
   grid == field_grid(destination) || throw(ArgumentError(
     "read_field!: group \"$name\" was written on $(grid), but the destination is on " *

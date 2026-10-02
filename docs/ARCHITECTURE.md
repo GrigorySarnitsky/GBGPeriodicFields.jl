@@ -461,11 +461,12 @@ Two constructors by design:
 
 - An explicit constructor taking all six arrays (lengths validated), testable in
   isolation and letting callers control the backend.
-- A convenience constructor from a field: wavenumbers ``2\pi n/L``, with ``n`` the integer mode index and ``L`` the box length, are built on the
-  host and copied to the field's backend (no scalar GPU writes).
+- A convenience constructor from a field, or from a storage family with the grid and layout
+  (decision 94): wavenumbers ``2\pi n/L``, with ``n`` the integer mode index and ``L`` the box length,
+  are built on the host and copied to that backend (no scalar GPU writes).
 
 The two differ in the type they produce, not only in convenience: a final `Canonical` type parameter
-records whether the arrays were **derived from the grid** (the convenience constructor) or **supplied
+records whether the arrays were **derived from the grid** (the convenience constructors) or **supplied
 by the caller** (the explicit one, which validates lengths and not values). Two canonical sets on a
 matching grid and layout therefore hold equal values by construction, which is what lets `convolve`
 collapse two radial kernels without a runtime test — see decision 61.

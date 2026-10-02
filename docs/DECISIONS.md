@@ -3897,3 +3897,23 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     - **What was not changed.** The allocating `read_field` stays, a reader with no field to fill being
       the common case. No `read_points!` was added: the consumer asked for fields only.
+
+94. **Multipliers need no field either, and a precision mismatch names precisions** (2026-10-02,
+    owner-approved; requested by `GBGHomogeneousTurbulence`). Two follow-ups to decision 93, from the
+    consumer's wiring of it.
+
+    - **Multipliers from a storage family.** After decision 93 the consumer still built one scalar
+      field in spectral representation, about ``1.03 N^3`` reals freed at once, only because
+      `FieldSpectralMultipliers(field)` takes a field; it reads from it only the grid, the layout and
+      the storage family. `FieldSpectralMultipliers(family, grid[, layout])` takes those directly, the
+      counterpart of decision 93's plan constructor.
+
+    - **Canonical like the field form.** Both forms share one derivation body, so they give equal
+      arrays and the same canonical type: kernels built on either compose as one (decision 61). The
+      explicit six-array form stays non-canonical. Pinned in `test/fields.jl` and on a device in the
+      GPU suite.
+
+    - **The precision in `read_field!`'s refusal.** A precision mismatch on a field in spectral
+      representation was reported by storage element type, `ComplexF64` against `ComplexF32`, where
+      `adapt!` names `Float64` against `Float32`. Complex arrays are storage detail (invariant 2), so
+      the message now names the field's precision, asserted in `test/hdf5.jl`.

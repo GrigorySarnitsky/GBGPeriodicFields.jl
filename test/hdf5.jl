@@ -456,6 +456,13 @@ end
       @test_throws ArgumentError read_field!(destination, file, name)
       @test all(==(7), field_data(destination))
     end
+    # A precision mismatch names the precisions, not the complex storage element of a field in
+    # spectral representation.
+    other_grid = Grid3D(sizes, other_T.((2π, 4π, 2π)))
+    spectral = VectorFieldSpectral(Array, other_grid, layout)
+    message = try read_field!(spectral, file, "f2_1"); "" catch error; sprint(showerror, error) end
+    @test occursin("holds a $(T) field", message) && occursin("destination is $(other_T)", message)
+    @test !occursin("Complex", message)
   end
   rm(path)
 

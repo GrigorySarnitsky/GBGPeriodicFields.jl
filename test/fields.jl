@@ -564,6 +564,30 @@ end
 end
 
 
+# FieldSpectralMultipliers from the storage family alone (decision 94): the same arrays as the
+# field form, canonical like it, so kernels built on either merge.
+@testset "FieldSpectralMultipliers(family, grid, layout) ($T)" for T in (Float64, Float32)
+  for (sizes, layout) in (((8, 6, 5), RealFourierLayout()), ((7, 6, 6), RealFourierLayout((3, 1, 2))))
+    grid = Grid3D(sizes, T.((2pi, 4pi, 6pi)))
+    from_field = FieldSpectralMultipliers(VectorFieldSpectral(Array, grid, layout))
+    from_family = FieldSpectralMultipliers(Array, grid, layout)
+    @test typeof(from_family) === typeof(from_field)
+    @test GBGPeriodicFields.Fields._is_canonical(from_family)
+    @test from_family.grid == grid && from_family.fourier_layout == layout
+    for name in (:wavenumber_1, :wavenumber_2, :wavenumber_3,
+                 :squared_wavenumber_1, :squared_wavenumber_2, :squared_wavenumber_3)
+      @test getfield(from_family, name) == getfield(from_field, name)
+    end
+    # Two radial kernels, one on each, compose into one radial kernel: canonical by construction.
+    @test convolve(spectral_cutoff(from_family, T(2)), spectral_cutoff(from_field, T(3))) isa RadialKernel
+    @test FieldSpectralMultipliers(Array, grid).fourier_layout == RealFourierLayout()
+    other = T === Float64 ? Float32 : Float64
+    @test_throws ArgumentError FieldSpectralMultipliers(Array{other}, grid, layout)
+    @test_throws ArgumentError FieldSpectralMultipliers(Array{Complex{T}}, grid, layout)
+  end
+end
+
+
 @testset "allocating constructors (family, grid[, layout]) — decision 74" begin
   for T in (Float64, Float32)
     grid = Grid3D((8, 6, 4), (T(2π), T(4π), T(6π)))          # anisotropic, mixed parity
