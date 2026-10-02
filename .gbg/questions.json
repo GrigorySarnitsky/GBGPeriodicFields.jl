@@ -1,0 +1,44 @@
+[
+    {
+        "options": [
+            {
+                "label": "the design document",
+                "consequence": "",
+                "recommended": true
+            },
+            {
+                "label": "the formulas and the code",
+                "consequence": "",
+                "recommended": false
+            }
+        ],
+        "exhibit": "",
+        "items": [],
+        "id": "2026-09-22-1",
+        "decision": "The design document and every written-out formula disagree about which slot the derivative takes when a gradient is applied to a vector field. The document puts it first, the formulas and the code put it last. Which should change?",
+        "direction": "",
+        "context": "",
+        "answer": "the design document"
+    },
+    {
+        "options": [
+            {
+                "label": "apply it as a code change",
+                "consequence": "",
+                "recommended": true
+            },
+            {
+                "label": "leave it on the queue",
+                "consequence": "",
+                "recommended": false
+            }
+        ],
+        "exhibit": "",
+        "items": [],
+        "id": "2026-09-22-2",
+        "decision": "Shall the wrapping of the example's over-wide code lines go in as a code change, since the guard will not let a documentation fix touch that file?",
+        "direction": "Ask the owner before each such code change; he is fine being asked every time. Granted for the example's wrap on 2026-09-24 (2f225a9c).",
+        "context": "",
+        "answer": "apply it as a code change"
+    }
+]
