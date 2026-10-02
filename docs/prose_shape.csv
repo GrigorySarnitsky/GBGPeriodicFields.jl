@@ -9,7 +9,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § 12. Reductions",278,278,0
 "ARCHITECTURE.md § 2. The central principle: the architecture follows establish",101,101,0
 "ARCHITECTURE.md § 3. Types and memory layout",283,115,0
-"ARCHITECTURE.md § 4. Spectral machinery",640,160,0
+"ARCHITECTURE.md § 4. Spectral machinery",651,160,0
 "ARCHITECTURE.md § 5. Validation design",211,129,0
 "ARCHITECTURE.md § 7. Aliasing policy",212,76,0
 "ARCHITECTURE.md § 8. Broadcasting",155,97,0
@@ -180,6 +180,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 91",373,104,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 92",331,93,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 93",374,84,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 94",178,56,0
 "DifferentialOperators.jl :: DifferentialOperators",348,174,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",89,83,0
 "DifferentialOperators.jl :: _apply_spectral_divergence!(destination_component,",104,48,0
@@ -327,7 +328,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: AbstractFieldSpectral{T, R}",130,67,1
 "Fields.jl :: FieldPhysicalBroadcastStyle{N}",38,37,0
 "Fields.jl :: FieldSpectralBroadcastStyle{N}",36,35,0
-"Fields.jl :: FieldSpectralMultipliers(",582,135,0
+"Fields.jl :: FieldSpectralMultipliers(",638,182,0
 "Fields.jl :: FieldTransformPlans(",532,170,1
 "Fields.jl :: Fields",494,443,0
 "Fields.jl :: Grid3D(",232,66,0
@@ -343,6 +344,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _approx(x)",62,52,0
 "Fields.jl :: _axis_wavenumber_arrays(reference, number_of_points, domain_",34,30,0
 "Fields.jl :: _axis_wavenumber_values(number_of_points, domain_length, hal",65,62,0
+"Fields.jl :: _canonical_multipliers(reference, grid, fourier_layout)",40,37,0
 "Fields.jl :: _check_adapt_target(destination, source)",73,36,0
 "Fields.jl :: _check_broadcast_field_compatibility(destination, argument)",37,35,0
 "Fields.jl :: _check_family_element_type(family, grid)",65,63,0
@@ -582,7 +584,7 @@ unit,words,longest_paragraph,admonitions
 "Reductions.md § Moments and order statistics",76,43,0
 "TESTING.md § (preamble)",22,22,1
 "TESTING.md § 1. Philosophy",699,215,0
-"TESTING.md § 2. Layout",2160,2160,0
+"TESTING.md § 2. Layout",2180,2180,0
 "TESTING.md § 3. Writing a test here",357,267,0
 "TESTING.md § 4. The coverage contract",805,482,0
 "TESTING.md § 4. The coverage contract / item 1",8,8,0
