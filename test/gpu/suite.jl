@@ -852,6 +852,110 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
 end
 
 
+# ── an aliased in-place call allocates nothing on the DEVICE ─────────────────────────────────────
+#
+# Every allocation check the package had ran on the host, and a device can allocate where the host
+# does not. The in-place `displace!` on the torus copied a column of positions per axis on CUDA: the
+# broadcast's aliasing guard skips a source IDENTICAL to its destination, two views of one host column
+# compare identical, but a device view of a contiguous column is a new array each time it is made.
+# The host never copied, so `test/allocations.jl` passed, and the consumer found it on its GPU. This
+# lane runs each in-place operation with its destination also an input, where the guard decides, and
+# asserts zero device bytes. A backend entry point opts in by defining `device_bytes_allocated(f)`;
+# one that cannot count device bytes records a skip, never a pass.
+function aliased_device_allocations(::Type{T}) where {T<:AbstractFloat}
+  AT = device_array_type()
+  n = (16, 12, 10)
+  grid = Grid3D(n, T.((2π, 4π, 2π)))
+  layout = RealFourierLayout()
+  on_device(x) = adapt(AT, x)
+  s = on_device(ScalarFieldPhysical(rand(T, n...), grid))
+  s2 = on_device(ScalarFieldPhysical(rand(T, n...) .+ 1, grid))
+  v = on_device(VectorFieldPhysical(rand(T, n..., 3), grid))
+  v2 = on_device(VectorFieldPhysical(rand(T, n..., 3), grid))
+  A = on_device(TensorFieldPhysical{2}(rand(T, n..., 3, 3), grid))
+  plans = FieldTransformPlans(AT, grid, layout)
+  m = FieldSpectralMultipliers(AT, grid, layout)
+  sh, vh, vh2, Ah = to_spectral(s, plans), to_spectral(v, plans), to_spectral(v2, plans), to_spectral(A, plans)
+  radial = spectral_cutoff(m, T(3))
+  separable = translation_kernel(m, T.((0.1, 0.2, 0.3)))
+  M = 1000
+  ps = on_device(ScalarPointValues(rand(T, M)))
+  ps2 = on_device(ScalarPointValues(rand(T, M) .+ 1))
+  pv = on_device(VectorPointValues(rand(T, M, 3)))
+  pv2 = on_device(VectorPointValues(rand(T, M, 3)))
+  pA = on_device(TensorPointValues{2}(rand(T, M, 3, 3)))
+  points = PointSet(AT(rand(T, M, 3) .* 6))
+  operations = (
+    "add!(v, v, v2)" => () -> add!(v, v, v2),
+    "add!(v, v2, v)" => () -> add!(v, v2, v),
+    "subtract!(v, v, v2)" => () -> subtract!(v, v, v2),
+    "combine!(v, α, v, β, v2)" => () -> combine!(v, T(1), v, T(0.5), v2),
+    "combine!(v, α, v2, β, v)" => () -> combine!(v, T(1), v2, T(0.5), v),
+    "add!(s, s, constant)" => () -> add!(s, s, T(1)),
+    "multiply!(v, v, constant)" => () -> multiply!(v, v, T(1.0001)),
+    "multiply!(v, s, v)" => () -> multiply!(v, s, v),
+    "multiply!(s, s, s2)" => () -> multiply!(s, s, s2),
+    "multiply!(s, s2, s)" => () -> multiply!(s, s2, s),
+    "multiply!(s, s, s)" => () -> multiply!(s, s, s),
+    "divide!(v, v, s2)" => () -> divide!(v, v, s2),
+    "divide!(s, s, s2)" => () -> divide!(s, s, s2),
+    "cross!(v, v, v2)" => () -> cross!(v, v, v2),
+    "cross!(v, v2, v)" => () -> cross!(v, v2, v),
+    "transpose!(A, A)" => () -> transpose!(A, A),
+    "sym!(A, A)" => () -> sym!(A, A),
+    "skew!(A, A)" => () -> skew!(A, A),
+    "dev!(A, A)" => () -> dev!(A, A),
+    "map!(φ, v, v)" => () -> map!(x -> 2x, v, v),
+    "map!(φ, s, s, s2)" => () -> map!((a, b) -> a + b, s, s, s2),
+    "v .= v .+ v2" => () -> (v .= v .+ v2),
+    "add!(vh, vh, vh2)" => () -> add!(vh, vh, vh2),
+    "combine!(vh, α, vh, β, vh2)" => () -> combine!(vh, T(1), vh, T(0.5), vh2),
+    "combine!(vh, α, vh, β, vh2, kernel)" => () -> combine!(vh, T(1), vh, T(0.5), vh2, radial),
+    "multiply!(vh, vh, constant)" => () -> multiply!(vh, vh, T(1.0001)),
+    "add!(sh, sh, constant)" => () -> add!(sh, sh, T(1)),
+    "transpose!(Ah, Ah)" => () -> transpose!(Ah, Ah),
+    "sym!(Ah, Ah)" => () -> sym!(Ah, Ah),
+    "laplacian!(sh, sh, m)" => () -> laplacian!(sh, sh, m),
+    "laplacian!(vh, vh, m)" => () -> laplacian!(vh, vh, m),
+    "inverse_laplacian!(sh, sh, m)" => () -> inverse_laplacian!(sh, sh, m),
+    "helmholtz_projection!(vh, vh, m)" => () -> helmholtz_projection!(vh, vh, m),
+    "helmholtz_projection!(vh, vh, m, kernel)" => () -> helmholtz_projection!(vh, vh, m, radial),
+    "curl!(vh, vh, m)" => () -> curl!(vh, vh, m),
+    "convolve!(vh, vh, radial)" => () -> convolve!(vh, vh, radial),
+    "convolve!(vh, vh, separable)" => () -> convolve!(vh, vh, separable),
+    "convolve!(sh, sh, radial)" => () -> convolve!(sh, sh, radial),
+    "exponential_convolve!(vh, vh, m, c)" => () -> exponential_convolve!(vh, vh, m, T(-0.01)),
+    "exponential_convolve!(sh, sh, m, c)" => () -> exponential_convolve!(sh, sh, m, T(-0.01)),
+    "reality_projection!(sh)" => () -> reality_projection!(sh),
+    "mean_free_projection!(vh)" => () -> mean_free_projection!(vh),
+    "add!(pv, pv, pv2)" => () -> add!(pv, pv, pv2),
+    "multiply!(pv, ps, pv)" => () -> multiply!(pv, ps, pv),
+    "multiply!(ps, ps, ps2)" => () -> multiply!(ps, ps, ps2),
+    "divide!(ps, ps, ps2)" => () -> divide!(ps, ps, ps2),
+    "divide!(pv, pv, ps2)" => () -> divide!(pv, pv, ps2),
+    "cross!(pv, pv, pv2)" => () -> cross!(pv, pv, pv2),
+    "transpose!(pA, pA)" => () -> transpose!(pA, pA),
+    "map!(φ, pv, pv)" => () -> map!(x -> 2x, pv, pv),
+    "displace!(points, (c, pv))" => () -> displace!(points, (T(0.01), pv)),
+    "displace!(points, grid, (c, pv))" => () -> displace!(points, grid, (T(0.01), pv)),
+    "displace!(points, grid, (c, pv), (c, pv2))" => () -> displace!(points, grid, (T(0.01), pv), (T(0.01), pv2)),
+    "wrap!(points, grid)" => () -> wrap!(points, grid))
+  @testset "an aliased in-place call allocates nothing on the device ($T)" begin
+    if !isdefined(@__MODULE__, :device_bytes_allocated)
+      @info "$GPU_BACKEND cannot count device bytes here; the aliased-allocation lane is skipped."
+      @test_skip false
+    else
+      for (name, operation) in operations
+        operation(); operation()                      # compile, and settle any first-call allocation
+        bytes = device_bytes_allocated(operation)
+        bytes == 0 || @info "device bytes for $name: $bytes"
+        @test bytes == 0
+      end
+    end
+  end
+end
+
+
 @testset "GPU [$GPU_BACKEND]" begin
 
   if !device_functional()
@@ -861,6 +965,7 @@ end
     @info "GPU tests running on $GPU_BACKEND."
     for T in ELEMENT_TYPES
       run_gpu_suite(T)
+      aliased_device_allocations(T)
     end
 
     # ── mixing a device section with a host one must be REFUSED, deliberately ──────────────────

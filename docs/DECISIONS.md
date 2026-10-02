@@ -3917,3 +3917,30 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       representation was reported by storage element type, `ComplexF64` against `ComplexF32`, where
       `adapt!` names `Float64` against `Float32`. Complex arrays are storage detail (invariant 2), so
       the message now names the field's precision, asserted in `test/hdf5.jl`.
+
+95. **An in-place call allocates nothing on a device either** (2026-10-02, owner-approved; found by
+    `GBGHomogeneousTurbulence`). The in-place `displace!` on the torus allocated a copy of the
+    positions on CUDA, once per call: 1.2 MB at ``10^5`` points in `Float32`, in the consumer's time
+    loop. It allocated nothing on the host.
+
+    - **The mechanism.** The torus pass updates one axis column at a time, reading one view of the
+      source column and writing another view of the same column. Julia's broadcast skips its aliasing
+      copy for a source identical to the destination and copies one that may share memory. Two views
+      of one host column compare identical; a contiguous view of a device array is a new array each
+      time it is made, so the device copied the column, three per call. The copy protected nothing,
+      each element being read before that same element is written.
+
+    - **The fix.** In place, the pass hands the broadcast the same view for source and destination,
+      so the guard sees them identical. Bitwise unchanged; zero device bytes in every form.
+
+    - **Why nothing saw it.** Every allocation check ran on the host, where the copy never happens:
+      the allocation audit, the survey's repeated-call check, and the GPU suite, which compared
+      values and never allocations. So the package had no check able to see an allocation a device
+      makes and the host does not.
+
+    - **The check added.** The GPU suite gains a lane calling 54 in-place operations with the
+      destination also an input, asserting zero device bytes. With the fix reverted it fails on
+      exactly the two in-place torus forms in both element types, and with it every operation reads
+      zero. A probe over the same operations found no other member of the class. A backend that
+      cannot count device bytes records a skip: CUDA counts them, and ROCm has no counter wired yet.
+

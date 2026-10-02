@@ -20,5 +20,8 @@ to_device(host_array) = CUDA.CuArray(host_array)
 # The storage family itself, for `adapt`: the suite moves whole sections, kernels and plans with the
 # package's own interface rather than rewrapping arrays by hand.
 device_array_type() = CUDA.CuArray
+# Device bytes one call allocates, for the aliased-allocation lane. `CUDA.@allocated` counts the device
+# pool, which host-side `@allocated` cannot see.
+device_bytes_allocated(operation) = (CUDA.synchronize(); CUDA.@allocated operation())
 
 include(joinpath(@__DIR__, "..", "suite.jl"))

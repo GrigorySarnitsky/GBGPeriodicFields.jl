@@ -139,7 +139,11 @@ supertype `SpectralKernel` (decision 65) plus `_kernel_data` and `_check_kernel_
     days, invisible here and found by a **consumer** whose hot loop asserts literal zero per step. The
     transforms therefore carry a second lane that sets FFTW to one thread, where the callback is gone
     and the only remaining bytes are the package's own, and asserts `== 0` for `R = 0, 1, 2`.
-    The audit is `test/allocations.jl`. Deliberate materializers (`norm!`/`lpnorm` — `dev!` left the list when decision 39
+    The audit is `test/allocations.jl`. It runs on the host, and a device can allocate where the host
+    does not: the in-place `displace!` on the torus copied a column per axis on CUDA only, a device
+    view being a new array each time it is made (decision 95). The GPU suite therefore carries an
+    aliased-allocation lane asserting zero device bytes for each in-place operation with its
+    destination also an input. Deliberate materializers (`norm!`/`lpnorm` — `dev!` left the list when decision 39
     fused its trace into a register and `std`/`var` when decision 49 rewrote them as two fused passes, `radial_correlation` (the power
     field + its transform; `radial_spectrum` is pinned tight since decision 34), the mixed
     spectral `inner(f, g)` — rocBLAS offering no `dotc` over a strided `ROCArray` view) are the documented

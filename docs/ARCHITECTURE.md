@@ -263,7 +263,8 @@ with a pointer to the section that develops it.
     (base and fiber, point and value), and the package introduces no advection, time integration, or
     per-step state; trajectory dynamics belong to the consumer ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")).
 13. **Allocation-free is an enforced contract.** Every in-place `!` operator allocates no field-sized
-    scratch when called on preallocated buffers with a destination distinct from its sources. This is
+    scratch when called on preallocated buffers, and on a device none at all when its destination is
+    also one of its sources (decision 95). This is
     load-bearing on a GPU: a per-call device temporary escapes Julia's garbage collector, which
     triggers on host pressure and cannot see the device buffer a dead array owns, so the pool grows
     every step until the run wedges ([§9](@ref "9. Performance model and CPU threading")).

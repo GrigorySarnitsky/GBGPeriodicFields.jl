@@ -571,6 +571,9 @@ backend via `similar` — so a field on a `ROCArray`/`CuArray` just works.
 - **Strategy:** run the public surface on device arrays and compare against the trusted
   CPU result (`matches`, with an `atol` floor per §3). If no device is present the suite
   warns and skips.
+- **The aliased-allocation lane** (decision 95), the one allocation check run on a device, calls 54
+  in-place operations with the destination also an input and asserts zero device bytes. An entry
+  script opts in by defining `device_bytes_allocated`; one that cannot records a skip.
 - **Manifests are gitignored** (repo convention — none are tracked); each environment
   reproduces from its `Project.toml` plus a `[compat]` bound, via `Pkg.instantiate()`.
 

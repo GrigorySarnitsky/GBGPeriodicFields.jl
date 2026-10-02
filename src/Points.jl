@@ -1421,10 +1421,20 @@ function _displace_pass!(destination::PointSet, source::PointSet, grid::Grid3D, 
   # Column-wise so each axis sees its own extent and origin as plain scalars; the columns are
   # contiguous (SoA, fiber-last), so the three passes together still read and write each element
   # exactly once — one-traversal traffic, with the wrap fused into the displacement.
+  #
+  # In place, the source column IS the destination column object, never a second view of it. The
+  # broadcast's aliasing guard skips a source identical to its destination and copies one that
+  # merely shares memory. Two views of one host column compare identical, but on a device a
+  # contiguous view is a new array each time it is made, so a second view made the guard copy the
+  # column, three per call, a field of positions per step (found by the consumer on CUDA). The copy
+  # protected nothing: each element is read before that same element is written.
   for axis in 1:3
     axis_terms = _axis_terms(axis, converted...)
-    rhs = _displacement_rhs(view(source_coordinates, :, axis), axis_terms...)
-    _assign!(view(destination_coordinates, :, axis),
+    destination_column = view(destination_coordinates, :, axis)
+    source_column = source_coordinates === destination_coordinates ? destination_column :
+                    view(source_coordinates, :, axis)
+    rhs = _displacement_rhs(source_column, axis_terms...)
+    _assign!(destination_column,
              Base.Broadcast.broadcasted(_wrap_coordinate, rhs,
                                         grid.domain_size[axis], grid.origin[axis]))
   end
