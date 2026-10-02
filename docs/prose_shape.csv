@@ -32,7 +32,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § The invariants / item 10",118,118,0
 "ARCHITECTURE.md § The invariants / item 11",70,70,0
 "ARCHITECTURE.md § The invariants / item 12",47,47,0
-"ARCHITECTURE.md § The invariants / item 13",72,72,0
+"ARCHITECTURE.md § The invariants / item 13",83,83,0
 "ARCHITECTURE.md § The invariants / item 14",138,138,0
 "ARCHITECTURE.md § The invariants / item 2",34,34,0
 "ARCHITECTURE.md § The invariants / item 3",27,27,0
@@ -181,6 +181,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 92",331,93,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 93",374,84,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 94",178,56,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 95",306,94,0
 "DifferentialOperators.jl :: DifferentialOperators",348,174,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",89,83,0
 "DifferentialOperators.jl :: _apply_spectral_divergence!(destination_component,",104,48,0
@@ -610,7 +611,7 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § 4. The coverage contract / item 7",19,19,0
 "TESTING.md § 4. The coverage contract / item 8",11,11,0
 "TESTING.md § 4. The coverage contract / item 9",16,16,0
-"TESTING.md § 5. GPU testing",214,135,0
+"TESTING.md § 5. GPU testing",256,177,0
 "TESTING.md § 6. Maintenance",284,284,0
 "TESTING.md § 7. Current coverage and known gaps",1660,1645,0
 "TESTING.md § 7. Current coverage and known gaps / item 1",27,27,0
