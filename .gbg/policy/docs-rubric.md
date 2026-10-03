@@ -1,7 +1,7 @@
-<!-- gbg:managed begin v2.0.0-rc.51 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.56 — rewritten by `gbg sync`; do not edit -->
 # Documentation and API — `RULE.DOC.*`, `RULE.API.*`
 
-What a docstring and an API page contain, in what order and in what shape. 46 rules, written from the rule values themselves,
+What a docstring and an API page contain, in what order and in what shape. 47 rules, written from the rule values themselves,
 so a rule reworded here was reworded in the program that checks it.
 
 ### RULE.API.POSITIONAL
@@ -240,6 +240,13 @@ A type docstring leads with its constructor. A function docstring whose identity
 A mutator whose signature carries no arrow says what it returns in a sentence before any caveat; a signature carries an arrow only where the return type is fixed by the signature; arrow and sentence never both appear.
 
 Covered by a reader given nothing.
+
+### RULE.DOC.SECTION_ORDER
+A caveat admonition at a docstring's margin comes after its `# Arguments` section and before its `# Fields` section.
+
+`RULE.DOC.HOME_ORDER` orders a docstring: the arguments, then the caveats that close its prose, then `# References`, then `# Fields` last. These two places are where a caveat most often lands wrongly, and a program can find them; an admonition indented under a list item is that item's.
+
+Covered by a program.
 
 ### RULE.DOC.SELF_CONTAINED
 A docstring, a page, and the one rationale document this rule's `architecture_doc` names read top to bottom without another file: every symbol is bound in plain language at first use. Every other rationale document is exempt, since it explains one architecture and may assume the rest of itself.

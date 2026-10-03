@@ -1,7 +1,7 @@
-<!-- gbg:managed begin v2.0.0-rc.51 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.56 — rewritten by `gbg sync`; do not edit -->
 # Testing protocol — `RULE.TEST.*`
 
-What a test is for, where its oracle comes from, and when a thing is done. 11 rules, written from the rule values themselves,
+What a test is for, where its oracle comes from, and when a thing is done. 12 rules, written from the rule values themselves,
 so a rule reworded here was reworded in the program that checks it.
 
 ### RULE.TEST.ALLOC_ZERO
@@ -24,6 +24,13 @@ A feature is done when its correctness tests, performance test, four guiding doc
 'Should work' is not done: a step is done when its verification command exits 0 and the exit code was observed. Grep the docs for stale deferred, none-exist and future claims about whatever was just implemented.
 
 Covered by the session, as an instruction: followed while working, checked by nothing. Nothing checks it: an instruction to the session: followed while working, checked by nothing
+
+### RULE.TEST.DEVICE_COST
+In a package that declares the device-cost audit, each audited device operation is timed against the memory it must move, in a ratio to a copy measured in the same run, and holds at or below the ratio frozen for it.
+
+A count of reads and writes cannot see computation that costs time; only a timing against the least traffic can. The copy measured beside it keeps the ratio honest under the device's clocks and power limit; the fastest of many runs is the cost, and a frozen bound is refrozen in the commit that changes the operation, with the reason.
+
+Covered by the session, as an instruction: followed while working, checked by nothing. Nothing checks it: an instruction to the session of a package that has declared this contract by calling `TestHarness.device_cost` from its GPU tests, where those tests check it; without a device they record a skip, never a pass, so it cannot run on CI; a package that has not declared it is not bound, and nothing checks it here
 
 ### RULE.TEST.EXAMPLES_RUN
 Shipped examples are executed after any public-surface change; nothing else runs them.
