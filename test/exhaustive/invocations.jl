@@ -392,8 +392,15 @@ _coarse_mode_slots(operation) = nameof(operation) === :embed_modes!   ? (2,) :
 # is the context lane's subject and would be noise here.
 _is_coarse(entry::PoolEntry) = startswith(entry.label, "coarse ")
 
+# `hash`'s second slot is the seed, a `UInt` no section pool holds (decision 91). Named like the
+# adaptor slot and filled from a seed pool, so the operation is reached by real calls instead of
+# being reported unreachable.
+_seed_slots(operation) = nameof(operation) === :hash ? (2,) : ()
+_seed_pool() = PoolEntry[PoolEntry("hash seed: zero(UInt)", zero(UInt)), PoolEntry("hash seed: 0x9e3779b9", UInt(0x9e3779b9))]
+
 _slot_candidates(operation, index, parameter, pool) =
   index in _adaptor_slots(operation) ? _adaptor_pool() :
+  index in _seed_slots(operation) ? _seed_pool() :
   index in _coarse_mode_slots(operation) ?
       [e for e in pool if _is_coarse(e) && _slot_admits(parameter, e.object)] :
       [e for e in pool if !_is_coarse(e) && _slot_admits(parameter, e.object)]

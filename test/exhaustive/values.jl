@@ -658,6 +658,20 @@ function run_value_lane(configs)
       # The in-place family move (decision 69): into a destination that already exists, within one
       # family, which must leave the destination holding exactly the source's values.
       (:adapt!,     field_data(adapt!(similar_field(u, Val(1)), u)), du),
+      # Equality by value (decision 91). The oracle is the definition: two sections are equal exactly
+      # when their raw arrays agree elementwise on one domain, and equal values hash alike. A copy with
+      # one element perturbed is the counterexample, so each row has something to fail on.
+      (:(==),       (u == similar_field(u, copy(du)), u == similar_field(u, du .+ one(T))),      (true, false)),
+      (:isequal,    (isequal(u, similar_field(u, copy(du))), isequal(u, similar_field(u, du .+ one(T)))), (true, false)),
+      (:hash,       hash(u) == hash(similar_field(u, copy(du))),                                 true),
+      (:(==),       (points == PointSet(copy(raw_coordinates)), points == PointSet(raw_coordinates .+ one(T))), (true, false)),
+      (:(==),       (qa == VectorPointValues(copy(raw_qa)), qa == VectorPointValues(raw_qa .+ one(T))),       (true, false)),
+      (:hash,       hash(qa) == hash(VectorPointValues(copy(raw_qa))),                             true),
+      (:(==),       (sh == similar_field(sh, copy(field_data(sh))), sh == similar_field(sh, field_data(sh) .+ one(T))), (true, false)),
+      (:isequal,    (isequal(sh, similar_field(sh, copy(field_data(sh)))), isequal(sh, similar_field(sh, field_data(sh) .+ one(T)))), (true, false)),
+      (:isequal,    (isequal(points, PointSet(copy(raw_coordinates))), isequal(points, PointSet(raw_coordinates .+ one(T)))), (true, false)),
+      (:isequal,    (isequal(qa, VectorPointValues(copy(raw_qa))), isequal(qa, VectorPointValues(raw_qa .+ one(T)))), (true, false)),
+      (:hash,       hash(points) == hash(PointSet(copy(raw_coordinates))),                        true),
       # Adapting to one's OWN storage family is the identity — the documented no-op that makes a
       # consumer's unconditional `adapt(Array, x)` free on the host — so the values must come back
       # untouched. `adapt_structure` is the hook `adapt` dispatches through, checked at the same bar.

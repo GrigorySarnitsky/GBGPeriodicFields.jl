@@ -44,6 +44,18 @@ const LEDGER_REASONS = Dict{String, Tuple{Symbol, String}}(
     "the point twin of the above, unreachable for the same reason now that the destination's tensor order is checked — refusal asserted at test/regressions/pointvalues-scalar-action-wrong-order-destination.jl:18"),
   # The display layer's printers, every one keyed by its own signature. Sixteen methods, one reason,
   # written sixteen times on purpose: the file's rule is that a reason closes exactly ONE method.
+  # Equality across representations is refused in both orders and under both comparisons (decision 91):
+  # a field in physical representation and one in spectral representation are the same kind of object
+  # in two encodings, and asking whether their arrays agree would compare values and coefficients.
+  # Nothing is returned, so no value row can drive these; each refusal is asserted in test/equality.jl.
+  "Tuple{typeof(==), AbstractFieldPhysical, AbstractFieldSpectral}" => (:not_a_value,
+    "`==` across representations throws — refusal asserted at test/equality.jl:39"),
+  "Tuple{typeof(==), AbstractFieldSpectral, AbstractFieldPhysical}" => (:not_a_value,
+    "`==` across representations throws — refusal asserted at test/equality.jl:40"),
+  "Tuple{typeof(isequal), AbstractFieldPhysical, AbstractFieldSpectral}" => (:not_a_value,
+    "`isequal` across representations throws — refusal asserted at test/equality.jl:41"),
+  "Tuple{typeof(isequal), AbstractFieldSpectral, AbstractFieldPhysical}" => (:not_a_value,
+    "`isequal` across representations throws — refusal asserted at test/equality.jl:42"),
   "Tuple{typeof(show), IO, MIME{Symbol(\"text/plain\")}, Union{AbstractFieldPhysical, AbstractFieldSpectral}}" => (:not_a_value,
     "a printer (decision 82): it writes to an IO and returns nothing an oracle can compare; its properties — every package struct type displays, a length bound where the defaults flood, self-delimitation inside a container, discrimination between objects the package refuses to combine, the parameter records round-tripping through the parser, and no element read — are asserted at test/display.jl:59-186"),
   "Tuple{typeof(show), IO, AbstractPointValues}" => (:not_a_value,

@@ -39,6 +39,7 @@ using GBGPeriodicFields
   @test_throws ArgumentError u == VectorFieldSpectral(Array, grid, layout)
   @test_throws ArgumentError VectorFieldSpectral(Array, grid, layout) == u
   @test_throws ArgumentError isequal(u, VectorFieldSpectral(Array, grid, layout))
+  @test_throws ArgumentError isequal(VectorFieldSpectral(Array, grid, layout), u)
   other_precision = T === Float64 ? Float32 : Float64
   @test_throws ArgumentError u == VectorFieldPhysical(other_precision.(values),
                                                       Grid3D((6, 5, 4), other_precision.((2π, 4π, 2π))), layout)
