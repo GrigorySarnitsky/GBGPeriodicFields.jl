@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.56 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.57 — rewritten by `gbg sync`; do not edit -->
 # Testing protocol — `RULE.TEST.*`
 
 What a test is for, where its oracle comes from, and when a thing is done. 12 rules, written from the rule values themselves,
@@ -26,7 +26,7 @@ A feature is done when its correctness tests, performance test, four guiding doc
 Covered by the session, as an instruction: followed while working, checked by nothing. Nothing checks it: an instruction to the session: followed while working, checked by nothing
 
 ### RULE.TEST.DEVICE_COST
-In a package that declares the device-cost audit, each audited device operation is timed against the memory it must move, in a ratio to a copy measured in the same run, and holds at or below the ratio frozen for it.
+In a package that declares the device-cost audit, each audited device operation is timed against the memory it must move, in a ratio to a copy measured in the same run, and holds at or below the ratio frozen for it on that device and element type.
 
 A count of reads and writes cannot see computation that costs time; only a timing against the least traffic can. The copy measured beside it keeps the ratio honest under the device's clocks and power limit; the fastest of many runs is the cost, and a frozen bound is refrozen in the commit that changes the operation, with the reason.
 
