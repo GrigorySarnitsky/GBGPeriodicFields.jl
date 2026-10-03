@@ -3944,3 +3944,24 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       zero. A probe over the same operations found no other member of the class. A backend that
       cannot count device bytes records a skip: CUDA counts them, and ROCm has no counter wired yet.
 
+96. **The device plans' remaining buffers: one deferred, one declined** (2026-10-03, owner-ruled;
+    raised by `GBGHomogeneousTurbulence`). Its request of 2026-08-26 on transform-plan residency was
+    answered in part by decision 76, which took it from 26 device plan buffers to 2. Its re-filing of
+    2026-10-03 asked about the two items left, which no earlier entry had answered.
+
+    - **Deferred: the forward plan's unused buffer.** CUDA.jl's `plan_rfft` allocates a buffer for an
+      inverse route through the forward plan that PF never takes: one spectral scalar, about 68 MB at
+      ``256^3`` in `Float32`, some 5% of the consumer's device working set there. The consumer's
+      candidate builds the inverse from the forward plan so the pair shares one buffer, measured
+      bitwise identical and no slower. It is cheap, but it leans on how the vendor wrappers allocate,
+      and 5% matters only to a run at its device-memory limit. It is taken up when such a run exists,
+      such as the consumer's ``768^3`` case, where a spectral scalar is about 1.8 GB.
+
+    - **Declined: the second copy on every inverse transform.** The consumer measured inverse
+      transforms 14.7% slower because the coefficients are copied twice: once into scratch by the
+      preserving `to_physical!` (decision 64) and once by the vendor wrapper, which protects its input
+      from the complex-to-real transform. The wrapper's copy is not PF's. Removing it would mean
+      calling cuFFT and rocFFT beneath their wrappers, through internals neither promises to keep,
+      which nothing in the suite would see break. The gain is a few percent of a solver step at most.
+      It is reconsidered only if a vendor library offers a public way to declare the input expendable.
+

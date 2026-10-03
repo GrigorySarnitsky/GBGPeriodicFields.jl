@@ -1785,6 +1785,11 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
   sessions plus consumer work, and its zero-cost competitor — four independent runs on one node — is the
   baseline it has to beat.
 
+- **The forward plan's unused device buffer — DEFERRED (decision 96, 2026-10-03).** One spectral
+  scalar per plan set (about 68 MB at 256³ `Float32`, 1.8 GB at 768³), freed by building the inverse
+  from the forward plan. Take it up when a run is limited by device memory; the second-copy item
+  beside it is declined.
+
 The package is feature-complete for its core mission. Recorded next steps, in priority order:
 
 - **IT's 2026-08-29 codegen report — item 2 DONE, item 3 CLOSED as measured-and-declined (2026-08-31)** (the synced request is
