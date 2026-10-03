@@ -1738,8 +1738,8 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
   kernel on a vector or tensor field, `laplacian!`/`inverse_laplacian!` on vector fields, and the
   separable kernels' index cost. HT answered (2026-09-30) that its timing was a one-off probe with no
   wiring to the tool, and that its traffic audit is the tool's engine, on the CPU, as PF's is. The
-  owner ruled that the tool is not extended with benchmarks yet; this item is raising it with the
-  tool's session, with this motivation.
+  owner ruled that the tool is not extended with benchmarks yet; raised with the tool's session on
+  2026-10-03 at his word, as `.gbg/requests/to-GBGCodingTools-2026-10-03-device-cost-check.md`.
 - **CUDA unified memory — SUPPORTED and documented (2026-09-17, decision 84).** A single GPU can hold
   fields larger than its memory with no code change: CUDA.jl's `default_memory = "unified"` preference,
   under **`[CUDACore]`** with `CUDACore` in the job project's `[extras]` — the `[CUDA]` spelling in
