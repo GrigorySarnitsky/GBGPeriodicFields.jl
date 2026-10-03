@@ -182,6 +182,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 93",374,84,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 94",178,56,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 95",306,94,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 96",269,110,0
 "DifferentialOperators.jl :: DifferentialOperators",348,174,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",89,83,0
 "DifferentialOperators.jl :: _apply_spectral_divergence!(destination_component,",104,48,0
@@ -611,7 +612,7 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § 4. The coverage contract / item 7",19,19,0
 "TESTING.md § 4. The coverage contract / item 8",11,11,0
 "TESTING.md § 4. The coverage contract / item 9",16,16,0
-"TESTING.md § 5. GPU testing",256,177,0
+"TESTING.md § 5. GPU testing",296,217,0
 "TESTING.md § 6. Maintenance",284,284,0
 "TESTING.md § 7. Current coverage and known gaps",1660,1645,0
 "TESTING.md § 7. Current coverage and known gaps / item 1",27,27,0
