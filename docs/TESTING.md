@@ -574,9 +574,8 @@ backend via `similar` — so a field on a `ROCArray`/`CuArray` just works.
 - **The aliased-allocation lane** (decision 95), the one allocation check run on a device, calls 54
   in-place operations with the destination also an input and asserts zero device bytes. An entry
   script opts in by defining `device_bytes_allocated`; one that cannot records a skip.
-- **The device-cost lane** (`RULE.TEST.DEVICE_COST`, GBGCodingTools rc.56) times ten operations at
-  ``256^3`` against a copy measured in the same run, each against its least traffic from its
-  `test/pass_audit.jl` row, and reports the ratio. No bound is frozen until an idle-machine run.
+- **The device-cost lane** (`RULE.TEST.DEVICE_COST`) times ten operations at ``256^3`` against a copy
+  in the same run, within bounds frozen per backend and element type; ROCm has none yet.
 - **Manifests are gitignored** (repo convention — none are tracked); each environment
   reproduces from its `Project.toml` plus a `[compat]` bound, via `Pkg.instantiate()`.
 

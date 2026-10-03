@@ -1740,9 +1740,11 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
   wiring to the tool, and that its traffic audit is the tool's engine, on the CPU, as PF's is. The
   owner ruled that the tool is not extended with benchmarks yet; raised with the tool's session on
   2026-10-03 at his word, and ANSWERED by GBGCodingTools rc.56 (`RULE.TEST.DEVICE_COST`): the GPU
-  suite now carries the lane (`device_cost_lane`, ten cases at 256³), its bounds empty until the
-  ratios are measured on an idle machine and frozen. A busy-machine first run already shows the
-  `weighted_inner` excess (vector 1.32 `Float64`, 1.88 `Float32`; plain `add!` 0.97).
+  suite now carries the lane (`device_cost_lane`, ten cases at 256³), its bounds frozen for CUDA
+  from an idle run on 2026-10-03 (`PERFORMANCE.md` finding (av)): `weighted_inner` 1.33 `Float64`,
+  1.67/1.88 `Float32` scalar/vector against plain `add!` at 0.97 — the excess is not only the
+  per-component symbol, the scalar form has it too. ROCm is reported, not judged, until frozen. The
+  two `weighted_inner` costs remain unfixed; the lane is now the instrument for fixing them.
 - **CUDA unified memory — SUPPORTED and documented (2026-09-17, decision 84).** A single GPU can hold
   fields larger than its memory with no code change: CUDA.jl's `default_memory = "unified"` preference,
   under **`[CUDACore]`** with `CUDACore` in the job project's `[extras]` — the `[CUDA]` spelling in

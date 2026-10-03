@@ -1685,6 +1685,24 @@ was backwards for a sweep-seeded set and has been corrected. The traversal order
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
 
+**(av) The first device-cost reading: `weighted_inner` is the one operation well above its traffic**
+(2026-10-03, RTX 5070 Ti, idle machine, ``256^3``). The device-cost lane of
+[GBGCodingTools](https://grigorysarnitsky.github.io/GBGCodingTools.jl/) times each operation against a
+copy measured in the same run, as a multiple of the time that copy's bandwidth needs for the
+operation's least traffic. Two passes agreed to 0.02 in every cell.
+
+- **At the copy:** spectral `add!` 0.97, `combine!` with a radial kernel 0.98, and the vector
+  `exponential_convolve!` 1.02, its `exp` once per mode since decision 79.
+- **`weighted_inner`:** 1.33 in `Float64`; in `Float32` 1.67 scalar and 1.88 vector. The scalar
+  excess shows the per-component band weight is not the whole cost.
+- **`Float32` index arithmetic:** vector `convolve!` and `laplacian!` at 1.15–1.16 against 1.01–1.03 in
+  `Float64`, the mixed-shape broadcast of a 4-D field against a 3-D symbol.
+- **Unexplained:** a physical vector `add!` in `Float32` at 1.23, where the same bytes as complex
+  coefficients cost 0.97.
+
+The lane's bounds are frozen from this run at the higher pass plus 10%, for CUDA only; the RX 7900
+XTX is reported and not judged until a run on it is frozen.
+
 **(au) An operand count the caller chooses now costs nothing extra to allocate, at any count, and
 its time is exactly the traffic the grouping adds** (2026-09-26, measured 2026-09-27; decision 88).
 

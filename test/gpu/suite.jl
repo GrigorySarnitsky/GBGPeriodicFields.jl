@@ -968,8 +968,40 @@ end
 # against the per-axis wavenumber arrays pays index arithmetic. This lane times each case against a
 # copy measured in the same run and reports the ratio. The bytes are each case's least traffic, the
 # fused ideal of its `test/pass_audit.jl` row; a kernel's per-axis arrays are kilobytes and uncounted.
-# No bound is frozen yet: the ratios are recorded on an idle machine first, then frozen from that run.
-const DEVICE_COST_BOUNDS = Dict{Symbol, Float64}()
+# The bounds are a property of the CARD, so they are frozen per backend and element type: each is the
+# higher of two idle-machine passes plus 10%, the passes agreeing to 0.02 (RTX 5070 Ti, 2026-10-03). A
+# backend with no entry is measured and reported, not judged, until a run on it is frozen. Refreeze in
+# the commit that changes an operation, with the reason.
+#
+# What the frozen ratios record, so a reader does not take them for targets: the plain copies sit at
+# 0.97; `weighted_inner` is the outlier, 1.33 in `Float64` and 1.67 / 1.88 (scalar / vector) in `Float32`,
+# above its traffic even for a scalar field; the vector `Float32` passes against a 3-D symbol or the
+# per-axis factors sit at 1.15, the index arithmetic of the mixed-shape broadcast; and a vector physical
+# `add!` in `Float32` costs 1.23 where the same bytes as complex coefficients cost 0.97.
+const DEVICE_COST_BOUNDS = Dict(
+  "CUDA / NVIDIA" => Dict(
+    Float64 => Dict{Symbol, Float64}(
+      :add_physical_vector => 1.08,
+      :add_spectral_vector => 1.07,
+      :weighted_inner_scalar => 1.47,
+      :weighted_inner_vector => 1.47,
+      :convolve_scalar_radial => 1.13,
+      :convolve_vector_radial => 1.12,
+      :convolve_vector_separable => 1.14,
+      :combine_vector_radial => 1.08,
+      :laplacian_vector => 1.12,
+      :exponential_convolve_vector => 1.13),
+    Float32 => Dict{Symbol, Float64}(
+      :add_physical_vector => 1.36,
+      :add_spectral_vector => 1.07,
+      :weighted_inner_scalar => 1.84,
+      :weighted_inner_vector => 2.07,
+      :convolve_scalar_radial => 1.18,
+      :convolve_vector_radial => 1.27,
+      :convolve_vector_separable => 1.28,
+      :combine_vector_radial => 1.08,
+      :laplacian_vector => 1.27,
+      :exponential_convolve_vector => 1.13)))
 
 function device_cost_lane(::Type{T}) where {T<:AbstractFloat}
   AT = device_array_type()
@@ -1009,7 +1041,8 @@ function device_cost_lane(::Type{T}) where {T<:AbstractFloat}
       @info "$GPU_BACKEND: the device-cost lane needs GBGCodingTools and a `device_synchronize`; skipped."
       @test_skip false
     else
-      GBGCodingTools.TestHarness.device_cost(cases, copy, device_synchronize; bounds = DEVICE_COST_BOUNDS)
+      bounds = get(get(DEVICE_COST_BOUNDS, GPU_BACKEND, Dict()), T, Dict{Symbol, Float64}())
+      GBGCodingTools.TestHarness.device_cost(cases, copy, device_synchronize; bounds = bounds)
     end
   end
 end
