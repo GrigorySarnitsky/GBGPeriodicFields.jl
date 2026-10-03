@@ -1743,8 +1743,12 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
   suite now carries the lane (`device_cost_lane`, ten cases at 256³), its bounds frozen for CUDA
   from an idle run on 2026-10-03 (`PERFORMANCE.md` finding (av)): `weighted_inner` 1.33 `Float64`,
   1.67/1.88 `Float32` scalar/vector against plain `add!` at 0.97 — the excess is not only the
-  per-component symbol, the scalar form has it too. ROCm is reported, not judged, until frozen. The
-  two `weighted_inner` costs remain unfixed; the lane is now the instrument for fixing them.
+  per-component symbol, the scalar form has it too. ROCm is reported, not judged, until frozen.
+  **The `weighted_inner` excess is KNOWN AND LEFT (owner-ruled 2026-10-03):** HT measured it at 3.8%
+  of a `Float32` step and 1.9% of a `Float64` one (3 calls, 256³, its default run), so reaching the
+  traffic floor would save 1.7% and 0.5%, too little for a device reduction kernel with bitwise CPU
+  invariance. The frozen bound keeps it from growing; reopen if a production configuration makes its
+  share several times larger.
 - **CUDA unified memory — SUPPORTED and documented (2026-09-17, decision 84).** A single GPU can hold
   fields larger than its memory with no code change: CUDA.jl's `default_memory = "unified"` preference,
   under **`[CUDACore]`** with `CUDACore` in the job project's `[extras]` — the `[CUDA]` spelling in

@@ -1701,7 +1701,9 @@ operation's least traffic. Two passes agreed to 0.02 in every cell.
   coefficients cost 0.97.
 
 The lane's bounds are frozen from this run at the higher pass plus 10%, for CUDA only; the RX 7900
-XTX is reported and not judged until a run on it is frozen.
+XTX is reported and not judged until a run on it is frozen. **Left as known (2026-10-03):** the consumer measured
+`weighted_inner` at 3.8% of a `Float32` step and 1.9% of a `Float64` one at ``256^3``, so the floor
+would save 1.7% and 0.5%, below the cost of a device reduction kernel.
 
 **(au) An operand count the caller chooses now costs nothing extra to allocate, at any count, and
 its time is exactly the traffic the grouping adds** (2026-09-26, measured 2026-09-27; decision 88).
