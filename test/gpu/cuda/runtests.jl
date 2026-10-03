@@ -24,4 +24,7 @@ device_array_type() = CUDA.CuArray
 # pool, which host-side `@allocated` cannot see.
 device_bytes_allocated(operation) = (CUDA.synchronize(); CUDA.@allocated operation())
 
+# Waits for the device, for the device-cost lane's timings.
+device_synchronize() = CUDA.synchronize()
+
 include(joinpath(@__DIR__, "..", "suite.jl"))

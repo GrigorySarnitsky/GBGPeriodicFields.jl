@@ -24,6 +24,10 @@ using GBGPeriodicFields
 using Statistics: mean, std, var, cov      # the umbrella re-exports these four too; explicit here so the file reads standalone
 # HDF5 is optional here: the persistence rows run where the backend's environment carries it.
 const _HAVE_HDF5 = Base.find_package("HDF5") !== nothing
+# The device-cost contract (`RULE.TEST.DEVICE_COST`) comes from GBGCodingTools, which the backend
+# environments carry; a lane without it records a skip.
+const _HAVE_CODING_TOOLS = Base.find_package("GBGCodingTools") !== nothing
+_HAVE_CODING_TOOLS && @eval using GBGCodingTools
 _HAVE_HDF5 && @eval using HDF5
 
 const F = GBGPeriodicFields.Fields
@@ -956,6 +960,61 @@ function aliased_device_allocations(::Type{T}) where {T<:AbstractFloat}
 end
 
 
+# ── each device operation against the memory it must move (RULE.TEST.DEVICE_COST) ───────────────────
+#
+# A count of reads and writes cannot see computation that costs time. `weighted_inner` on a vector field
+# was at its counted minimum after 2026-09-30 and still ran 40–60% over a plain read on an RTX 5070 Ti:
+# the band weight is evaluated once per fiber component instead of once per mode, and the broadcast
+# against the per-axis wavenumber arrays pays index arithmetic. This lane times each case against a
+# copy measured in the same run and reports the ratio. The bytes are each case's least traffic, the
+# fused ideal of its `test/pass_audit.jl` row; a kernel's per-axis arrays are kilobytes and uncounted.
+# No bound is frozen yet: the ratios are recorded on an idle machine first, then frozen from that run.
+const DEVICE_COST_BOUNDS = Dict{Symbol, Float64}()
+
+function device_cost_lane(::Type{T}) where {T<:AbstractFloat}
+  AT = device_array_type()
+  n = (256, 256, 256)
+  grid = Grid3D(n, T.((2π, 2π, 2π)))
+  layout = RealFourierLayout()
+  m = FieldSpectralMultipliers(AT, grid, layout)
+  spectral(R) = adapt(AT, (R == 0 ? ScalarFieldSpectral : VectorFieldSpectral)(
+    randn(Complex{T}, field_spectral_shape(grid, layout, Val(R))...), grid, layout))
+  physical() = adapt(AT, VectorFieldPhysical(randn(T, n..., 3), grid, layout))
+  sh, sd = spectral(0), spectral(0)
+  a, b, d = spectral(1), spectral(1), spectral(1)
+  pa, pb, pd = physical(), physical(), physical()
+  band = spectral_band(m, T(1), T(8))
+  cutoff = spectral_cutoff(m, T(80))
+  separable = translation_kernel(m, T.((0.3, -0.7, 1.1)))
+  M = prod(field_spectral_shape(grid, layout, Val(0)))
+  P = prod(n)
+  c = 2 * sizeof(T)                                  # one complex coefficient
+  r = sizeof(T)                                      # one real value
+  cases = [
+    (name = :add_physical_vector, run = () -> add!(pd, pa, pb), bytes = 9P * r),
+    (name = :add_spectral_vector, run = () -> add!(d, a, b), bytes = 9M * c),
+    (name = :weighted_inner_scalar, run = () -> weighted_inner(sh, band), bytes = M * c),
+    (name = :weighted_inner_vector, run = () -> weighted_inner(a, band), bytes = 3M * c),
+    (name = :convolve_scalar_radial, run = () -> convolve!(sd, sh, cutoff), bytes = 2M * c),
+    (name = :convolve_vector_radial, run = () -> convolve!(d, a, cutoff), bytes = 6M * c),
+    (name = :convolve_vector_separable, run = () -> convolve!(d, a, separable), bytes = 6M * c),
+    (name = :combine_vector_radial, run = () -> combine!(d, T(0.3), a, T(0.7), b, cutoff), bytes = 9M * c),
+    (name = :laplacian_vector, run = () -> laplacian!(d, a, m), bytes = 6M * c),
+    (name = :exponential_convolve_vector, run = () -> exponential_convolve!(d, a, m, T(-1e-4)), bytes = 6M * c),
+  ]
+  copy_source, copy_destination = field_data(a), field_data(d)
+  copy = (run = () -> copyto!(copy_destination, copy_source), bytes = 2 * sizeof(copy_source))
+  @testset "device cost ($T, 256³)" begin
+    if !_HAVE_CODING_TOOLS || !isdefined(@__MODULE__, :device_synchronize)
+      @info "$GPU_BACKEND: the device-cost lane needs GBGCodingTools and a `device_synchronize`; skipped."
+      @test_skip false
+    else
+      GBGCodingTools.TestHarness.device_cost(cases, copy, device_synchronize; bounds = DEVICE_COST_BOUNDS)
+    end
+  end
+end
+
+
 @testset "GPU [$GPU_BACKEND]" begin
 
   if !device_functional()
@@ -966,6 +1025,7 @@ end
     for T in ELEMENT_TYPES
       run_gpu_suite(T)
       aliased_device_allocations(T)
+      device_cost_lane(T)
     end
 
     # ── mixing a device section with a host one must be REFUSED, deliberately ──────────────────

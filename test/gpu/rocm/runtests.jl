@@ -21,4 +21,7 @@ to_device(host_array) = AMDGPU.ROCArray(host_array)
 # package's own interface rather than rewrapping arrays by hand.
 device_array_type() = AMDGPU.ROCArray
 
+# Waits for the device, for the device-cost lane's timings.
+device_synchronize() = AMDGPU.synchronize()
+
 include(joinpath(@__DIR__, "..", "suite.jl"))
