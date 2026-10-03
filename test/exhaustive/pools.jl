@@ -439,9 +439,13 @@ function run_mismatch_lane()
     ("add!(dest, a, b)",               add!,        physical,    :one,  foreign -> add!(similar_field(physical, Val(0)), physical, foreign)),
     ("interpolate(f, pts, NUFFT)",     interpolate, NUFFT(scalar), :one, foreign -> interpolate(foreign, points, NUFFT(scalar))),
     ("anterpolate(f, pts, q, NUFFT)",  anterpolate, NUFFT(scalar), :one, foreign -> anterpolate(scalar, points, foreign, NUFFT(scalar))),
-    # The scattered values must carry the destination field's fiber, so this slot takes exactly one
-    # order — declared `:many` at first, and the contract check corrected it.
-    ("anterpolate(f, pts, q, spline)", anterpolate, points,      :one,  foreign -> anterpolate(grid, points, foreign, CatmullRom)),
+    # FIBER-GENERIC: the grid-taking allocating form builds a field of the values' own tensor order
+    # (its docstring: "allocate a new field of `quantities`' tensor order"), so every order is a legal
+    # call. It was declared `:one` while this entry passed a field first, which matched no method;
+    # 2026-08-01 corrected the call to the grid form and left the declaration, and the contract check
+    # reported the stale `:one` as a breach from then until 2026-10-03. The one-order constraint belongs
+    # to the in-place form, whose destination field fixes the order.
+    ("anterpolate(f, pts, q, spline)", anterpolate, points,      :many, foreign -> anterpolate(grid, points, foreign, CatmullRom)),
     ("radial_spectrum(f, mult)",       radial_spectrum, multipliers, :many, foreign -> radial_spectrum(foreign, multipliers)),
   )
 
