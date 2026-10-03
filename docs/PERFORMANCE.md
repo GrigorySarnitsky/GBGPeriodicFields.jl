@@ -1697,13 +1697,24 @@ operation's least traffic. Two passes agreed to 0.02 in every cell.
   excess shows the per-component band weight is not the whole cost.
 - **`Float32` index arithmetic:** vector `convolve!` and `laplacian!` at 1.15–1.16 against 1.01–1.03 in
   `Float64`, the mixed-shape broadcast of a 4-D field against a 3-D symbol.
-- **Unexplained:** a physical vector `add!` in `Float32` at 1.23, where the same bytes as complex
-  coefficients cost 0.97.
+- **The 4-D broadcast in `Float32`:** a physical vector `add!` at 1.23, where the same bytes as complex
+  coefficients cost 0.97. Explained the same day, below.
 
 The lane's bounds are frozen from this run at the higher pass plus 10%, for CUDA only; the RX 7900
 XTX is reported and not judged until a run on it is frozen. **Left as known (2026-10-03):** the consumer measured
 `weighted_inner` at 3.8% of a `Float32` step and 1.9% of a `Float64` one at ``256^3``, so the floor
 would save 1.7% and 0.5%, below the cost of a device reduction kernel.
+
+**The `Float32` 4-D broadcast, also known and left (2026-10-03).** The excess is the generic GPU
+broadcast's, not PF's.
+
+- **Mechanism:** a raw `CuArray` sum costs 0.97 as 1-D and 1.24 as 4-D in `Float32`, 0.97 in every
+  shape in `Float64`; the four-index arithmetic per element is the limit at 4-byte elements.
+- **Class, ``256^3``:** same-shape vector and tensor `add!`, `combine!` and scaling, 1.23–1.57; a 1-D
+  view gives 0.97. The executor, mixed shapes, `Float64` and spectral fields are unaffected.
+- **Not flattened:** small share of a step, the most general device path, decision 95's aliasing
+  trap, ROCm unmeasured. The natural fix is upstream, in GPUArrays.
+- **Caution:** at ``128^3`` and below in `Float32` the copy fits in L2 and ratios inflate.
 
 **(au) An operand count the caller chooses now costs nothing extra to allocate, at any count, and
 its time is exactly the traffic the grouping adds** (2026-09-26, measured 2026-09-27; decision 88).

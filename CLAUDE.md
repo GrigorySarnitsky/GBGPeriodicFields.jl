@@ -1748,7 +1748,12 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
   of a `Float32` step and 1.9% of a `Float64` one (3 calls, 256³, its default run), so reaching the
   traffic floor would save 1.7% and 0.5%, too little for a device reduction kernel with bitwise CPU
   invariance. The frozen bound keeps it from growing; reopen if a production configuration makes its
-  share several times larger.
+  share several times larger. **The `Float32` 4-D broadcast excess is KNOWN AND LEFT too (owner-ruled
+  2026-10-03):** GPUArrays' generic broadcast pays four-index arithmetic per element, 1.23–1.57 for
+  same-shape vector/tensor `add!`/`combine!`/scaling at 256³ against 0.97 when flattened; the
+  executor, mixed shapes, `Float64` and spectral fields are unaffected. Flattening in PF's device
+  `_assign!` was declined (small share of a step, the most general path, decision 95's aliasing trap,
+  ROCm unmeasured); finding (av) has the figures.
 - **CUDA unified memory — SUPPORTED and documented (2026-09-17, decision 84).** A single GPU can hold
   fields larger than its memory with no code change: CUDA.jl's `default_memory = "unified"` preference,
   under **`[CUDACore]`** with `CUDACore` in the job project's `[extras]` — the `[CUDA]` spelling in
