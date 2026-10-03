@@ -1980,8 +1980,11 @@ that would have caught this class, so it earns its place ahead of work that repa
 
 *PREVENTION — do these first; they repair no number.*
 
-- **Make the history regression scan ride the post-sweep analysis — the cheapest item here, and the
-  one to do first. It is TOOLING, not a regression.** `benchmark/history_regressions.py` reads `RESULTS.md` at every commit that
+- **Make the history regression scan ride the post-sweep analysis — DONE 2026-09-02 (`39abd66c`),
+  this entry left unmarked until 2026-10-03.** `report.jl`'s `history_section()` runs it at every
+  `RESULTS.md` regeneration, with the hypothesis warning, and the 2026-09-21 table carries its section
+  (109 cells at or over 1.25×, all within the dismissed and confirmed classes below). The original
+  entry follows. `benchmark/history_regressions.py` reads `RESULTS.md` at every commit that
   regenerated it and flags cells slower at HEAD than their in-regime best. Its first run found
   finding (am), a ``1.46``–``1.48\times`` regression that had shipped for two days past the canary
   (a fixed sample not containing the row), the born-slow triage (which asks about thread scaling and
