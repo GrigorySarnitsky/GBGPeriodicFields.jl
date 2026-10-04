@@ -1887,6 +1887,14 @@ where the `mod` kernel's did, which one `@device_code_ptx`/`sass` dump would sho
 also spilled and also halved its occupancy, this account is wrong and the vendor split has another
 cause.
 
+**Run on 2026-10-04, and the account survives.** Compiled for `sm_120a` on the RTX 5070 Ti and read
+with `ptxas -v` (`benchmark/kernel_resources.jl`, whose CUDA arm this run completed): `CatmullRom`
+uses 90 registers under `mod` (`7bbbc75a`) and 80 under the walk, so its register-limited occupancy
+RISES from 21 to 25 warps of 48; `Lalescu(3,3)` goes 112 to 128, 18 to 16 warps. No kernel spills at
+either commit. So the walk does not cross a register tier on `sm_120` for the scheme that regresses
+on gfx1100, and the opposite signs of the two vendors' `CatmullRom` timings match the opposite
+signs of its register change.
+
 **What to do about it, if anything, is a design question and is not taken here.** The lever is
 register pressure at one scheme, not the walk's arithmetic — a kernel that kept the walk's instruction
 count and gave the allocator fewer simultaneously live indices for the 4-node stencil would keep the

@@ -5,13 +5,12 @@
 # runs in seconds. Run it at two commits (a `git worktree` for the old one) and compare the lines.
 #
 #   julia --project=benchmark/gpu/rocm benchmark/kernel_resources.jl           # AMD, tested (gfx1100)
-#   julia --project=benchmark/gpu/cuda benchmark/kernel_resources.jl           # NVIDIA, see below
+#   julia --project=benchmark/gpu/cuda benchmark/kernel_resources.jl           # NVIDIA, tested (sm_120)
 #
-# The AMD arm reads the compiler's resource comment block from the native dump. The CUDA arm dumps
-# PTX (`CUDA.@device_code_ptx`) — PTX carries no final register count, so on that backend read the
-# registers from the compiled kernel object (`CUDA.registers`) or from `cuobjdump
-# --dump-resource-usage` on the cubin; the point of running it there is the falsification test in
-# finding (aq): the sm_120 walk kernel should NOT cross a register tier for `CatmullRom`.
+# The AMD arm reads the compiler's resource comment block from the native dump. The CUDA arm hands
+# each kernel's PTX to NVIDIA's `ptxas -v` in compile-only mode and reads registers, stack and spills
+# from its report. On 2026-10-04 it ran finding (aq)'s falsification test: on sm_120 the walk takes
+# `CatmullRom` from 90 registers to 80, crossing no register tier.
 using GBGPeriodicFields, Pkg
 # One file per backend, `include`d at run time: a macro from a module that is not loaded fails at
 # EXPANSION, and a top-level `if` is lowered as one expression, so a branch cannot hide the other
@@ -23,7 +22,8 @@ for (label, scheme) in (("CatmullRom", CatmullRom), ("Lalescu(3,3)", LalescuSpli
   grid = Grid3D((N, N, N), (2π, 2π, 2π))
   f = ScalarFieldPhysical(AT(rand(Float64, N, N, N)), grid)
   pts = PointSet(AT(2π .* rand(Float64, 300, 3)))
-  out = interpolate(f, pts, scheme)
-  interpolate!(out, f, pts, scheme)
+  out = ScalarPointValues(AT(zeros(Float64, 300)))
+  # The dump wraps the kernel's FIRST call: CUDA's PTX is captured at compilation, and the AMD dump
+  # reads the same compilation's resource block.
   dump_resources(label, () -> interpolate!(out, f, pts, scheme))
 end

@@ -1193,10 +1193,11 @@ the stale traversal order. Nothing here is actionable again until the next sweep
 - **The CUDA test count is RESOLVED (2026-09-01, user-directed): 454/454, exit 0 in 4m12s, PARITY
   with ROCm.** The handover's 454 was right and this file's 422 was a stale 2026-08-27 reading taken
   before decisions 77–79 landed; the two backends never diverged. Both figures are corrected above.
-- **Still open here, and missing from this list until 2026-10-03:** the compile-only falsification
-  test of finding (aq) — dump the walk kernel's register count and occupancy for `CatmullRom` on
-  `sm_120` and confirm it does NOT cross a register tier, as the gfx1100 build does. Recorded in the
-  synced memory since 2026-09-04 and stated in `PERFORMANCE.md`, never run. Needs no idle machine.
+- **CLOSED 2026-10-04 — the compile-only falsification test of finding (aq).** On `sm_120a` the walk
+  takes `CatmullRom` from 90 registers to 80, so its register-limited occupancy rises from 21 to 25
+  warps of 48 (`Lalescu(3,3)`: 112 to 128 registers, 18 to 16 warps), with no spill at either commit.
+  The walk crosses no register tier on NVIDIA for the scheme that regresses on gfx1100, so (aq)'s
+  register-pressure account survives. `benchmark/kernel_resources.jl` now has a working CUDA arm.
 - **Still open here:** the canary needs a device vector-transform mechanism, decision 76 being
   confirmed on both vendors. Its `fft` mechanism is `to_physical!` SCALAR at ``128^3``, exactly the
   configuration that decision leaves alone, so the next regression on that axis is equally invisible.
