@@ -5,7 +5,7 @@
 # default is wrong for this package.
 Config(
     package = "GBGPeriodicFields",
-    tool = v"2.0.0-rc.58",
+    tool = v"2.0.0-rc.63",
     docs_build = ["julia", "--project=docs", "docs/make.jl"],
     test = ["julia", "--project", "-e", "using Pkg; Pkg.test()"],
     # The one tooling page, written by `Render.pages` during the docs build: what the documentation
@@ -50,33 +50,6 @@ Config(
                          This is why the log is its own document: the rule can be narrowed to a \
                          FILE but not to a section, so splitting it turned an unfixable problem \
                          into a one-line switch. Every other rule still reads this file."),
-        Switch(target = Symbol("RULE.API.POSITIONAL"),
-               files = ["src/Fields.jl"],
-               reason = "ONLY `Grid3D`'s two-argument constructor's `origin` keyword. It shifts every \
-                         node, so the rule points the other way; the owner weighed that against the \
-                         churn on 2026-09-02 and kept the keyword, the four-argument constructor taking \
-                         it positionally. Every other argument in this file still follows the rule."),
-        Switch(target = Symbol("RULE.API.POSITIONAL"),
-               files = ["src/Fields.jl"],
-               reason = "ONLY the `array_type` keyword of the constructors that build a field by \
-                         sampling a function. It picks the storage family the result lives in, not \
-                         any value; making it positional would be an interface change breaking the \
-                         consumer's calls for a consistency gain only. Owner-decided 2026-09-25 \
-                         (finding 2026-09-24-documentation-review-01-009). Every other argument in \
-                         this file still follows the rule."),
-        Switch(target = Symbol("RULE.API.POSITIONAL"),
-               files = ["src/Interpolation.jl"],
-               reason = "ONLY the callable field's `scheme` keyword, `field(x; scheme = …)`. A \
-                         one-point convenience whose default is the usual case; owner-settled \
-                         2026-08-05, while `interpolate`/`anterpolate` keep `scheme` positional. Every \
-                         other argument in this file still follows the rule."),
-        Switch(target = Symbol("RULE.API.POSITIONAL"),
-               files = ["src/Reductions.jl"],
-               reason = "ONLY the `corrected` keyword of `var`, `std` and `cov`. These EXTEND \
-                         `Statistics`, whose own methods spell it as a keyword; a positional form would \
-                         break the drop-in standard-library use the package promises. Owner-decided \
-                         2026-09-25 (finding 2026-09-24-documentation-review-01-009). Every other \
-                         argument in this file still follows the rule."),
     ],
     settings = [
         Setting(rule = Symbol("RULE.TEX.MATHBF"), name = :mathbf_allowed, value = ["\\mathbf{k}"]),

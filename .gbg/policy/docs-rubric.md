@@ -1,13 +1,13 @@
-<!-- gbg:managed begin v2.0.0-rc.58 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.63 — rewritten by `gbg sync`; do not edit -->
 # Documentation and API — `RULE.DOC.*`, `RULE.API.*`
 
 What a docstring and an API page contain, in what order and in what shape. 47 rules, written from the rule values themselves,
 so a rule reworded here was reworded in the program that checks it.
 
 ### RULE.API.POSITIONAL
-In an operation, an argument that can change the result is positional, defaults included; an argument that cannot change the result — a performance hint, a builder's cost/accuracy tunable — is a keyword. An exception is a `Switch` on this rule in the package's own config, with its reason.
+In an operation, the required inputs and any argument whose type selects the method are positional, the latter passed as an instance; every argument with a default — an option, a tunable, a hint — is a keyword, whether or not it changes the result. An exception is a `Switch` on this rule in the package's own config, with its reason.
 
-In an operation, every argument that affects the result is positional, defaults included; an argument that cannot change the result is a keyword. An exception is a `Switch` on this rule, with its reason.
+Methods are dispatched on positional arguments alone, so what selects the method must be one, and as an instance rather than a type so a later option extends it without breaking a call. A keyword names its value at the call site and may be given in any order or left out; an optional positional can be neither skipped nor named, and each default adds a method to disambiguate. This is Julia's own practice — `sort(v; by, rev)`, `round(x; digits)`, `solve(prob, Tsit5(); abstol)` — and no guideline in any language makes an argument positional for changing the result (researched 2026-10-06).
 
 Covered by a reader given source + other documents, because this needs meaning.
 
@@ -42,16 +42,16 @@ Two homes for one docstring is two things to keep true, and the second teaches a
 Covered by a program.
 
 ### RULE.DOC.ARGCOV
-Every argument in a docstring's signature, positional and keyword, is named as code in its body.
+Every argument in a docstring's signature, positional and keyword, is named as code in its body, or delegated: a paragraph opening "Arguments: as for", or an `# Arguments` section opening "As for", links a function documented in the same file whose own docstring names all its arguments, in the form `RULE.DOC.ARGS_FORM` asks, without delegating, whose arguments include all of this signature's, and the paragraph names as code each of its arguments this signature lacks.
 
-A reader passing an argument the docstring never mentions has to read the source to learn what it does.
+A reader passing an argument the docstring never mentions has to read the source to learn what it does. Where several functions take one function's arguments, one list serves them all, and the conditions keep the pointer from covering an argument that list lacks.
 
 Covered by a program.
 
 ### RULE.DOC.ARGS_FORM
-Three or more arguments, or any keyword, are listed as bullets under an `# Arguments` heading, where several may head one bullet together; fewer are bound in running prose, as in "The arguments are `a`, the first, and `b`, the second."; the two are never mixed. A type lists its constructor's arguments so too, even where its `# Fields` section repeats them.
+Three or more arguments, or any keyword, are listed as bullets under an `# Arguments` heading, where several may head one bullet together; fewer are bound in running prose, as in "The arguments are `a`, the first, and `b`, the second."; the two are never mixed. A type lists its constructor's arguments so too, even where its `# Fields` section repeats them. A docstring that delegates its arguments as `RULE.DOC.ARGCOV` states takes neither form.
 
-A reader looking for one argument of many needs a list; a reader of a two-argument call needs a sentence.
+A reader looking for one argument of many needs a list; a reader of a two-argument call needs a sentence; a reader of a function that takes another's arguments needs the one list they both take.
 
 Covered by a program.
 
@@ -278,9 +278,9 @@ A reader meeting the name for the first time must be able to reach it, and a fou
 Covered by a program.
 
 ### RULE.DOC.SIGNATURE_FIDELITY
-The signature a docstring displays and the methods the module defines agree, argument for argument.
+The signature a docstring displays and the methods the module defines agree, argument for argument, in name and in position.
 
-A displayed signature is what a reader calls; one the method table has moved past is a call that fails.
+A displayed signature is what a reader calls and the names a reader learns: one the method table has moved past is a call that fails, and a renamed argument is one the reader looks for in the code and does not find.
 
 Covered by a program.
 

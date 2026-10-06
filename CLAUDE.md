@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.58 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.63 — rewritten by `gbg sync`; do not edit -->
 @.gbg/policy/00-index.md
 
 The rulebook above is the whole of it: the rules, the terms they use, and what GBGPeriodicFields has
@@ -364,8 +364,11 @@ renames are breaking), and the decision log keeps its original wording.
 **Neutral reference register.** PF applies it to docstrings, the four design docs, the doc pages, `#`
 comments and `@testset` names.
 
-**Positional vs keyword arguments — PF's part.** The exceptions are the `RULE.API.POSITIONAL` switches
-in `.gbg/config.jl`, each with its reason. `point_traversal_order(grid, points)` leads with the grid because it is TRANSFER infrastructure — the
+**Positional vs keyword arguments — PF's part.** Since GBGCodingTools rc.63 the rule makes every
+argument with a default a keyword, so PF's four former switches (`origin`, `array_type`, the callable
+field's `scheme`, `corrected`) comply and were removed on 2026-10-06; positional arguments with a
+default in PF's surface are now review findings, an interface change being the owner's to approve.
+`point_traversal_order(grid, points)` leads with the grid because it is TRANSFER infrastructure — the
 transfer verbs' order (`anterpolate(grid, points, …)`), not the motion verbs' trailing-grid one
 (`wrap!(points, grid)`); the two families are deliberate and a new function joins the family whose
 verbs it serves.
@@ -407,7 +410,7 @@ functions and their K41 normalizations are standard turbulence — describe them
 source).
 
 **Standing open item (2026-07-22 battery remainder).** The economy `/check-docs` run (13 Sonnet
-lanes + main-thread synthesis; raw findings in `.claude/check-docs-2026-07-22-findings.json`) fixed
+lanes + main-thread synthesis; raw findings, removed with the old instruments on 2026-10-06, in git history) fixed
 every verified `certain` finding and the cheap `likely` ones; the 2026-07-23 completion pass closed
 the rest — **all 134 findings are now fixed or dismissed-with-reason** (five cheap relocation lanes +
 main-thread triage at full strength, per the cost-mode policy above: the 13-finding sentence-opener
@@ -555,12 +558,8 @@ module, operation and summary against the current `export`s and method set.
 (economy) scan lanes are the DEFAULT — full-strength lanes only on explicit request — and the fix
 phase always completes at full strength in the main thread, closing every finding as fixed or
 dismissed-with-reason in the same run; every mode ends with zero open findings (policy 2026-07-23,
-after the 2026-07-22 economy run deferred its judgment tail). The same cost policy governs
-`/check-consistency` (the 12-hat rendered-docs panel): economy is the default — ten hats on the
-cheap scan model, the two mathematician hats (`spectral-methods-mathematician`,
-`differential-geometer`) anchored at full strength, because a cheap hat's false positive is caught
-by the main-thread verification but a subtle-math false negative has no downstream verifier;
-verification/consolidation/fix are never economized; **a fix pass is driven from the banked per-hat reports, never from the consolidated summary** — consolidation is lossy by design (the 2026-07-24 run buried 19 of one hat's 20 findings in a parenthetical and downgraded another hat's major contradiction to "soft"), so the summary is the user's reading artifact and the `NN-*.md` files are the work list, closed by finding number and a hat's own severity respected; `strength: "full"` only on explicit request.**
+after the 2026-07-22 economy run deferred its judgment tail).** The review itself now runs through
+the tool (`gbg run documentation-review`), which sets its own readers and models.
 
 **Variant pairs — PF's part.** The getter is the home of a getter/`set_…!` pair (it owns the meaning),
 and a thin wrapper reads like `gradient` → *"Allocating form of [`gradient!`](@ref): allocate the result
@@ -639,93 +638,17 @@ outranks DRY). A thrown error, like a rendered docstring, must not cite a `§`-n
 
 **Consent gate — PF's gated lanes (user-directed 2026-08-04).** Every lane beyond `Pkg.test()` is
 expensive in wall-clock and in machine occupancy: the **exhaustive survey** (`test/exhaustive/`, 75–115 min), the **benchmarks** and the **canary lane**
-(`benchmark/`), the **GPU suites** (`test/gpu/*`), **`/check-docs`**, **`/check-consistency`**, **`/bug-hunt`**, **`/audit-changes`**, the two
-fix verifiers (`check-consistency/verify.js`, `verify-fixes.js`), and any
-multi-agent fan-out. The gate also protects measurement, since a long unasked run occupies the box that
+(`benchmark/`), the **GPU suites** (`test/gpu/*`), the tool's review runs (`gbg run
+documentation-review`) and its leak scan (`gbg leak`), and any multi-agent fan-out. The gate also protects measurement, since a long unasked run occupies the box that
 `docs/PERFORMANCE.md` §1 requires to be idle.
 
-**Four instruments, and each audits a DIFFERENT OBJECT (the last two ported from IT 2026-08-27).**
-`/audit-changes` audits **changes to code** — it reads the **diff**, not the tree, and asks whether
-each edit was *proportionate to the defect it claims to fix* and whether it *silently altered
-behaviour for input that previously worked*. An edit can be a correct fix and still be wrong to make,
-and neither the code nor the fix looks wrong in isolation, which is why a hunt cannot find it. It
-exists because a witness gate structurally cannot: a witness exists only for a defect the hunt
-**found**, so a regression introduced by a **fix** is invisible to it — IT measured its own witnesses
-reporting `NEWLY BROKEN = 0` with two live regressions. Its `executing` lane is the anchor, because
-every other lane reads, and an edit justified by a measurement written in a comment would otherwise be
-certified by an agent that read the comment; PF's claims are executable (`Pkg.test()`,
-`test/allocations.jl`, `test/pass_audit.jl`, `test/method_parity.jl`), so that lane runs them.
-`gate.py` then requires every serious finding to be **answered** — fixed, refused *with a reason*, or
-escalated, never absent. `/check-docs` is the
-deterministic battery over the source and `/check-consistency` the judgment panel over the rendered
-site — both audit **prose**, and neither asks whether the code is correct: a flawless docstring on a
-function returning the wrong number passes both. **`/bug-hunt`** (`.claude/commands/bug-hunt.md`) is
-the code instrument, and it has one rule — *a static claim about code is a hypothesis, and the only
-admissible evidence is a program that FAILS*. Every candidate reduces to a **witness**: a
-self-contained `@testset` asserting the correct behaviour, therefore observed to fail on the current
-tree. A passing witness means **not a bug**, discarded however good the argument; no witness writable
-means a latent hazard, reported and not fixed; a failing witness **is** the finding, and is promoted
-into `test/regressions/` **unchanged** when the fix lands, so the test proving the fix is the one that
-proved the bug. A failing witness is necessary and not sufficient — a witness can fail because the
-*witness* is wrong — so adjudication independently re-derives the correct behaviour from an oracle.
-This is the third member of a family the package already had: decision 52's mutation audit is the
-rule's dual (inject a defect, require the suite to catch it), and decision 55's oracle registry
-already refuses coverage that rests only on the package's own other paths.
-
-**Self-reported closure is not closure.** A `/check-consistency` fix pass ends by running both
-verifiers, which are given deliberately opposite information: `verify-fixes.js` audits an **act** and
-**sees the diff** (`HONORED` / `LINE-ONLY` / `NEW-DEFECT` / `SCOPE-CREEP` / `UNDONE` / `LAUNDERED`,
-with `HONORED` the only pass, earned by an enumerated `file:line` class list read **from the finding,
-never from the diff**, and a thin answer demoted **mechanically by the script** rather than by the
-grader), while `verify.js` audits a **state** and is **blind to it**. IT measured
-the unverified configuration and found **eleven of thirteen** deficiencies in one round were
-`LINE-ONLY` — the flagged site fixed, the class still alive on surfaces the finding itself had named,
-with the "fix the class" rule written down, known and quoted throughout. Stating the rule does not
-work; measuring it does. Both default to the unfavourable verdict so a truncated lane fails safe, a
-zero count is a **dead lane** rather than a clean hat, and the stopping rule is a **plateau** (three
-rounds flat), never one good round.
-
-**The closure loop is BUILD-ENFORCED, and it runs over the FINDINGS, never over the battery
-(2026-08-27, user-directed; harmonized with IT).** Two separate activities, and conflating them was
-the defect: *closing a banked round* terminates, because the denominator is fixed — fix, verify, fix
-over the same banked set until every finding is HONORED or dismissed with a written reason; *re-running
-the lanes* is a new search, worth doing and not a loop. IT's `/check-docs` had "re-run the lanes after
-the fix pass" as its stopping rule with the measurement of its own non-convergence two paragraphs
-below it (18 findings, one silently skipped, eight more surfaced on the re-run). The enforcement is
-`lint_review_closure()` in `docs/make.jl`: a banked round with an ungraded or non-HONORED finding
-**fails the build**, so an unclosed review cannot ship. Its escape is an explicit committed `CLOSED.md`
-in the round's directory — the same shape as the prose ratchet's re-baseline, and the reason both stay
-on: an enforcement mechanism with no escape hatch is disabled the first time it is inconvenient, while
-one whose escape leaves a committed artifact survives (IT's parallel, 2026-08-27).
-
-**The seeded calibration and the closure gate CONTRADICT each other, and the contradiction is
-unresolved (recorded 2026-09-01).** `seed_defects.py` plants labelled defects in the *manuscript* so
-`recall.py` can measure what the panel misses. Those seeded findings must **never** be fixed in the
-corpus — a planted defect reaching a fix pass corrupts the docs to measure the instrument. But
-`lint_review_closure()` counts every banked finding and demands each be HONORED or adjudicated, and a
-seeded finding can be neither: there is nothing to fix, and the one mechanism for "deliberately not
-fixed" is `.claude/doc-review-adjudicated.md`, which `panel.js` **injects into every future hat's
-preamble** — so recording a seed there tells the next round's hats the answer and destroys that seed's
-measurement value, the seeds being deterministic and reused. The 2026-09-01 round hit this with 11
-seeded findings of 67; it was closed with the round's `CLOSED.md` escape and an explicit subtraction.
-**Do not "solve" it by putting seeds in the adjudicated file.** The two candidate fixes, neither built:
-a separate seed list the lint reads and `panel.js` does not, tied to a `ground_truth.json` present in
-the round so the escape cannot be claimed where nothing was seeded; or a `SEEDED` verdict the graders
-may write and the lint counts. Note the second hands the party being graded a verdict that closes a
-finding, which is the antipattern this apparatus exists to remove — so the first is the better shape.
-
-**Checks tested in both directions — PF's measured cases.** Four defects in these instruments in one
-session, and every one was invisible to reading. Three erred toward closing a round
-early: the gate counted the *string* `HONORED`, which appears inside every `[DEMOTED: HONORED
-claimed …]` note (two verdicts read as six); staleness was read from a `RANGE:` line the verifier lanes
-were asked to stamp, which **all eight ignored**, so the check was vacuous while looking present; and
-IT's identical demotion rule was **never applied at all** — its preamble said "LINE-ONLY by rule, not a
-judgement call" while nothing in the script applied it, leaving the rule to the party being graded. The
-fourth erred the other way and is the one nobody thinks to guard: the demotion misfired on **notation**,
-demanding `file:line` and a fixed vocabulary, so it demoted graders who wrote "`ARCHITECTURE.md` (lines
-195, 273)" or "no remaining instance" — ten of thirteen demotions in one round. Hence:
-staleness is read from the **filesystem** (an mtime needs no compliance), and demotion is applied **in
-post-processing** with its mechanical share reported separately.
+**The pre-tool review instruments are gone (2026-10-06, owner-approved).** PF's in-tree
+`/check-docs`, `/check-consistency`, `/bug-hunt` and `/audit-changes`, their verifiers, their banked
+review rounds and the build's `lint_review_closure()` were deleted when PF moved to GBGCodingTools
+rc.63; git history keeps them (last present at `b761d966`). Documentation reviews run through the
+tool (`gbg run documentation-review`), and its leak scan is `gbg leak`. What they taught that still
+binds lives in the rulebook: a static claim about code is a hypothesis until a program fails, a
+self-reported closure is not closure, and a check is tested in both directions.
 
 Before adding or changing tests, read `docs/TESTING.md` — the testing philosophy and
 the per-operation coverage contract. Its §4 carries the explicit **coverage-axes list** — the
@@ -803,7 +726,7 @@ Minimum bar for any change:
   joins them: the survey discovers, a fix lands, the gate pins it forever. (The GPU suite and the
   benchmarks are opt-in for an unrelated reason — hardware, and a quiet machine.)
 - The **exhaustive suite** is opt-in and separate too: `julia -t4 --project=test test/exhaustive/runtests.jl`
-  holds the full Cartesian product and is run occasionally, like `/check-docs`, not on every change. It
+  holds the full Cartesian product and is run occasionally, like a documentation review, not on every change. It
   is a **report**, not a gate — it runs blind to the package's decisions, prints everything that does
   not work, cites a decision beside a known gap rather than suppressing it, and names the combinations
   it could not construct so its silence is never mistaken for a pass. Exit `0` clean, `1` a quality
@@ -2276,8 +2199,9 @@ that would have caught this class, so it earns its place ahead of work that repa
   **(5)** *(CLOSED 2026-09-02 (user): `Grid3D`'s two-argument constructor keeps `origin` as a
   KEYWORD — leave it as is, do nothing.* The finding is correct: the four-argument form takes it
   positionally, and the policy makes a result-affecting argument positional, `origin` shifting every
-  node. It is now a **recorded exception to that policy** rather than an open item, so the rule above
-  lists it and a re-raise closes against it. Facts in front of the decision: `Grid3D` is the only
+  node. It was a **recorded exception to that policy** until GBGCodingTools rc.63 (2026-10-06)
+  reworded the rule so that every argument with a default is a keyword; the keyword now complies and
+  its switch is gone. A re-raise closes against this note. Facts in front of the decision: `Grid3D` is the only
   PUBLIC entry point taking an origin at all, while every INTERNAL taker — `_locate`,
   `_wrap_coordinate`, the tile-key kernel — already has it positional, so the keyword is the lone
   outlier and the disagreement is confined to one type's own constructor pair; blast radius 24 in-repo

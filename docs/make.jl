@@ -39,155 +39,9 @@ function build_examples()
                     codefence = "```julia" => "```")
 end
 
-# ---------------------------------------------------------------------------------------------
-# REVIEW CLOSURE — the verifier is a BUILD REQUIREMENT, not an instruction.
-#
-# WHY THIS IS A LINT AND NOT A SENTENCE IN A COMMAND FILE. Both /check-docs and /check-consistency
-# documented "run verify-fixes.js and loop until every finding is HONORED", and nothing enforced it.
-# On 2026-08-27 a full /check-docs pass was reported as "22 findings, all closed" with the verifier
-# never run; when it was finally run against the same work it returned 16.1% honored — 5 HONORED, 21
-# LINE-ONLY, 5 UNDONE over 31 findings — including two the fixer had listed in his own written plan
-# and forgotten. The rule was in the tree, and its presence read as compliance. That is the defect
-# this whole instrument set exists to catch, committed by its author, so the rule moves out of prose
-# and into the one place that cannot be skipped: the build's exit code.
-#
-# WHAT IT CHECKS. A banked findings pile (`NN-<lane>.md` under a `.claude/doc-review*` directory) is
-# an OPEN ROUND until every finding in it is closed, and a finding is closed only by an independent
-# record: a `HONORED` verdict in `<pile>/closure/NN-<lane>.md`, or an entry in
-# `.claude/doc-review-adjudicated.md` naming it. A dismissal written only in a commit message closes
-# nothing — that was the exact failure the first run measured, and the verifier graded all three of
-# that day's dismissals UNDONE for precisely this reason.
-#
-# NO PILE MEANS NO OPEN ROUND, so a tree that has never run an instrument builds normally. The escape
-# is to CLOSE the round, not to argue with it.
-# The doc rules live in GBGCodingTools now. What remains here is the review-closure gate and the
-# post-build markup check, neither of which has been shown equivalent to a rule yet: the first is
-# coupled to the instruments under `.claude/`, which a later phase replaces, and every perturbation
-# that would test the second was caught by a source rule before the site was built.
-
-function lint_review_closure()
-    claude = joinpath(@__DIR__, "..", ".claude")
-    isdir(claude) || return
-    adjudicated_path = joinpath(claude, "doc-review-adjudicated.md")
-    adjudicated = isfile(adjudicated_path) ? read(adjudicated_path, String) : ""
-    open_rounds = String[]
-    ranges = Int[]
-    for entry in readdir(claude; join = true)
-        isdir(entry) || continue
-        base = basename(entry)
-        (startswith(base, "doc-review") && !endswith(base, "-prev")) || continue
-        # `00-SUMMARY.md` is the CONSOLIDATION's reading aid, not a lane: it is written by the main
-        # thread after the hats return, holds no findings of its own, and so parsed as a lane that
-        # found nothing — reported as a dead lane on every build. Excluding it by its `00-` prefix
-        # keeps the dead-lane check pointed at actual lanes, which are numbered from 01.
-        lanes = filter(f -> occursin(r"^(?!00-)\d\d-.*\.md$", basename(f)), readdir(entry; join = true))
-        isempty(lanes) && continue
-        # A round closed by a process that predates the verifier is exempt, but only by an explicit,
-        # committed record — the same shape as the prose ratchet's re-baseline. `CLOSED.md` must say
-        # how the round was closed and where the account lives; writing one is a deliberate act that
-        # shows in the diff, which is the property that keeps it from becoming a silent escape.
-        isfile(joinpath(entry, "CLOSED.md")) && continue
-        for lane in lanes
-            body = read(lane, String)
-            # BOTH heading forms the hats actually emit. `panel.js` asks each hat for "one
-            # clearly-formatted section per finding" and prescribes NO heading syntax, so the ten
-            # economy hats' `## Finding 1 — title` and the two anchor hats' `## 1. title` are equally
-            # compliant. This regex matched only the first, so hats 03 and 04 — the two mathematician
-            # ANCHORS, the lanes carrying the round's hardest findings — parsed to zero and were
-            # reported as dead lanes. It failed safe (red, not green) and was still wrong: three of
-            # eleven OPEN lines were this and the summary artifact, and a gate whose output is mostly
-            # noise is one nobody reads.
-            findings = length(collect(eachmatch(r"^#{2,4} +(?:Finding +\d+|\d+[.)])"m, body)))
-            # A lane that parses to zero is a DEAD LANE unless it says otherwise: an unreadable or
-            # truncated banked file is indistinguishable from one that found nothing, and reading it
-            # as clean is the same inversion `coverage.py` exists to catch. A genuinely clean lane
-            # asserts it in words, which is a claim, where an empty parse is an absence.
-            if findings == 0
-                occursin(r"\bno findings\b"i, body) && continue
-                push!(open_rounds, "$(base)/$(basename(lane)): parses to ZERO findings and does not " *
-                                   "state that it found none — a dead lane, not a clean one")
-                continue
-            end
-            verdict_file = joinpath(entry, "closure", basename(lane))
-            verdicts = isfile(verdict_file) ? read(verdict_file, String) : ""
-            # A verdict file persists between rounds, so a lane that did not re-run leaves its previous
-            # verdicts behind and they read as current — which is how a round-1 result was almost
-            # reported as a round-2 one. Each file stamps the range it graded, and every lane in a
-            # round must agree: lanes at different ranges are not one round.
-            # Staleness is read from the FILESYSTEM, never from a field the grader writes. The first
-            # design asked each verifier lane to stamp `RANGE:` as its first line; the instruction was
-            # in the prompt and all eight lanes ignored it, so the check was vacuous while looking
-            # present — asking the graded party to certify its own currency, which is the antipattern
-            # this whole gate exists to remove. An mtime is recorded by the OS and needs no compliance.
-            if mtime(verdict_file) < mtime(lane)
-                push!(open_rounds, "$(base)/$(basename(lane)): verdicts predate the findings they " *
-                                   "grade — the lane did not re-run")
-                continue
-            end
-            push!(ranges, floor(Int, mtime(verdict_file) / 21600))  # 6-hour buckets: one round, one sitting
-            # Count the VERDICT, never the word. A LINE-ONLY demotion note reads "[DEMOTED: HONORED
-            # claimed with no enumerated class surface]", so a bare string count inflated 2 honored
-            # verdicts to 6 — in the direction that closes a round early, which is the direction that
-            # never gets questioned.
-            # The verdict in this file is the GRADER'S OWN, before the verifier's mechanical demotion.
-            # The demotion runs in the workflow script's post-processing, and a workflow script cannot
-            # write files, so it never reaches the markdown: round 4 banked 30 HONORED while the
-            # script's authoritative tally was 23. The gate was reading the flattering artifact and
-            # went green on a round with eight findings still open. So apply the same predicate here,
-            # over the evidence the file does carry. This is deliberately a TWIN of the predicate in
-            # `check-consistency/verify-fixes.js` — edit the two together.
-            honored = 0
-            for chunk in split(verdicts, r"^#{2,4} +Finding "m)[2:end]
-                # Both bold/colon spellings a grader emits: `**Verdict:** X` and `**Verdict**: X`.
-                # 14 of this round's 66 verdicts — the whole of hat 03 — used the second, so the lane
-                # read as 0 HONORED of 14 while every one of its findings was graded. Still anchored
-                # to end-of-line so a demotion note ("[DEMOTED: HONORED claimed …]") cannot match.
-                occursin(r"^\*\*Verdict:?\*\*:? *HONORED *$"m, chunk) || continue
-                cs = (m = match(r"class_surfaces:?\*{0,2}(.*)"s, chunk)) === nothing ? "" : m.captures[1]
-                # EMPTINESS, NOT CONTENT (2026-09-01) — synced with the twin in
-                # `check-consistency/verify-fixes.js`, which this comment block already required be
-                # edited together and which was patched first, leaving this half stale for a day.
-                # The old predicate matched a fixed vocabulary (`site|surface|instance` and a short
-                # phrase list) and so demoted every sound answer that used a synonym. Measured on the
-                # 2026-08-27 round banked under `.claude/doc-review-checkdocs`: 30 HONORED verdicts,
-                # of which the old predicate passed 23 — SEVEN spurious, which is why that round read
-                # as having eight findings open when only ONE was. A grader who has swept a class to
-                # zero has no `file:line` list to give, so a fully-closed finding demoted by
-                # construction and the round could never go green.
-                # Teeth kept: an ABSENT or boilerplate class answer still fails, which is the case the
-                # rule was written for.
-                substantive = length(strip(cs)) >= 60 && occursin(r"\s", cs) &&
-                              !occursin(r"^(n/?a|none|see above|as noted)\b"i, strip(cs))
-                substantive && (honored += 1)
-            end
-            # A finding whose title the adjudicated list names is closed by that record instead.
-            titles = [strip(m.captures[1]) for m in
-                      eachmatch(r"^#{2,4} +(?:Finding +\d+ +[—-]|\d+[.)]) +(.*)$"m, body)]
-            dismissed = count(t -> !isempty(t) && occursin(first(t, 40), adjudicated), titles)
-            if honored + dismissed < findings
-                push!(open_rounds, "$(base)/$(basename(lane)): $(findings) finding(s), " *
-                                   "$(honored) HONORED, $(dismissed) adjudicated — $(findings - honored - dismissed) OPEN")
-            end
-        end
-    end
-    if !isempty(ranges) && (maximum(ranges) - minimum(ranges)) > 1
-        error("doc lint failed: the banked round is incoherent — its verdict files were written more " *
-              "than six hours apart, so a lane that did not re-run left its previous verdicts in " *
-              "place and they read as current. Re-run the verifier over every lane before reading " *
-              "the tally.")
-    end
-    if !isempty(open_rounds)
-        for r in open_rounds; println("  OPEN: ", r); end
-        error("doc lint failed: an instrument round is banked but not closed. Run " *
-              "`.claude/commands/check-consistency/verify-fixes.js` over the pile (passing that " *
-              "instrument's lane names), fix whatever comes back LINE-ONLY / UNDONE / NEW-DEFECT, and " *
-              "verify again — the loop runs over the SAME findings, never by re-running the lanes. A " *
-              "finding you are deliberately not fixing is closed by recording it in " *
-              ".claude/doc-review-adjudicated.md, where a verifier can read it; a reason in a commit " *
-              "message closes nothing.")
-    end
-    @info "doc lint: review closure OK (no open rounds)"
-end
+# The doc rules live in GBGCodingTools. What remains here is the post-build markup check below,
+# which has not yet been shown equivalent to a rule. `lint_review_closure`, which held the old
+# in-tree review instruments' banked rounds to closure, went with those instruments on 2026-10-06.
 
 # `lint_prose_shape` lived here and is RETIRED (2026-09-18): `RULE.DOC.SHAPE` in GBGCodingTools does
 # the same job over a superset of the files — it also reads `ext/`, which this lint never did — and
@@ -203,7 +57,6 @@ end
 remove_jupyter_files()
 copy_rationale_pages()
 build_examples()
-lint_review_closure()
 
 using Documenter
 using GBGCodingTools

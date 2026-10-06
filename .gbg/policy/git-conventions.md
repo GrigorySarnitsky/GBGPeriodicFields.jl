@@ -1,7 +1,7 @@
-<!-- gbg:managed begin v2.0.0-rc.58 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.63 — rewritten by `gbg sync`; do not edit -->
 # Git conventions — `RULE.GIT.*`
 
-What a commit carries, where it goes, and what is never committed. 9 rules, written from the rule values themselves,
+What a commit carries, where it goes, and what is never committed. 10 rules, written from the rule values themselves,
 so a rule reworded here was reworded in the program that checks it.
 
 ### RULE.GIT.BRANCH
@@ -60,6 +60,13 @@ A cross-package request is a tracked file .gbg/requests/to-<PKG>-<date>-<topic>.
 The requests directory holds what is still awaiting the other package and nothing else.
 
 Covered by a program.
+
+### RULE.GIT.TRACKED
+A package's git tracks only the package and the tool's files: `src/`, `ext/`, `test/`, of `docs/` what its build and site take part in (the pages under `docs/src/`, the build's script, `docs/Project.toml`, `docs/prose_shape.csv`, and each document declared in `copies` or in a rationale file set the config writes out), `examples/`, `benchmark/`, `.github/`, `Project.toml`, `README.md`, a `LICENSE`, `CHANGELOG.md`, `.gitignore` and `CLAUDE.md`; `.gbg/config.jl`, `.gbg/policy/`, `.gbg/requests/`, `.gbg/questions.json`, `.gbg/settled.jl`, `.gbg/runs/` and `.gbg/leak-accepted.txt`; `.claude/settings.json`, `.claude/hooks/`, `.claude/skills/` and `.claude/WORK_QUEUE.md`. A draft or a note between sessions lives in `inspiration/`, which git ignores; any other file is declared with its reason.
+
+Git carried notes between machines because it was the easiest way, and a public release would have published them: one package held a design proposal, notes to other sessions and old review rounds. `inspiration/` reaches both machines through Dropbox, so no note needs git, and a file kept on purpose says why.
+
+Covered by a program in the end-of-turn hook, which reads the branch and the commits not yet pushed — weaker than a build check, since a hook can be skipped and a failing test cannot.
 
 ### RULE.GIT.TRAILER
 Every commit ends with the versionless 'Co-Authored-By: Anthropic Claude <noreply@anthropic.com>' trailer, and no other Co-Authored-By or Claude-Session line; never [skip ci].
