@@ -266,8 +266,8 @@ function canonical_pool(config; device = identity)
   push("weights: 33 mixed", ntuple(i -> real_weights[mod1(i, length(real_weights))], 33))
   # Every transfer scheme.
   push("scheme: CatmullRom", CatmullRom)
-  push("scheme: Lalescu21",  LalescuSpline(2, 1))
-  push("scheme: Lagrange1",  LagrangeSpline(1))
+  push("scheme: Lalescu21",  LalescuSpline(6; smoothness = 1))
+  push("scheme: Lagrange1",  LagrangeSpline(4))
   push("scheme: DirectDFT",  DirectDFT())
   push("scheme: NUFFT",      NUFFT(spectral[1]))
   # The audit result is RETURNED, not pushed into the pool. Pushing it made a `Vector{Symbol}` a live

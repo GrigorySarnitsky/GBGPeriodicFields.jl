@@ -13,7 +13,7 @@ function add_transfer!(group, AT, ::Type{T}, grid, tag; registry = nothing) wher
   points, q, _ = point_setup(AT, T, grid)
   registry === nothing || (registry[tag] = (points, copy(point_positions(points))))
   out = interpolate(field, points, CatmullRom)   # allocate the matching output once, reuse
-  for (label, scheme) in (("trilinear", LalescuSpline(0, 0)), ("CatmullRom", CatmullRom), ("Lalescu(3,3)", LalescuSpline(3, 3)))
+  for (label, scheme) in (("trilinear", LalescuSpline(2; smoothness = 0)), ("CatmullRom", CatmullRom), ("Lalescu(3,3)", LalescuSpline(8; smoothness = 3)))
     group["interpolate! $label | $tag"] = @benchmarkable (interpolate!($out, $field, $points, $scheme); bench_sync(point_values($out)))
     group["anterpolate! $label | $tag"] = @benchmarkable (anterpolate!($field, $points, $q, $scheme, $(T(1)), $(T(0))); bench_sync(field_data($field)))
   end

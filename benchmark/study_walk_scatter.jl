@@ -18,7 +18,7 @@ Random.seed!(20260901)
 M = N^3 ÷ 27
 points = PointSet(T(2π) .* rand(T, M, 3))
 q = ScalarPointValues(rand(T, M))
-scheme = LalescuSpline(3,3)
+scheme = LalescuSpline(8; smoothness = 3)
 anterpolate!(field, points, q, scheme, T(1), T(0))          # warm
 best = Inf
 for _ in 1:3

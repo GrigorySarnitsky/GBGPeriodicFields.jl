@@ -18,7 +18,7 @@ using GBGPeriodicFields, Pkg
 const BACKEND = haskey(Pkg.project().dependencies, "CUDA") ? "cuda" : "rocm"
 include(joinpath(@__DIR__, "kernel_resources_$(BACKEND).jl"))   # defines AT and dump_resources
 const N = 16
-for (label, scheme) in (("CatmullRom", CatmullRom), ("Lalescu(3,3)", LalescuSpline(3, 3)))
+for (label, scheme) in (("CatmullRom", CatmullRom), ("Lalescu(3,3)", LalescuSpline(8; smoothness = 3)))
   grid = Grid3D((N, N, N), (2π, 2π, 2π))
   f = ScalarFieldPhysical(AT(rand(Float64, N, N, N)), grid)
   pts = PointSet(AT(2π .* rand(Float64, 300, 3)))

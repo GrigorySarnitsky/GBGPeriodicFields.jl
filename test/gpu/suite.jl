@@ -572,7 +572,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # Non-default schemes: the smooth LalescuSpline(2,1) has a rectangular (6×4) coefficient
       # SMatrix and LagrangeSpline(2) a wider 6-node stencil — both exercise device code paths the
       # square 4×4 CatmullRom does not. Check gather + scatter parity against the CPU.
-      for scheme in (LalescuSpline(2, 1), LagrangeSpline(2))
+      for scheme in (LalescuSpline(6; smoothness = 1), LagrangeSpline(6))
         scalar_host = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + T(0.3), grid)
         quantities_host = ScalarPointValues(rand(T, number_of_points))
         @test matches(interpolate(on_device(scalar_host), device_points, scheme),

@@ -19,14 +19,14 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
   @testset "spline weights" begin
     # Partition of unity (⇒ conservation) for a range of (n, m), both hierarchies.
     for (n, m) in ((0, 0), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 4), (3, 1), (3, 3))
-      scheme = LalescuSpline(n, m)
+      scheme = LalescuSpline(2n + 2; smoothness = m)
       for t in 0.0:0.1:1.0
         @test sum(spline_weights(scheme, t)) ≈ 1.0 atol = 1e-12
       end
     end
     for n in (0, 1, 2, 3, 4)
       for t in 0.0:0.1:1.0
-        @test sum(spline_weights(LagrangeSpline(n), t)) ≈ 1.0 atol = 1e-12
+        @test sum(spline_weights(LagrangeSpline(2n + 2), t)) ≈ 1.0 atol = 1e-12
       end
     end
 
@@ -39,7 +39,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
     # Smooth m=0 is linear interpolation over the two central nodes (offsets 0, 1; index n+1, n+2),
     # independent of n — TurTLE's spline_n? floor, NOT a Lagrange interpolant of the whole stencil.
     for n in (1, 2, 3)
-      scheme = LalescuSpline(n, 0)
+      scheme = LalescuSpline(2n + 2; smoothness = 0)
       for t in 0.0:0.1:1.0
         w = spline_weights(scheme, t)
         @test w[n + 1] ≈ 1 - t atol = 1e-12
@@ -50,7 +50,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
 
     # LagrangeSpline(n) reproduces the Lagrange cardinal basis over the 2n+2 nodes (offsets -n..n+1).
     for n in (1, 2, 3)
-      scheme = LagrangeSpline(n)
+      scheme = LagrangeSpline(2n + 2)
       offsets = collect(-n:n+1)
       lagrange(t) = [prod((t - offsets[j]) / (offsets[i] - offsets[j]) for j in eachindex(offsets) if j != i)
                      for i in eachindex(offsets)]
@@ -60,11 +60,11 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
     end
 
     # Validity: smoothness capped at m ≤ 2n (TurTLE: "no C³ interpolant with a 4-point kernel").
-    @test LalescuSpline(1, 2) isa LalescuSpline    # m = 2 = 2n is now valid (TurTLE beta_n1_m2)
-    @test_throws ArgumentError LalescuSpline(1, 3)  # m = 3 > 2n = 2
-    @test_throws ArgumentError LalescuSpline(0, 1)  # m = 1 > 2n = 0
-    @test_throws ArgumentError LalescuSpline(-1)
-    @test_throws ArgumentError LagrangeSpline(-1)
+    @test LalescuSpline(4; smoothness = 2) isa LalescuSpline    # m = 2 = 2n is now valid (TurTLE beta_n1_m2)
+    @test_throws ArgumentError LalescuSpline(4; smoothness = 3)  # m = 3 > 2n = 2
+    @test_throws ArgumentError LalescuSpline(2; smoothness = 1)  # m = 1 > 2n = 0
+    @test_throws ArgumentError LalescuSpline(0)
+    @test_throws ArgumentError LagrangeSpline(0)
   end
 
   @testset "TurTLE reference coefficients (pin)" begin
@@ -79,7 +79,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       (2, 1) => x -> [x*(x*(x/12 - 1/6) + 1/12), x*(x*(-7x/12 + 5/4) - 2/3), x^2*(4x/3 - 7/3) + 1,
                       x*(x*(-4x/3 + 5/3) + 2/3), x*(x*(7x/12 - 1/2) - 1/12), x^2*(-x/12 + 1/12)])
     for ((n, m), beta) in turtle
-      scheme = LalescuSpline(n, m)
+      scheme = LalescuSpline(2n + 2; smoothness = m)
       for t in 0.0:0.05:1.0
         @test spline_weights(scheme, t) ≈ beta(t) atol = 1e-12
       end
@@ -119,7 +119,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       cubic(x, y, z) = T(0.2) + x - T(0.1) * y^3 + T(0.4) * x * y * z
       inner = T(0.4 * 2π) .+ T(0.2 * 2π) .* rand(T, M, 3)
       xs_inner = PointSet(inner)
-      vc = interpolate(ScalarFieldPhysical(cubic, grid), xs_inner, LagrangeSpline(3))
+      vc = interpolate(ScalarFieldPhysical(cubic, grid), xs_inner, LagrangeSpline(8))
       @test point_values(vc) ≈ [cubic(inner[p, :]...) for p in 1:M] rtol = (T == Float64 ? 1e-8 : 1e-2)
     end
 
@@ -228,7 +228,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
 
     @testset "stencil wider than the grid (degenerate periodic wrap)" begin
       grid = Grid3D((4, 4, 4), (2π, 2π, 2π))   # n=3 ⇒ 8-node stencil aliases onto 4 nodes
-      scheme = LagrangeSpline(3)               # all 8 nodes carry weight (unlike the linear m=0)
+      scheme = LagrangeSpline(8)               # all 8 nodes carry weight (unlike the linear m=0)
       xs = PointSet(2π .* rand(30, 3))
       q = ScalarPointValues(rand(30))
       @test adjoint(ScalarFieldPhysical(rand(4, 4, 4), grid), xs, q, scheme)
@@ -265,7 +265,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       cubic(x, y, z) = 1.0 + x - 0.5y^2 + 0.3x * z - 0.05y^3
       whole = PointSet(2π .* rand(M, 3))
       q = ScalarPointValues(rand(M))
-      for scheme in (LalescuSpline(2, 1), LalescuSpline(3, 2))
+      for scheme in (LalescuSpline(6; smoothness = 1), LalescuSpline(8; smoothness = 2))
         vq = interpolate(ScalarFieldPhysical(cubic, grid), xs, scheme)
         @test point_values(vq) ≈ [cubic(coords[p, :]...) for p in 1:M] rtol = 1e-8
         @test adjoint(ScalarFieldPhysical(rand(20, 20, 20), grid), whole, q, scheme)

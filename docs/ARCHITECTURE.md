@@ -934,10 +934,11 @@ the Catmull–Rom spline (Catmull & Rom 1974). Concretely `f(x)` is a tensor-pro
 weighted sum ``\sum w_{i_1} w_{i_2} w_{i_3}  f(c+i)`` over a compact ``(2n{+}2)^3`` stencil
 (``n`` the per-axis finite-difference half-width) — ``c`` the grid cell containing ``x`` and ``i`` the
 integer node offset within the stencil — with closed-form polynomial weights ``w``. Lalescu's **two hierarchies** share this stencil: the **smooth**
-hierarchy (`LalescuSpline(n, m)`) is a two-point Hermite of degree ``2m{+}1`` that matches the
-value and the first ``m`` derivatives at the two bracketing nodes (``C^m``, ``0 \le m \le 2n``; ``m = 0``
-is linear, ``n = 1, m = 1`` is Catmull–Rom), and the **Lagrange** hierarchy (`LagrangeSpline(n)`)
-is the ``C^0`` degree-``2n{+}1`` interpolant of all ``2n{+}2`` nodes. Field derivatives needed for the velocity gradient /
+hierarchy (`LalescuSpline(stencil_width; smoothness)`, the width ``2n{+}2``) is a two-point Hermite of
+degree ``2m{+}1`` that matches the value and the first ``m`` derivatives at the two bracketing nodes
+(``C^m``, ``0 \le m \le 2n``, defaulting to ``m = n``; ``m = 0`` is linear, width four with ``m = 1``
+is Catmull–Rom), and the **Lagrange** hierarchy (`LagrangeSpline(stencil_width)`) is the ``C^0``
+degree-``2n{+}1`` interpolant of all ``2n{+}2`` nodes. Field derivatives needed for the velocity gradient /
 deformation tensor are obtained by differentiating the same local polynomial, not from a
 separate field. Three properties make it the right fit:
 

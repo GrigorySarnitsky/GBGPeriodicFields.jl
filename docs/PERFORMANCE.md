@@ -200,9 +200,9 @@ weight polynomials hide under memory latency. So pick the smoothness for accurac
 
 | gather scheme | stencil | GPU 256³ (621k pts) | throughput |
 |:---|:---|:---|:---|
-| `LalescuSpline(0,0)` (trilinear)   | 2³ = 8   | 0.51 ms                | 1230 Mpts/s |
-| `LalescuSpline(1,1)` (Catmull–Rom) | 4³ = 64  | 3.55 ms                | 175 Mpts/s  |
-| `LalescuSpline(3,m)` (Lalescu 8-pt)| 8³ = 512 | 28.0 ms (flat in `m`)  | 22 Mpts/s   |
+| `LalescuSpline(2; smoothness = 0)` (trilinear) | 2³ = 8   | 0.51 ms                | 1230 Mpts/s |
+| `LalescuSpline(4)` (Catmull–Rom) | 4³ = 64  | 3.55 ms                | 175 Mpts/s  |
+| `LalescuSpline(8; smoothness = m)` (Lalescu 8-pt) | 8³ = 512 | 28.0 ms (flat in `m`)  | 22 Mpts/s   |
 
 **(b) Loop order — contiguous axis innermost (KEPT).** Iterating the contiguous `x` axis innermost
 (stride-1 stencil access) vs `z`-innermost (stride ``N_x N_y``, the grid's ``x``,``y`` dimensions):
@@ -1570,8 +1570,8 @@ stencil of 2, 4, 6 and 8 nodes per axis, i.e. 8 to 512 nodes per point — the C
 |---|---|---|
 | 2 (trilinear) | ``1.33\times`` | ``1.63\times`` |
 | 4 (`CatmullRom`) | ``1.35\times`` | ``1.70\times`` |
-| 6 (`LalescuSpline(2,1)`) | ``1.85\times`` | ``1.76\times`` |
-| 8 (`LalescuSpline(3,3)`, `LagrangeSpline(3)`) | ``1.14\times`` | **``0.86\times``** |
+| 6 (`LalescuSpline(6; smoothness = 1)`) | ``1.85\times`` | ``1.76\times`` |
+| 8 (`LalescuSpline(8; smoothness = 3)`, `LagrangeSpline(8)`) | ``1.14\times`` | **``0.86\times``** |
 
 At eight nodes per axis the walk can be SLOWER, and the first two versions of this finding both
 described it wrongly. **A third correction landed 2026-09-01: the table below is the GATHER, and the
@@ -1584,8 +1584,8 @@ What survives adversarial re-measurement, interleaved and across seeds:
 - **The sign flips with thread count.** At one thread the walk is ``1.17``–``1.22\times`` FASTER on
   every width-8 scheme; the loss appears only from about four threads (``0.86``–``0.96\times`` at
   eight and sixteen). The table above is a `-t8` table, which was not stated.
-- **The magnitude is 4–14%, not 14%.** Only `LalescuSpline(3,2)` reaches 14%; `LalescuSpline(3,3)`
-  and `LagrangeSpline(3)` reach 4–7%. The recorded 617 → 720 ms was one scheme at the machine's
+- **The magnitude is 4–14%, not 14%.** Only `LalescuSpline(8; smoothness = 2)` reaches 14%; `LalescuSpline(8; smoothness = 3)`
+  and `LagrangeSpline(8)` reach 4–7%. The recorded 617 → 720 ms was one scheme at the machine's
   default sixteen threads, generalized to a corner it does not describe.
 - **It is ``R = 1`` specifically, not "with a fibre".** ``R = 2`` is LESS affected than ``R = 1``
   (0.92–0.99 against 0.87–0.95), which falsifies the "width 8 × 3 components" framing — nine
@@ -1636,7 +1636,7 @@ more traffic for locality to save. The CPU scatter moves the other way, ``1.53\t
 to ``1.15\times`` at width 8, as the atomic accumulation comes to dominate.
 
 **At grids past ``256^3`` the two separate.** At ``512^3`` with ``10^6`` points the density falls
-eightfold and `CatmullRom` gets only ``1.38``–``1.99\times``, while `LalescuSpline(3,3)` gets
+eightfold and `CatmullRom` gets only ``1.38``–``1.99\times``, while `LalescuSpline(8; smoothness = 3)` gets
 ``4.59``–``5.68\times``; at ``1024^3`` (`Float32`, ``4\times 10^6`` points, 8 GiB of fields on a 16 GB
 card) it is ``1.21\times`` against ``4.29\times``. So the option matters most exactly where a run is
 most expensive — a wide stencil on a large grid — and least for a narrow stencil on a sparse large

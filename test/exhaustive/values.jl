@@ -691,8 +691,8 @@ function run_value_lane(configs)
     # again and its datasets are read with the HDF5 API directly, and the largest one is compared with
     # the array that went in.
     persistence_comparisons = if HDF5_AVAILABLE && !LEDGER_FIXTURES_ONLY
-      written_scheme = LalescuSpline(2, 1; T = T)
-      written_lagrange = LagrangeSpline(2; T = T)
+      written_scheme = LalescuSpline(6; smoothness = 1, T = T)
+      written_lagrange = LagrangeSpline(6; T = T)
       path = joinpath(mktempdir(), "value.h5")
       HDF5.h5open(path, "w") do file
         write_field(file, "field", u)
@@ -724,7 +724,7 @@ function run_value_lane(configs)
       end
       stored_scheme_attributes = HDF5.h5open(path, "r") do file
         a = HDF5.attrs(file["scheme"])
-        [Int(a["neighbours"]), Int(a["smoothness"])]
+        [Int(a["stencil_width"]), Int(a["smoothness"])]
       end
       recovered_scheme, recovered_lagrange, recovered_direct = HDF5.h5open(path, "r") do file
         (read_scheme(file, "scheme"), read_scheme(file, "lagrange"), read_scheme(file, "direct"))
@@ -768,8 +768,8 @@ function run_value_lane(configs)
        # A SCHEME is a parameter record, not a section: its group carries attributes and no `data`
        # dataset (decision 75), so the raw oracle reads the attributes rather than an array. Reading
        # back with `read_scheme` alone would again be the pair agreeing with itself.
-       (:write_scheme, stored_scheme_attributes,        [2, 1]),
-       (:read_scheme,  [recovered_scheme.neighbours, recovered_scheme.smoothness], [2, 1]),
+       (:write_scheme, stored_scheme_attributes,        [6, 1]),
+       (:read_scheme,  [recovered_scheme.stencil_width, recovered_scheme.smoothness], [6, 1]),
        # The TYPE must survive too — the reader resolves the element type through a closed table and
        # reconstructs through the ordinary constructor, so a tag-dispatch defect rebuilds the wrong
        # family with plausible numbers.

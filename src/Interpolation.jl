@@ -175,37 +175,39 @@ abstract type AbstractSplineScheme{N2, M2, T<:AbstractFloat, L} <: AbstractTrans
 
 
 """
-    LalescuSpline(n, m = 1; T = Float64)
+    LalescuSpline(stencil_width; smoothness = stencil_width ÷ 2 - 1, T = Float64)
 
 Smooth (``C^m``) local spline interpolation follows Lalescu, Teaca & Carati (2010), pinned to
 1e-12 against
 the ``\\texttt{beta\\_n}n\\texttt{\\_m}m`` weights of TurTLE, the reference pseudospectral turbulence solver with Lagrangian
-particle tracking (its `interp_neighbours = n`, `smoothness = m`). Over a compact stencil
-of ``2n{+}2`` nodes at offsets ``\\{-n, \\dots, n{+}1\\}`` (``n \\ge 0``, the first argument — the
-finite-difference half-width), the per-axis weights ``w_q(t)`` for fractional cell position ``t \\in [0, 1)`` are the
+particle tracking (its `interp_neighbours = n`, `smoothness = m`). Over a compact stencil whose
+`stencil_width` is ``2n{+}2`` nodes per axis, at offsets ``\\{-n, \\dots, n{+}1\\}`` (``n \\ge 0``),
+the per-axis weights ``w_q(t)`` for fractional cell position ``t \\in [0, 1)`` are the
 coefficients of the **two-point Hermite** interpolant of degree ``2m{+}1``: the polynomial that
 reproduces the field value and the derivatives of order ``1, \\dots, m`` at the two bracketing nodes
 (offsets ``0`` and ``1``), each derivative estimated by a centred finite difference over a
-``2n{+}1``-node stencil about that node (Fornberg weights). The second argument `m` sets the
-smoothness, ``C^m`` with ``0 \\le m \\le 2n``. That bound makes the default ``m = 1`` valid only for
-``n \\ge 1``, so the one-argument `LalescuSpline(0)` is rejected rather than silently repaired: the
-smallest stencil admits ``m = 0`` alone, spelled `LalescuSpline(0, 0)` (the linear scheme). The weights
-are stored in the ``(2n{+}2) \\times (2m{+}2)`` `SMatrix` `coefficients`
+``2n{+}1``-node stencil about that node (Fornberg weights).
+
+The `smoothness` ``m`` is the order of continuity, ``C^m`` with ``0 \\le m \\le 2n``. The weights are stored in the
+``(2n{+}2) \\times (2m{+}2)`` `SMatrix` `coefficients`
 (``w_q(t) = \\sum_r \\texttt{coefficients}[q, r{+}1]  t^r``, the exponent ``r`` running over the polynomial degrees).
 
 It reproduces polynomials up to degree ``\\min(2m{+}1, 2n)`` (for ``n \\ge 1``) wherever the whole
 stencil samples one branch of that polynomial — a periodic base wraps the stencil at the boundary, and
-the wrapped samples come from the opposite edge, which no non-periodic polynomial continues. Special cases:
-``m = 0`` is linear interpolation over the two central nodes (independent of ``n``); ``n = 1, m = 1``
-is the Catmull–Rom spline ([`CatmullRom`](@ref), quadratic precision). For the ``C^0``
-Lagrange hierarchy (degree ``2n{+}1``, all ``2n{+}2`` nodes interpolated) use [`LagrangeSpline`](@ref).
-Used by [`interpolate`](@ref) (grid → point) and [`anterpolate`](@ref) (point → grid).
+the wrapped samples come from the opposite edge, which no non-periodic polynomial continues. The
+default ``m = n`` is the smallest smoothness reaching the stencil's full reproduction degree ``2n``; a
+larger ``m`` adds smoothness and no accuracy. Special cases: ``m = 0`` is linear interpolation over
+the two central nodes (independent of the width), `LalescuSpline(2)` the linear scheme on the
+smallest stencil, and `LalescuSpline(4)` the Catmull–Rom spline ([`CatmullRom`](@ref), quadratic
+precision). For the ``C^0`` Lagrange hierarchy (degree ``2n{+}1``, all ``2n{+}2`` nodes interpolated)
+use [`LagrangeSpline`](@ref). Used by [`interpolate`](@ref) (grid → point) and
+[`anterpolate`](@ref) (point → grid).
 
 # Arguments
 
-- `n` — the finite-difference half-width, ``n \\ge 0``: the stencil has ``2n{+}2`` nodes per axis.
-- `m` — the smoothness, ``C^m`` with ``0 \\le m \\le 2n``; its default ``1`` is valid only for
-  ``n \\ge 1``, and the linear scheme on the smallest stencil is `LalescuSpline(0, 0)`.
+- `stencil_width` — the number of nodes per axis, an even integer ``2n{+}2 \\ge 2``.
+- `smoothness` — a keyword: the continuity order ``m``, with ``0 \\le m \\le 2n``, defaulting to
+  ``n``, half the width less one.
 - `T` — a keyword: the element type the weight coefficients are stored in, `Float64` by default.
 
 # References
@@ -216,48 +218,66 @@ Used by [`interpolate`](@ref) (grid → point) and [`anterpolate`](@ref) (point 
 
 # Fields
 
-- `neighbours` — the stencil half-width ``n``, as passed.
-- `smoothness` — the continuity order ``m``, as passed.
-- `coefficients` — the weight polynomial's coefficients, derived from ``(n, m)`` rather than stored
-  independently, which is why [`write_scheme`](@ref) persists the two parameters and no dataset.
+- `stencil_width` — the nodes per axis, ``2n{+}2``, as passed.
+- `smoothness` — the continuity order ``m``.
+- `coefficients` — the weight polynomial's coefficients, derived from the width and the smoothness
+  rather than stored independently, which is why [`write_scheme`](@ref) persists the two parameters
+  and no dataset.
 """
 struct LalescuSpline{N2, M2, T<:AbstractFloat, L} <: AbstractSplineScheme{N2, M2, T, L}
-  neighbours::Int
+  stencil_width::Int
   smoothness::Int
   coefficients::SMatrix{N2, M2, T, L}
 end
 
 
-function LalescuSpline(n::Integer, m::Integer = 1; T::Type{<:AbstractFloat} = Float64)
-  n ≥ 0 || throw(ArgumentError("neighbourhood n must be a nonnegative integer, got $n"))
-  0 ≤ m ≤ 2n || throw(ArgumentError("smoothness m must satisfy 0 ≤ m ≤ 2n, got n=$n, m=$m"))
-  number_of_nodes = 2 * Int(n) + 2
-  number_of_powers = 2 * Int(m) + 2
-  coefficients = _hermite_weight_matrix(Int(n), Int(m))
+# The stencil's even width `2n + 2`, refused otherwise, with `n` the finite-difference half-width the
+# weight construction works in.
+function _stencil_neighbours(stencil_width::Integer, scheme::AbstractString)
+  stencil_width >= 2 && iseven(stencil_width) || throw(ArgumentError(
+    "$scheme: stencil_width must be an even integer of at least 2 (the stencil has 2n + 2 nodes " *
+    "per axis), got $stencil_width"))
+  return Int(stencil_width) ÷ 2 - 1
+end
+
+
+function LalescuSpline(stencil_width::Integer; smoothness::Integer = stencil_width ÷ 2 - 1,
+                       T::Type{<:AbstractFloat} = Float64)
+  n = _stencil_neighbours(stencil_width, "LalescuSpline")
+  m = Int(smoothness)
+  0 ≤ m ≤ 2n || throw(ArgumentError(
+    "LalescuSpline: smoothness must satisfy 0 ≤ smoothness ≤ stencil_width - 2, got stencil_width = " *
+    "$stencil_width, smoothness = $smoothness"))
+  number_of_nodes = 2n + 2
+  number_of_powers = 2m + 2
+  coefficients = _hermite_weight_matrix(n, m)
   return LalescuSpline{number_of_nodes, number_of_powers, T, number_of_nodes * number_of_powers}(
-    Int(n), Int(m), SMatrix{number_of_nodes, number_of_powers, T}(T.(coefficients)))
+    number_of_nodes, m, SMatrix{number_of_nodes, number_of_powers, T}(T.(coefficients)))
 end
 
 
 """
-    LagrangeSpline(n; T = Float64)
+    LagrangeSpline(stencil_width; T = Float64)
 
-This is local, ``C^0`` Lagrange interpolation: the unique degree-``2n{+}1`` polynomial through the ``2n{+}2``
-nearest grid nodes (the stencil offsets ``\\{-n, \\dots, n{+}1\\}``, ``n \\ge 0``). The per-axis weights
-are the Lagrange cardinal polynomials, stored in the ``(2n{+}2) \\times (2n{+}2)`` `SMatrix`
-`coefficients`. The `n` argument is the stencil half-width: it fixes both the stencil, which reaches
-`n` nodes below a point and `n + 1` above it, and the degree, so a larger `n` reproduces a
-higher degree at the cost of a wider gather. It reproduces polynomials up to degree ``2n{+}1`` exactly wherever the whole stencil
-samples one branch of that polynomial (a wrapped stencil draws from the opposite edge, which no
-non-periodic polynomial continues), but is only ``C^0`` (the
-interpolant kinks at the nodes); for smooth derivatives use [`LalescuSpline`](@ref) instead. The case ``n = 0`` is
-linear interpolation over the two bracketing nodes. Matches `Lagrange_polys` of TurTLE, the reference
-pseudospectral turbulence solver with Lagrangian particle tracking.
+This is local, ``C^0`` Lagrange interpolation: the unique polynomial through the nearest grid
+nodes per axis, ``2n{+}2`` of them, the `stencil_width` (the stencil offsets ``\\{-n, \\dots, n{+}1\\}``,
+``n \\ge 0``), of degree ``2n{+}1``. The per-axis weights are the Lagrange cardinal polynomials,
+stored in the ``(2n{+}2) \\times (2n{+}2)`` `SMatrix` `coefficients`. The width fixes both the
+stencil, which reaches ``n`` nodes below a point and ``n{+}1`` above it, and the degree, so a wider
+stencil reproduces a higher degree at the cost of a wider gather.
+
+It reproduces polynomials up to
+degree ``2n{+}1`` exactly wherever the whole stencil samples one branch of that polynomial (a wrapped
+stencil draws from the opposite edge, which no non-periodic polynomial continues), but is only
+``C^0`` (the interpolant kinks at the nodes); for smooth derivatives use [`LalescuSpline`](@ref)
+instead. `LagrangeSpline(2)` is linear interpolation over the two bracketing nodes. Matches
+`Lagrange_polys` of TurTLE, the reference pseudospectral turbulence solver with Lagrangian particle
+tracking.
 
 # Arguments
 
-- `n` — the stencil half-width, ``n \\ge 0``: the stencil has ``2n{+}2`` nodes per axis and the
-  interpolant degree ``2n{+}1``.
+- `stencil_width` — the number of nodes per axis, an even integer ``2n{+}2 \\ge 2``; the
+  interpolant has degree ``2n{+}1``.
 - `T` — a keyword: the element type the weight coefficients are stored in, `Float64` by default.
 
 # References
@@ -267,22 +287,22 @@ pseudospectral turbulence solver with Lagrangian particle tracking.
 
 # Fields
 
-- `neighbours` — the stencil half-width ``n``, as passed.
-- `coefficients` — the cardinal-basis weights, derived from ``n`` rather than stored
+- `stencil_width` — the nodes per axis, ``2n{+}2``, as passed.
+- `coefficients` — the cardinal-basis weights, derived from the width rather than stored
   independently, which is why [`write_scheme`](@ref) persists the parameter and no dataset.
 """
 struct LagrangeSpline{N2, M2, T<:AbstractFloat, L} <: AbstractSplineScheme{N2, M2, T, L}
-  neighbours::Int
+  stencil_width::Int
   coefficients::SMatrix{N2, M2, T, L}
 end
 
 
-function LagrangeSpline(n::Integer; T::Type{<:AbstractFloat} = Float64)
-  n ≥ 0 || throw(ArgumentError("neighbourhood n must be a nonnegative integer, got $n"))
-  number_of_nodes = 2 * Int(n) + 2
-  coefficients = _lagrange_weight_matrix(Int(n))
+function LagrangeSpline(stencil_width::Integer; T::Type{<:AbstractFloat} = Float64)
+  n = _stencil_neighbours(stencil_width, "LagrangeSpline")
+  number_of_nodes = 2n + 2
+  coefficients = _lagrange_weight_matrix(n)
   return LagrangeSpline{number_of_nodes, number_of_nodes, T, number_of_nodes^2}(
-    Int(n), SMatrix{number_of_nodes, number_of_nodes, T}(T.(coefficients)))
+    number_of_nodes, SMatrix{number_of_nodes, number_of_nodes, T}(T.(coefficients)))
 end
 
 
@@ -398,11 +418,10 @@ end
 """
     CatmullRom
 
-`CatmullRom`, the usual choice: the cubic ``n = 1, m = 1``
-[`LalescuSpline`](@ref), a four-point
+`CatmullRom`, the usual choice: the cubic [`LalescuSpline`](@ref) `LalescuSpline(4)`, a four-point
 ``C^1`` stencil that reproduces the Catmull–Rom spline (and quadratic polynomials exactly).
 """
-const CatmullRom = LalescuSpline(1, 1)
+const CatmullRom = LalescuSpline(4)
 
 
 #####################################################
@@ -2012,7 +2031,7 @@ _wrap_field_spectral(data, grid, layout, ::Val{R}) where {R} = TensorFieldSpectr
 #####################################################
 #
 # A transfer scheme is a **parameter record**, not a section: it carries no base, no fiber and no
-# array of its own — a spline's weight matrix is derived from its `(n, m)` and recomputed by the
+# array of its own — a spline's weight matrix is derived from its width and smoothness and recomputed by the
 # constructor. So its group holds attributes and no `data` dataset, and the round trip stores the
 # parameters rather than the weights. The generics and their documentation live here so `?write_scheme`
 # answers without HDF5 loaded; the methods live in the weak-dependency extension, exactly as the
@@ -2030,12 +2049,12 @@ transfers identically rather than falling back to a default. Reload with [`read_
 
 The group is **self-describing** and holds **no dataset**: a scheme's weight coefficients are
 derived from its parameters, so the group carries a `type` tag, a schema `version`, the weight
-element type, and the defining parameters — the neighbourhood ``n`` and, for
-[`LalescuSpline`](@ref), the smoothness ``m``. Reading reconstructs through the ordinary
+element type, and the defining parameters — the `stencil_width` and, for
+[`LalescuSpline`](@ref), the `smoothness`. Reading reconstructs through the ordinary
 constructor, which recomputes the weights and revalidates the parameters, so a group asserting an
 impossible combination is refused rather than producing a malformed scheme. The sugar
 `parent[name] = scheme` is equivalent. `CatmullRom` needs no identity of its own: it *is*
-`LalescuSpline(1, 1)` and round-trips as one, comparing equal to the alias.
+`LalescuSpline(4)` and round-trips as one, comparing equal to the alias.
 
 Because `parent` is a handle you opened and own, this never opens or closes a file, and the package
 attaches no notion of time — the caller bundles a snapshot and owns any `time` / `iteration`
@@ -2110,7 +2129,7 @@ function Base.show(io::IO, scratch::PointTraversalOrderScratch)
 end
 
 
-# A spline scheme is a parameter record whose weight matrix is DERIVED from `(n, m)` — which is what
+# A spline scheme is a parameter record whose weight matrix is DERIVED from its width and smoothness — which is what
 # decision 75 rests on when it persists one as attributes and no dataset. The default display prints
 # that matrix (747 characters for `LalescuSpline(3, 2)`), so it shows the derived quantity at length
 # and the two numbers it was derived from not at all. The constructor call is the honest form, and it
@@ -2134,14 +2153,15 @@ end
 
 
 function Base.show(io::IO, scheme::LalescuSpline)
-  print(io, "LalescuSpline(", scheme.neighbours, ", ", scheme.smoothness)
-  _show_spline_eltype(io, scheme)
+  print(io, "LalescuSpline(", scheme.stencil_width, "; smoothness = ", scheme.smoothness)
+  T = eltype(scheme.coefficients)
+  T === Float64 || print(io, ", T = ", T)
   print(io, ")")
 end
 
 
 function Base.show(io::IO, scheme::LagrangeSpline)
-  print(io, "LagrangeSpline(", scheme.neighbours)
+  print(io, "LagrangeSpline(", scheme.stencil_width)
   _show_spline_eltype(io, scheme)
   print(io, ")")
 end

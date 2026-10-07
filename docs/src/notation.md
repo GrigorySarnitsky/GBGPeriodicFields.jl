@@ -59,7 +59,7 @@ of the table above.
 | ``\lVert\cdot\rVert`` | the ``L^2`` norm | [`l2norm`](@ref) |
 | ``\int f\,\mathrm{d}\mu`` | the integral against the base measure: cell volume on a grid, unit mass per point | [`integral`](@ref) |
 | ``\star`` | periodic convolution | [`convolve`](@ref) |
-| ``W``, ``W^{\top}`` | interpolation (gather) and its adjoint anterpolation (scatter). **One deliberate reuse:** the kernel builders `tophat_window` and `assignment_window` write ``W`` for their physical-space window — the box, and the linear cloud-in-cell "tent" a point deposits — and ``\hat W`` for its transfer function, not the gather operator; the tent *is* the `LalescuSpline(0, 0)` weight, but the two are different objects | [`interpolate`](@ref), [`anterpolate`](@ref) |
+| ``W``, ``W^{\top}`` | interpolation (gather) and its adjoint anterpolation (scatter). **One deliberate reuse:** the kernel builders `tophat_window` and `assignment_window` write ``W`` for their physical-space window — the box, and the linear cloud-in-cell "tent" a point deposits — and ``\hat W`` for its transfer function, not the gather operator; the tent *is* the `LalescuSpline(2; smoothness = 0)` weight, but the two are different objects | [`interpolate`](@ref), [`anterpolate`](@ref) |
 
 ## Scalar weights
 

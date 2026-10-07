@@ -3992,3 +3992,31 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       `GBGHomogeneousTurbulence` must add `CatmullRom` to its calls. The method count of
       `Interpolation` falls 155 → 151, the four generated shorter methods.
 
+98. **The splines take their stencil width, and smoothness defaults to the width's own order**
+    (2026-10-07, owner-ruled). `LalescuSpline(n, m = 1)` and `LagrangeSpline(n)` named their
+    parameters by symbols the reader had to look up, and the smoothness default was wrong.
+
+    - **The width, not the half-width.** The stencil has ``2n{+}2`` nodes per axis, so the
+      constructors now take that count: `LalescuSpline(stencil_width; smoothness)` and
+      `LagrangeSpline(stencil_width)`, an odd width or one below two refused. The performance record
+      already spoke in widths ("the width-8 scatter"), and `stencil_half_width` was rejected because
+      the half-width is ``n{+}1``, not ``n``.
+
+    - **The smoothness defaults to ``m = n``.** A fixed default of 1 was invalid for the linear
+      stencil and gave away accuracy on wider ones: the scheme reproduces polynomials of degree
+      ``\min(2m{+}1, 2n)``, and ``m = n`` is the smallest smoothness reaching the full ``2n``. It is a
+      keyword, as `RULE.API.POSITIONAL` asks of an argument with a default. `CatmullRom` is
+      `LalescuSpline(4)`, and the linear scheme `LalescuSpline(2)`.
+
+    - **Persistence.** The stored fields are `stencil_width` and `smoothness`, and so are the HDF5
+      attributes. Scheme groups carry their own schema version, now 2, so the rename does not make
+      older code refuse field and point files whose format never changed; version-1 groups, which
+      stored the half-width `neighbours`, are still read. The display prints the new form, so a
+      scheme still round-trips through Julia's parser.
+
+    - **Breaking.** Every call passing ``(n, m)`` must pass the width and the smoothness keyword;
+      tests, the GPU suite, the benchmarks and the docs are converted, each conversion keeping the
+      call's meaning, and benchmark row labels such as `Lalescu(3,3)` stay, since the committed
+      results history is keyed on them. The consumer `GBGHomogeneousTurbulence` must convert its
+      calls.
+

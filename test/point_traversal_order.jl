@@ -75,7 +75,7 @@ end
               R == 1 ? VectorFieldPhysical(zeros(T, shape...), grid) :
                        TensorFieldPhysical{2}(zeros(T, shape...), grid)
 
-    for scheme in (CatmullRom, LalescuSpline(2, 1), LagrangeSpline(1))
+    for scheme in (CatmullRom, LalescuSpline(6; smoothness = 1), LagrangeSpline(4))
       unordered, ordered, reversed = values(), values(), values()
       interpolate!(unordered, field, points, scheme)
       interpolate!(ordered, field, points, scheme; traversal)

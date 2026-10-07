@@ -44,7 +44,7 @@ euclidean(v) = sqrt(sum(abs2, v))      # avoid a LinearAlgebra test-env dependen
     spectral_zero() = ScalarFieldSpectral(zeros(ComplexF64, field_spectral_shape(grid, layout, Val(0))), grid)
     plans = FieldTransformPlans(ScalarFieldPhysical(zeros(N, N, N), grid), spectral_zero())
     multipliers = FieldSpectralMultipliers(spectral_zero())
-    linear = LalescuSpline(0, 0)                            # the positive (CIC) assignment for the density
+    linear = LalescuSpline(2; smoothness = 0)                            # the positive (CIC) assignment for the density
 
     # clustered points: cluster centers, several Gaussian-scattered points each
     rng = MersenneTwister(2024)

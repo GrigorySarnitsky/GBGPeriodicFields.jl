@@ -31,6 +31,11 @@ using GBGPeriodicFields.Interpolation:
 import GBGPeriodicFields.Interpolation: write_scheme, read_scheme
 
 const SCHEMA_VERSION = 1
+# A transfer scheme's group carries its own version, so renaming a scheme's parameters does not make
+# older code refuse field and point files whose format never changed. Version 2 (2026-10-07, decision
+# 98) names the splines' parameters `stencil_width` and `smoothness`; version 1 stored the half-width
+# `neighbours` (the width being 2·neighbours + 2) and is still read.
+const SCHEME_SCHEMA_VERSION = 2
 
 # One type tag per concrete field type. The tensor order is not encoded in the tag — it is recovered from
 # the stored array's dimensionality — but it is also written as an attribute for self-description.
@@ -200,12 +205,13 @@ end
 # means the file is not what it claims to be.
 # The version gate, shared by all three read verbs: a file from a future schema is refused rather
 # than guessed at. `caller` names the verb so the message points at what the user called.
-function _validate_schema_version(a, name::AbstractString, caller::AbstractString)
+function _validate_schema_version(a, name::AbstractString, caller::AbstractString;
+                                  understood::Integer = SCHEMA_VERSION)
   haskey(a, "version") || return nothing
   version = Int(a["version"])
-  version <= SCHEMA_VERSION || throw(ArgumentError(
+  version <= understood || throw(ArgumentError(
     "$caller: group \"$name\" declares schema version $version, but this package understands " *
-    "up to $SCHEMA_VERSION — the file was written by a newer version"))
+    "up to $understood — the file was written by a newer version"))
   return nothing
 end
 
@@ -341,9 +347,9 @@ function write_scheme(parent::HDF5.H5DataStore, name::AbstractString, scheme::La
   g = create_group(parent, name)
   a = attrs(g)
   a["type"] = _type_tag(scheme)
-  a["version"] = SCHEMA_VERSION
+  a["version"] = SCHEME_SCHEMA_VERSION
   a["eltype"] = string(eltype(spline_coefficients(scheme)))
-  a["neighbours"] = scheme.neighbours
+  a["stencil_width"] = scheme.stencil_width
   a["smoothness"] = scheme.smoothness
   return g
 end
@@ -352,9 +358,9 @@ function write_scheme(parent::HDF5.H5DataStore, name::AbstractString, scheme::La
   g = create_group(parent, name)
   a = attrs(g)
   a["type"] = _type_tag(scheme)
-  a["version"] = SCHEMA_VERSION
+  a["version"] = SCHEME_SCHEMA_VERSION
   a["eltype"] = string(eltype(spline_coefficients(scheme)))
-  a["neighbours"] = scheme.neighbours
+  a["stencil_width"] = scheme.stencil_width
   return g
 end
 
@@ -362,7 +368,7 @@ function write_scheme(parent::HDF5.H5DataStore, name::AbstractString, scheme::Di
   g = create_group(parent, name)
   a = attrs(g)
   a["type"] = _type_tag(scheme)
-  a["version"] = SCHEMA_VERSION
+  a["version"] = SCHEME_SCHEMA_VERSION
   return g                                   # a singleton: the tag is the whole record
 end
 
@@ -399,16 +405,19 @@ function read_scheme(parent::HDF5.H5DataStore, name::AbstractString)
   a = attrs(g)
   haskey(a, "type") || throw(ArgumentError(
     "read_scheme: group \"$name\" has no `type` attribute — it was not written by write_scheme"))
-  _validate_schema_version(a, name, "read_scheme")
+  _validate_schema_version(a, name, "read_scheme"; understood = SCHEME_SCHEMA_VERSION)
   tag = a["type"]
+  version = haskey(a, "version") ? Int(a["version"]) : 1
+  # Version 1 stored the half-width `n`; the width is 2n + 2.
+  width() = version >= 2 ? _scheme_parameter(a, name, "stencil_width") :
+                           2 * _scheme_parameter(a, name, "neighbours") + 2
   # The constructors revalidate the parameters (a spline enforces 0 <= m <= 2n), so a group asserting
   # an impossible combination throws there rather than yielding a malformed scheme.
   if tag == "GBGPeriodicFields.LalescuSpline"
-    return LalescuSpline(_scheme_parameter(a, name, "neighbours"),
-                         _scheme_parameter(a, name, "smoothness");
+    return LalescuSpline(width(); smoothness = _scheme_parameter(a, name, "smoothness"),
                          T = _scheme_eltype(a, name))
   elseif tag == "GBGPeriodicFields.LagrangeSpline"
-    return LagrangeSpline(_scheme_parameter(a, name, "neighbours"); T = _scheme_eltype(a, name))
+    return LagrangeSpline(width(); T = _scheme_eltype(a, name))
   elseif tag == "GBGPeriodicFields.DirectDFT"
     return DirectDFT()
   else

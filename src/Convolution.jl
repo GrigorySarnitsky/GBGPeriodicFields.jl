@@ -1964,7 +1964,7 @@ deconvolving a gridded point density.
 
 Use it when a pair correlation is estimated from points deposited on a grid rather than counted
 directly. Depositing ``M`` points on the grid with the positive linear
-assignment (`LalescuSpline(0, 0)` — the two-point linear "tent" transfer kernel, the smoothness ``m = 0``
+assignment (`LalescuSpline(2)` — the two-point linear "tent" transfer kernel, the smoothness ``m = 0``
 member of the `Interpolation` spline family) spreads each point's
 mass over a tent, so the gridded density is the true density ``\\rho`` convolved with this window,
 ``\\rho_g = \\rho \\star W``. Dividing the transform by ``\\hat W`` — a [`convolve`](@ref) by

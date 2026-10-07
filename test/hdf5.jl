@@ -290,13 +290,13 @@ end
     path = joinpath(dir, "schemes.h5")
 
     schemes = (CatmullRom,                         # the alias: LalescuSpline(1, 1), no own identity
-               LalescuSpline(0, 0),                # trilinear, the degenerate corner
-               LalescuSpline(3, 2),
-               LalescuSpline(2, 4),                # m = 2n, the upper bound of the valid region
-               LagrangeSpline(0),
-               LagrangeSpline(3),
-               LalescuSpline(1, 1; T = Float32),
-               LagrangeSpline(2; T = Float32),
+               LalescuSpline(2; smoothness = 0),                # trilinear, the degenerate corner
+               LalescuSpline(8; smoothness = 2),
+               LalescuSpline(6; smoothness = 4),                # m = 2n, the upper bound of the valid region
+               LagrangeSpline(2),
+               LagrangeSpline(8),
+               LalescuSpline(4; smoothness = 1, T = Float32),
+               LagrangeSpline(6; T = Float32),
                DirectDFT())
 
     h5open(path, "w") do io
@@ -322,7 +322,7 @@ end
     grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
     field = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + 0.3 * sin(z), grid)
     points = PointSet(2π .* rand(16, 3))
-    for scheme in (CatmullRom, LagrangeSpline(2), LalescuSpline(3, 2))
+    for scheme in (CatmullRom, LagrangeSpline(6), LalescuSpline(8; smoothness = 2))
       h5open(path, "cw") do io
         haskey(io, "behave") && delete_object(io, "behave")
         write_scheme(io, "behave", scheme)
@@ -346,14 +346,14 @@ end
       @test_throws ArgumentError write_scheme(io, "nufft", NUFFT(spectral; tol = 1e-6))
       @test_throws ArgumentError io["nufft_sugar"] = NUFFT(spectral; tol = 1e-6)
 
-      write_scheme(io, "impossible", LalescuSpline(1, 1))
+      write_scheme(io, "impossible", LalescuSpline(4; smoothness = 1))
       attrs(io["impossible"])["smoothness"] = 9        # violates 0 ≤ m ≤ 2n at n = 1
       write_scheme(io, "future", CatmullRom)
       attrs(io["future"])["version"] = 99
       write_scheme(io, "alien_eltype", CatmullRom)
       attrs(io["alien_eltype"])["eltype"] = "Float16"
       write_scheme(io, "no_param", CatmullRom)
-      delete_attribute(io["no_param"], "neighbours")
+      delete_attribute(io["no_param"], "stencil_width")
       write_scheme(io, "wrong_tag", CatmullRom)
       attrs(io["wrong_tag"])["type"] = "GBGPeriodicFields.NotAScheme"
       create_group(io, "bare")                         # a group with no attributes at all
@@ -370,6 +370,34 @@ end
       @test_throws ArgumentError read_scheme(io, "bare")           # no `type` attribute
       @test_throws ArgumentError read_scheme(io, "plain_dataset")  # a dataset, not a group
       @test_throws ArgumentError read_scheme(io, "absent")         # no such object
+    end
+
+    # A scheme group written before decision 98 (schema version 1) stored the half-width `neighbours`,
+    # the width being 2n + 2, and is still read as the same scheme.
+    h5open(path, "r+") do io
+      for (label, tag, parameters) in (("v1_lalescu", "LalescuSpline", ("neighbours" => 3, "smoothness" => 2)),
+                                       ("v1_lagrange", "LagrangeSpline", ("neighbours" => 1,)))
+        g = create_group(io, label)
+        a = attrs(g)
+        a["type"] = "GBGPeriodicFields." * tag
+        a["version"] = 1
+        a["eltype"] = "Float64"
+        for (key, value) in parameters
+          a[key] = value
+        end
+      end
+    end
+    h5open(path, "r") do io
+      @test read_scheme(io, "v1_lalescu") == LalescuSpline(8; smoothness = 2)
+      @test read_scheme(io, "v1_lagrange") == LagrangeSpline(4)
+      # A scheme now writes schema version 2, with the renamed parameters.
+      @test attrs(io["future"])["version"] == 99         # the tampered one, untouched
+    end
+    h5open(path, "r+") do io
+      g = write_scheme(io, "v2", LalescuSpline(6; smoothness = 1))
+      @test attrs(g)["version"] == 2
+      @test Int(attrs(g)["stencil_width"]) == 6 && Int(attrs(g)["smoothness"]) == 1
+      @test !haskey(attrs(g), "neighbours")
     end
   end
 end
@@ -397,7 +425,7 @@ end
   @test !isempty(concrete)         # the guard must not pass by finding nothing
   mktempdir() do dir
     path = joinpath(dir, "coverage.h5")
-    representative = Dict(:LalescuSpline => CatmullRom, :LagrangeSpline => LagrangeSpline(1),
+    representative = Dict(:LalescuSpline => CatmullRom, :LagrangeSpline => LagrangeSpline(4),
                           :DirectDFT => DirectDFT())
     for name in setdiff(concrete, refused)
       @test haskey(representative, name)     # a new scheme needs a representative here…
