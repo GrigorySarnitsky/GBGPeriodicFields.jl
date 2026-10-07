@@ -185,6 +185,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 96",269,110,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 97",273,73,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 98",271,64,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 99",223,60,0
 "DifferentialOperators.jl :: DifferentialOperators",348,174,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",89,83,0
 "DifferentialOperators.jl :: _apply_spectral_divergence!(destination_component,",104,48,0
@@ -332,18 +333,18 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: AbstractFieldSpectral{T, R}",130,67,1
 "Fields.jl :: FieldPhysicalBroadcastStyle{N}",38,37,0
 "Fields.jl :: FieldSpectralBroadcastStyle{N}",36,35,0
-"Fields.jl :: FieldSpectralMultipliers(",638,182,0
-"Fields.jl :: FieldTransformPlans(",532,170,1
+"Fields.jl :: FieldSpectralMultipliers(",643,187,0
+"Fields.jl :: FieldTransformPlans(",537,170,1
 "Fields.jl :: Fields",494,443,0
 "Fields.jl :: Grid3D(",232,66,0
 "Fields.jl :: RealFourierLayout()",73,33,0
-"Fields.jl :: ScalarFieldPhysical(",318,115,0
-"Fields.jl :: ScalarFieldSpectral(",333,120,0
+"Fields.jl :: ScalarFieldPhysical(",313,115,0
+"Fields.jl :: ScalarFieldSpectral(",329,120,0
 "Fields.jl :: SpectralKernel{T}",206,106,0
-"Fields.jl :: TensorFieldPhysical{R}(",389,115,0
-"Fields.jl :: TensorFieldSpectral{R}(",379,120,0
-"Fields.jl :: VectorFieldPhysical(",331,115,0
-"Fields.jl :: VectorFieldSpectral(",338,120,0
+"Fields.jl :: TensorFieldPhysical{R}(",378,115,0
+"Fields.jl :: TensorFieldSpectral{R}(",369,120,0
+"Fields.jl :: VectorFieldPhysical(",326,115,0
+"Fields.jl :: VectorFieldSpectral(",334,120,0
 "Fields.jl :: _allocated_field_storage(family, ::Type{S}, shape)",51,48,0
 "Fields.jl :: _approx(x)",62,52,0
 "Fields.jl :: _axis_wavenumber_arrays(reference, number_of_points, domain_",34,30,0
