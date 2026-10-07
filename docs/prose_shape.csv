@@ -1,7 +1,7 @@
 unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § (preamble)",22,22,1
 "ARCHITECTURE.md § 1. Purpose and scope",321,257,0
-"ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer",1316,216,0
+"ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer",1325,216,0
 "ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer / item 1",182,182,0
 "ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer / item 2",41,41,0
 "ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer / item 3",1683,476,0
@@ -60,7 +60,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: _exponential_convolution_modes!(backend, destination, source",59,48,0
 "Convolution.jl :: _kernel_storage(kernel)",93,79,0
 "Convolution.jl :: _show_kernel(io, kernel)",59,45,0
-"Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",369,107,0
+"Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",368,107,0
 "Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",648,165,2
 "Convolution.jl :: convolve(field, kernel::SpectralKernel)",78,72,0
 "Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",920,223,1
@@ -183,6 +183,8 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 94",178,56,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 95",306,94,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 96",269,110,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 97",273,73,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 98",271,64,0
 "DifferentialOperators.jl :: DifferentialOperators",348,174,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",89,83,0
 "DifferentialOperators.jl :: _apply_spectral_divergence!(destination_component,",104,48,0
@@ -430,8 +432,8 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: CatmullRom",22,21,0
 "Interpolation.jl :: DirectDFT()",403,164,1
 "Interpolation.jl :: Interpolation",818,238,0
-"Interpolation.jl :: LagrangeSpline(n; T = Float64)",278,149,0
-"Interpolation.jl :: LalescuSpline(n, m = 1; T = Float64)",440,172,0
+"Interpolation.jl :: LagrangeSpline(stencil_width; T = Float64)",277,78,0
+"Interpolation.jl :: LalescuSpline(stencil_width; smoothness = stencil_width ÷ 2 ",433,119,0
 "Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral;",631,202,1
 "Interpolation.jl :: PointTraversalOrder(indices)",219,58,1
 "Interpolation.jl :: PointTraversalOrderScratch(grid::Grid3D, points::PointSet; t",282,81,1
@@ -445,26 +447,26 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: _scan_offsets!(offsets, counts)",96,82,0
 "Interpolation.jl :: _scan_offsets!(offsets::Vector, counts::Vector)",173,86,0
 "Interpolation.jl :: _show_spline_eltype(io, scheme)",83,59,0
-"Interpolation.jl :: anterpolate!(field::AbstractFieldPhysical, points::PointSet,",402,203,0
-"Interpolation.jl :: anterpolate(grid::Grid3D, points, quantities, scheme = Catmu",83,63,0
-"Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",309,194,0
-"Interpolation.jl :: interpolate(field::AbstractFieldPhysical, points, scheme = C",43,26,0
+"Interpolation.jl :: anterpolate!(field::AbstractFieldPhysical, points::PointSet,",400,203,0
+"Interpolation.jl :: anterpolate(grid::Grid3D, points, quantities, scheme::Abstra",81,63,0
+"Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",307,194,0
+"Interpolation.jl :: interpolate(field::AbstractFieldPhysical, points, scheme::Ab",41,26,0
 "Interpolation.jl :: point_traversal_order!(traversal::PointTraversalOrder, grid:",629,118,0
 "Interpolation.jl :: point_traversal_order(grid::Grid3D, points::PointSet; tile_s",104,43,1
 "Interpolation.jl :: read_scheme(parent::HDF5.H5DataStore, name::AbstractString)",156,76,0
-"Interpolation.jl :: write_scheme(parent::HDF5.H5DataStore, name::AbstractString,",375,115,1
+"Interpolation.jl :: write_scheme(parent::HDF5.H5DataStore, name::AbstractString,",372,115,1
 "Interpolation.md § Internal API",41,41,0
 "Interpolation.md § Traversal order",31,31,0
 "PERFORMANCE.md § (preamble)",22,22,1
-"PERFORMANCE.md § 1. Philosophy",812,510,0
-"PERFORMANCE.md § 2. The performance model",843,428,0
+"PERFORMANCE.md § 1. Philosophy",808,506,0
+"PERFORMANCE.md § 2. The performance model",841,426,0
 "PERFORMANCE.md § 3. Best practices",367,120,0
 "PERFORMANCE.md § 4. What we have found",86,86,0
-"PERFORMANCE.md § 4. What we have found / finding (a)",104,59,0
+"PERFORMANCE.md § 4. What we have found / finding (a)",111,66,0
 "PERFORMANCE.md § 4. What we have found / finding (aa)",337,118,0
 "PERFORMANCE.md § 4. What we have found / finding (ab)",526,95,0
 "PERFORMANCE.md § 4. What we have found / finding (ac)",317,92,0
-"PERFORMANCE.md § 4. What we have found / finding (ad)",1726,349,0
+"PERFORMANCE.md § 4. What we have found / finding (ad)",1740,355,0
 "PERFORMANCE.md § 4. What we have found / finding (ae)",362,105,0
 "PERFORMANCE.md § 4. What we have found / finding (af)",103,103,0
 "PERFORMANCE.md § 4. What we have found / finding (ag)",373,160,0
@@ -482,7 +484,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § 4. What we have found / finding (au)",503,104,0
 "PERFORMANCE.md § 4. What we have found / finding (av)",345,98,0
 "PERFORMANCE.md § 4. What we have found / finding (b)",206,148,0
-"PERFORMANCE.md § 4. What we have found / finding (c)",938,649,0
+"PERFORMANCE.md § 4. What we have found / finding (c)",933,649,0
 "PERFORMANCE.md § 4. What we have found / finding (d)",46,46,0
 "PERFORMANCE.md § 4. What we have found / finding (e)",50,50,0
 "PERFORMANCE.md § 4. What we have found / finding (f)",247,247,0
@@ -501,7 +503,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § 4. What we have found / finding (s)",1683,195,0
 "PERFORMANCE.md § 4. What we have found / finding (t)",343,116,0
 "PERFORMANCE.md § 4. What we have found / finding (u)",309,78,0
-"PERFORMANCE.md § 4. What we have found / finding (v)",1122,630,0
+"PERFORMANCE.md § 4. What we have found / finding (v)",1119,627,0
 "PERFORMANCE.md § 4. What we have found / finding (w)",500,142,0
 "PERFORMANCE.md § 4. What we have found / finding (x)",763,169,0
 "PERFORMANCE.md § 4. What we have found / finding (y)",899,163,0
@@ -643,7 +645,7 @@ unit,words,longest_paragraph,admonitions
 "notation.md § Base and fiber",599,549,0
 "notation.md § Conventions",299,299,0
 "notation.md § Notation",55,55,0
-"notation.md § Operators",291,291,0
+"notation.md § Operators",293,293,0
 "notation.md § Scalar weights",233,158,0
 "tutorial.md § (preamble)",22,22,1
 "tutorial.md § Convolution (apply a Fourier kernel)",50,50,0
