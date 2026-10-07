@@ -447,7 +447,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: _scan_offsets!(offsets, counts)",96,82,0
 "Interpolation.jl :: _scan_offsets!(offsets::Vector, counts::Vector)",173,86,0
 "Interpolation.jl :: _show_spline_eltype(io, scheme)",83,59,0
-"Interpolation.jl :: anterpolate!(field::AbstractFieldPhysical, points::PointSet,",400,203,0
+"Interpolation.jl :: anterpolate!(field::AbstractFieldPhysical, points::PointSet,",406,209,0
 "Interpolation.jl :: anterpolate(grid::Grid3D, points, quantities, scheme::Abstra",81,63,0
 "Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",307,194,0
 "Interpolation.jl :: interpolate(field::AbstractFieldPhysical, points, scheme::Ab",41,26,0
@@ -575,13 +575,13 @@ unit,words,longest_paragraph,admonitions
 "Reductions.jl :: inner(f, g)",296,101,1
 "Reductions.jl :: integral(section)",481,120,1
 "Reductions.jl :: l2norm(f)",66,46,0
-"Reductions.jl :: lpnorm(section, p = 2)",168,91,0
+"Reductions.jl :: lpnorm(section, p = 2)",179,102,0
 "Reductions.jl :: maximum(f)",122,119,0
 "Reductions.jl :: mean(f)",120,117,0
 "Reductions.jl :: minimum(f)",29,26,0
 "Reductions.jl :: radial_correlation(f, plans)",518,153,1
 "Reductions.jl :: radial_spectrum(f, multipliers)",673,242,1
-"Reductions.jl :: std(f; corrected = true)",134,79,0
+"Reductions.jl :: std(f; corrected = true)",145,90,0
 "Reductions.jl :: var(f; corrected = true)",318,104,0
 "Reductions.jl :: weighted_inner(f, w::SpectralKernel)",699,236,2
 "Reductions.md § Integral reductions",56,56,0
