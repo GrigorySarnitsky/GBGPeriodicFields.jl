@@ -431,7 +431,7 @@ function field_data end
       f,
       grid::Grid3D{T};
       layout::RealFourierLayout = RealFourierLayout(),
-      array_type = Array,
+      family = Array,
     ) where {T<:AbstractFloat}
 
     ScalarFieldPhysical(
@@ -448,8 +448,9 @@ The function constructor constructs a scalar field in physical representation by
 - `f` — the sampled function, called as `f(x, y, z)` at each grid point.
 - `grid` — the `Grid3D` the values are sampled on.
 - `layout` — a keyword: the `RealFourierLayout` used when transforming the field.
-- `array_type` — the array type the sampled values are stored in (`Array` on the host, a
-  device array such as `CuArray` or `ROCArray` to build the field on a GPU).
+- `family` — a keyword: the storage family the sampled values are stored in (`Array` on the host,
+  `CuArray` or `ROCArray` to build the field on a GPU), checked as the allocating constructors check
+  theirs.
 
 The allocating constructor takes a storage `family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
@@ -479,8 +480,10 @@ end
 
 
 
-function ScalarFieldPhysical(f, grid::Grid3D{T}; layout::RealFourierLayout = RealFourierLayout(), array_type = Array) where {T<:AbstractFloat}
+function ScalarFieldPhysical(f, grid::Grid3D{T}; layout::RealFourierLayout = RealFourierLayout(),
+    family::Type{<:AbstractArray} = Array) where {T<:AbstractFloat}
   fourier_layout = layout
+  _check_family_element_type(family, grid)
   values_at_grid = Array{T}(undef, field_physical_shape(grid, Val(0))...)
 
   Δx₁, Δx₂, Δx₃ = grid.grid_spacing
@@ -490,7 +493,10 @@ function ScalarFieldPhysical(f, grid::Grid3D{T}; layout::RealFourierLayout = Rea
     values_at_grid[i, j, k] = T(f(x₀ + (i - 1) * Δx₁, y₀ + (j - 1) * Δx₂, z₀ + (k - 1) * Δx₃))
   end
 
-  values_at_grid = array_type === Array ? values_at_grid : array_type(values_at_grid)
+  # The family is checked as the allocating constructors check theirs, and its parameters dropped:
+  # the values are sampled at the grid's element type, so only the backend is taken from it.
+  wrapper = Base.typename(family).wrapper
+  values_at_grid = wrapper === Array ? values_at_grid : wrapper(values_at_grid)
 
   return ScalarFieldPhysical(values_at_grid, grid; layout = fourier_layout)
 end
@@ -576,7 +582,7 @@ field_data(field::ScalarFieldSpectral) = field.fourier_coefficients
       f,
       grid::Grid3D{T};
       layout::RealFourierLayout = RealFourierLayout(),
-      array_type = Array,
+      family = Array,
     ) where {T<:AbstractFloat}
 
 
@@ -595,8 +601,9 @@ The function constructor constructs a vector field in physical representation by
   indexable object.
 - `grid` — the `Grid3D` the values are sampled on.
 - `layout` — a keyword: the `RealFourierLayout` used when transforming the field.
-- `array_type` — the array type the sampled values are stored in (`Array` on the host, a
-  device array such as `CuArray` or `ROCArray` to build the field on a GPU).
+- `family` — a keyword: the storage family the sampled values are stored in (`Array` on the host,
+  `CuArray` or `ROCArray` to build the field on a GPU), checked as the allocating constructors check
+  theirs.
 
 The allocating constructor takes a storage `family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
@@ -627,8 +634,10 @@ end
 
 
 
-function VectorFieldPhysical(f, grid::Grid3D{T}; layout::RealFourierLayout = RealFourierLayout(), array_type = Array) where {T<:AbstractFloat}
+function VectorFieldPhysical(f, grid::Grid3D{T}; layout::RealFourierLayout = RealFourierLayout(),
+    family::Type{<:AbstractArray} = Array) where {T<:AbstractFloat}
   fourier_layout = layout
+  _check_family_element_type(family, grid)
   values_at_grid = Array{T}(undef, field_physical_shape(grid, Val(1))...)
 
   Δx₁, Δx₂, Δx₃ = grid.grid_spacing
@@ -641,7 +650,10 @@ function VectorFieldPhysical(f, grid::Grid3D{T}; layout::RealFourierLayout = Rea
     end
   end
 
-  values_at_grid = array_type === Array ? values_at_grid : array_type(values_at_grid)
+  # The family is checked as the allocating constructors check theirs, and its parameters dropped:
+  # the values are sampled at the grid's element type, so only the backend is taken from it.
+  wrapper = Base.typename(family).wrapper
+  values_at_grid = wrapper === Array ? values_at_grid : wrapper(values_at_grid)
 
   return VectorFieldPhysical(values_at_grid, grid; layout = fourier_layout)
 end
@@ -731,7 +743,7 @@ field_data(field::VectorFieldSpectral) = field.fourier_coefficients
       f,
       grid::Grid3D{T};
       layout::RealFourierLayout = RealFourierLayout(),
-      array_type = Array,
+      family = Array,
     ) where {R, T<:AbstractFloat}
 
 
@@ -752,8 +764,9 @@ The function constructor constructs a tensor field of order ``R \\ge 2`` in phys
   tensor-fiber shape `fiber_shape(Val(R))`.
 - `grid` — the `Grid3D` the values are sampled on.
 - `layout` — a keyword: the `RealFourierLayout` used when transforming the field.
-- `array_type` — the array type the sampled values are stored in (`Array` on the host, a
-  device array such as `CuArray` or `ROCArray` to build the field on a GPU).
+- `family` — a keyword: the storage family the sampled values are stored in (`Array` on the host,
+  `CuArray` or `ROCArray` to build the field on a GPU), checked as the allocating constructors check
+  theirs.
 
 The allocating constructor takes a storage `family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
@@ -788,8 +801,10 @@ TensorFieldPhysical(values_at_grid::AbstractArray{T, N}, grid::Grid3D{T};
   TensorFieldPhysical{N - 3}(values_at_grid, grid; layout)
 
 
-function TensorFieldPhysical{R}(f, grid::Grid3D{T}; layout::RealFourierLayout = RealFourierLayout(), array_type = Array) where {R, T<:AbstractFloat}
+function TensorFieldPhysical{R}(f, grid::Grid3D{T}; layout::RealFourierLayout = RealFourierLayout(),
+    family::Type{<:AbstractArray} = Array) where {R, T<:AbstractFloat}
   fourier_layout = layout
+  _check_family_element_type(family, grid)
   (R isa Integer && R ≥ 2) || throw(ArgumentError("tensor order R must be an integer at least 2"))
 
   values_at_grid = Array{T}(undef, field_physical_shape(grid, Val(R))...)
@@ -804,7 +819,10 @@ function TensorFieldPhysical{R}(f, grid::Grid3D{T}; layout::RealFourierLayout = 
     end
   end
 
-  values_at_grid = array_type === Array ? values_at_grid : array_type(values_at_grid)
+  # The family is checked as the allocating constructors check theirs, and its parameters dropped:
+  # the values are sampled at the grid's element type, so only the backend is taken from it.
+  wrapper = Base.typename(family).wrapper
+  values_at_grid = wrapper === Array ? values_at_grid : wrapper(values_at_grid)
 
   return TensorFieldPhysical{R}(values_at_grid, grid; layout = fourier_layout)
 end

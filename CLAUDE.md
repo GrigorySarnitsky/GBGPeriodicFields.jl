@@ -368,6 +368,8 @@ comments and `@testset` names.
 argument with a default a keyword, so PF's four former switches (`origin`, `array_type`, the callable
 field's `scheme`, `corrected`) comply and were removed on 2026-10-06; positional arguments with a
 default in PF's surface are now review findings, an interface change being the owner's to approve.
+One switch remains, owner-decided 2026-10-07 (decision 100): `RealFourierLayout(fft_dims)` keeps its
+positional default, its argument being the layout value itself.
 `point_traversal_order(grid, points)` leads with the grid because it is TRANSFER infrastructure — the
 transfer verbs' order (`anterpolate(grid, points, …)`), not the motion verbs' trailing-grid one
 (`wrap!(points, grid)`); the two families are deliberate and a new function joins the family whose

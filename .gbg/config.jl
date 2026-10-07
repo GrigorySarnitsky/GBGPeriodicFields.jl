@@ -41,6 +41,13 @@ Config(
     # the rule keeps running: a second bold string cannot arrive unnoticed. `\mathbf{1}` needs no
     # entry — every package is granted the identity.
     switches = [
+        Switch(target = Symbol("RULE.API.POSITIONAL"),
+               files = ["src/Fields.jl"],
+               reason = "ONLY `RealFourierLayout(fft_dims = (1, 2, 3))`. A value type's constructor \
+                         whose argument is the value itself, not an option of an operation: \
+                         `RealFourierLayout((3, 1, 2))` names a layout as `Complex(1, 2)` names a \
+                         number, and the zero-argument form names the standard layout. Owner-decided \
+                         2026-10-07. Every other argument in this file follows the rule."),
         Switch(target = Symbol("RULE.DOC.RETIRED_CLAIMS"),
                files = ["docs/DECISIONS.md"],
                reason = "A decision log QUOTES a retired claim in order to record that it was \

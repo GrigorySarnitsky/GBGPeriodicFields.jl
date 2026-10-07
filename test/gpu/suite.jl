@@ -1148,6 +1148,10 @@ end
       family_plans = FieldTransformPlans(AT, grid; layout)
       @test Array(field_data(to_spectral(device_u, family_plans))) ==
             Array(field_data(to_spectral(device_u, device_plans)))
+      # A function-sampled field lands in the family it names (the `family` keyword, 2026-10-07).
+      sampled = ScalarFieldPhysical((x, y, z) -> sin(x), grid; layout, family = AT)
+      @test field_data(sampled) isa AT
+      @test Array(field_data(sampled)) == field_data(ScalarFieldPhysical((x, y, z) -> sin(x), grid; layout))
       # So are multipliers (decision 94): the same device arrays as the moved host multipliers, and
       # the same canonical type.
       family_multipliers = FieldSpectralMultipliers(AT, grid; layout)

@@ -4045,3 +4045,28 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       `GBGHomogeneousTurbulence` must pass the layout by keyword, and is told with decisions 97 and 98,
       so it migrates once.
 
+100. **The positional audit's three rulings** (2026-10-07, owner-ruled). An audit of every public
+     argument against `RULE.API.POSITIONAL` as reworded in GBGCodingTools rc.66 left three questions.
+
+     - **`RealFourierLayout(fft_dims = (1, 2, 3))` keeps its positional default, as a recorded
+       switch.** Its argument is the layout value itself, not an option of an operation:
+       `RealFourierLayout((3, 1, 2))` names a layout as `Complex(1, 2)` names a number, and the
+       zero-argument form names the standard layout. The mirror clause does not cover it, so the
+       exception is a `Switch` on the rule in `.gbg/config.jl`, with that reason.
+
+     - **`Grid3D` keeps both constructors.** `Grid3D(size, extent, spacing, origin)` is the type's
+       field-by-field constructor, every argument required, which is Julia's convention for a
+       struct; the HDF5 reader uses it to restore a grid with its exact stored spacing.
+       `Grid3D(size, extent; origin)` is the everyday form, its defaulted origin a keyword. A full
+       constructor beside a convenient one is not two spellings competing for one job.
+
+     - **The function-sampling constructors take `family`, not `array_type`.** The positions were both
+       right: in `ScalarFieldPhysical(CuArray, grid)` the family's type selects the method, and in
+       `ScalarFieldPhysical(f, grid; …)` the storage is an option of the sampling method. The name was
+       not, the same storage family being `family` everywhere else, and neither was the check: the
+       sampling form converted with `array_type(values)` and skipped the family check, so a mismatched
+       precision or a complex family failed late, by dispatch, with an unclear message. The keyword is
+       now `family`, checked as the allocating constructors check theirs, with tests on the CPU and in
+       the GPU suite, where none had covered the path before. Breaking for a caller passing
+       `array_type`; none in this package or its consumer did.
+

@@ -588,6 +588,26 @@ end
 end
 
 
+# The function-sampling constructors take their storage as the keyword `family`, checked as the
+# allocating constructors check theirs (2026-10-07; the keyword was `array_type`, converted unchecked).
+@testset "sampling constructors take a checked storage family ($T)" for T in (Float64, Float32)
+  grid = Grid3D((6, 5, 4), T.((2pi, 4pi, 2pi)))
+  f = (x, y, z) -> sin(x) + cos(y) * z
+  plain = ScalarFieldPhysical(f, grid)
+  @test field_data(ScalarFieldPhysical(f, grid; family = Array)) == field_data(plain)
+  @test field_data(ScalarFieldPhysical(f, grid; family = Array{T})) == field_data(plain)
+  @test field_data(plain) isa Array{T, 3}
+  @test field_data(VectorFieldPhysical((x, y, z) -> (x, y, z), grid; family = Array)) isa Array{T, 4}
+  @test field_data(TensorFieldPhysical{2}((x, y, z) -> zeros(3, 3), grid; family = Array)) isa Array{T, 5}
+  other = T === Float64 ? Float32 : Float64
+  for make in (g -> ScalarFieldPhysical(f, g; family = Array{other}),
+               g -> VectorFieldPhysical((x, y, z) -> (x, y, z), g; family = Array{Complex{T}}),
+               g -> TensorFieldPhysical{2}((x, y, z) -> zeros(3, 3), g; family = Array{other}))
+    @test_throws ArgumentError make(grid)
+  end
+end
+
+
 @testset "allocating constructors (family, grid[, layout]) — decision 74" begin
   for T in (Float64, Float32)
     grid = Grid3D((8, 6, 4), (T(2π), T(4π), T(6π)))          # anisotropic, mixed parity
