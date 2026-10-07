@@ -583,7 +583,8 @@ var
 """
     std(f; corrected = true)
 
-The sample **standard deviation** of a **scalar** section: the square root of [`var`](@ref), over the same
+The sample **standard deviation** of a **scalar** section, extending `Statistics.std` and taking its
+`corrected` keyword as that function does: the square root of [`var`](@ref), over the same
 bases `var` serves — a [`Grid3D`](@ref GBGPeriodicFields.Fields.Grid3D) or a [`PointSet`](@ref GBGPeriodicFields.Points.PointSet) — and, for a field, in spectral representation as
 well. Point values are representation-free, so that last clause reaches fields alone. Like `var` it is **scalar-only** —
 ``\\operatorname{std} = \\sqrt{\\operatorname{var}}`` has no canonical form for a vector (the matrix square root of the covariance is not a standard deviation);
@@ -1607,7 +1608,8 @@ end
 The **normalized ``L^p`` norm** ``\\lVert f\\rVert_p`` of a section ``f``, passed as `section`
 (`lpnorm`, ``\\lVert\\cdot\\rVert_p``),
 where ``|f|`` is the pointwise fiber magnitude (the fiberwise `norm`) — the ``L^p`` average of ``|f|`` over
-the base. The exponent `p` selects the norm: `p = 2` (the default) reduces to [`l2norm`](@ref), and
+the base. The exponent `p` selects the norm, positional with a default as in `LinearAlgebra.norm(x, p)`,
+which this mirrors: `p = 2` (the default) reduces to [`l2norm`](@ref), and
 `p = Inf` gives the supremum of the fiber magnitude (for example the maximum speed entering a CFL
 time-step bound).
 On a grid the average is the equal-weight sum over the ``N`` cells; on a point-set it is the sum over the

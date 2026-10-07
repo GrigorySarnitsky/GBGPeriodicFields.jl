@@ -1281,7 +1281,7 @@ this operation *spreading* (immersed-boundary methods), *deposition* or *charge 
   scheme's own docstring gives the weights.
 - `α` — scales the deposited contribution.
 - `β` — sets the accumulation: ``\\beta = 0`` (default) overwrites `field`, ``\\beta \\ne 0``
-  accumulates onto it (the `mul!` convention; accumulation is the common case for a two-way-coupling
+  accumulates onto it (the trailing weights mirror `LinearAlgebra.mul!(C, A, B, α, β)`; accumulation is the common case for a two-way-coupling
   scatter — a deposit that accumulates onto a field the same points also sample).
 - `traversal` — an optional traversal order from [`point_traversal_order`](@ref): a permutation of the point indices
   saying which point each work item handles. It changes only the sequence in which points are

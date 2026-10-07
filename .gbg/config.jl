@@ -5,7 +5,7 @@
 # default is wrong for this package.
 Config(
     package = "GBGPeriodicFields",
-    tool = v"2.0.0-rc.63",
+    tool = v"2.0.0-rc.64",
     docs_build = ["julia", "--project=docs", "docs/make.jl"],
     test = ["julia", "--project", "-e", "using Pkg; Pkg.test()"],
     # The one tooling page, written by `Render.pages` during the docs build: what the documentation
