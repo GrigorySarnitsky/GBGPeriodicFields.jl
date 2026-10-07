@@ -59,11 +59,11 @@ end
 # ── Fixtures on one context ──────────────────────────────────────────────────────────────────────
 const AGRID = Grid3D((8, 6, 4), (2π, 2π, 2π))
 const ALAYOUT = RealFourierLayout()
-agsphys() = ScalarFieldPhysical(rand(8, 6, 4), AGRID, ALAYOUT)
-agvphys() = VectorFieldPhysical(rand(8, 6, 4, 3), AGRID, ALAYOUT)
-agtphys() = TensorFieldPhysical{2}(rand(8, 6, 4, 3, 3), AGRID, ALAYOUT)
-agsspec() = ScalarFieldSpectral(randn(ComplexF64, AG.Fields.field_spectral_shape(AGRID, ALAYOUT, Val(0))), AGRID, ALAYOUT)
-agvspec() = VectorFieldSpectral(randn(ComplexF64, AG.Fields.field_spectral_shape(AGRID, ALAYOUT, Val(1))), AGRID, ALAYOUT)
+agsphys() = ScalarFieldPhysical(rand(8, 6, 4), AGRID; layout = ALAYOUT)
+agvphys() = VectorFieldPhysical(rand(8, 6, 4, 3), AGRID; layout = ALAYOUT)
+agtphys() = TensorFieldPhysical{2}(rand(8, 6, 4, 3, 3), AGRID; layout = ALAYOUT)
+agsspec() = ScalarFieldSpectral(randn(ComplexF64, AG.Fields.field_spectral_shape(AGRID, ALAYOUT, Val(0))), AGRID; layout = ALAYOUT)
+agvspec() = VectorFieldSpectral(randn(ComplexF64, AG.Fields.field_spectral_shape(AGRID, ALAYOUT, Val(1))), AGRID; layout = ALAYOUT)
 agmult() = FieldSpectralMultipliers(agsspec())
 agkernel() = spectral_band(agmult(), 1, 3)
 agplans() = FieldTransformPlans(agsphys(), agsspec())
@@ -73,8 +73,8 @@ agpoints() = PointSet(rand(9, 3) .* 2π)
 # ── The registry: each operation called on the side invariant 1 leaves ABSENT ────────────────────
 const ABSENT_CALLS = Dict{Symbol, Function}(
   # Nonlinear-in-the-field, so physical-only — the spectral spelling must refuse.
-  :det      => () -> det(TensorFieldSpectral{2}(randn(ComplexF64, AG.Fields.field_spectral_shape(AGRID, ALAYOUT, Val(2))), AGRID, ALAYOUT)),
-  :det!     => () -> det!(agsspec(), TensorFieldSpectral{2}(randn(ComplexF64, AG.Fields.field_spectral_shape(AGRID, ALAYOUT, Val(2))), AGRID, ALAYOUT)),
+  :det      => () -> det(TensorFieldSpectral{2}(randn(ComplexF64, AG.Fields.field_spectral_shape(AGRID, ALAYOUT, Val(2))), AGRID; layout = ALAYOUT)),
+  :det!     => () -> det!(agsspec(), TensorFieldSpectral{2}(randn(ComplexF64, AG.Fields.field_spectral_shape(AGRID, ALAYOUT, Val(2))), AGRID; layout = ALAYOUT)),
   :norm     => () -> AG.norm(agvspec()),
   :norm!    => () -> norm!(agsspec(), agvspec()),
   :lpnorm   => () -> lpnorm(agsspec(), 3),
@@ -119,8 +119,8 @@ const ABSENT_CALLS = Dict{Symbol, Function}(
   :anterpolate          => () -> anterpolate(agsphys(), agpoints(), ScalarPointValues(rand(9)), DirectDFT()),
   # Moving modes between grid resolutions is spectral by definition: a mode is what the operation
   # names, and two physical fields of different sizes share no sample points to copy (decision 85).
-  :embed_modes!         => () -> embed_modes!(agsphys(), ScalarFieldPhysical(rand(4, 4, 2), Grid3D((4, 4, 2), (2π, 2π, 2π)), ALAYOUT)),
-  :extract_modes!       => () -> extract_modes!(ScalarFieldPhysical(rand(4, 4, 2), Grid3D((4, 4, 2), (2π, 2π, 2π)), ALAYOUT), agsphys()),
+  :embed_modes!         => () -> embed_modes!(agsphys(), ScalarFieldPhysical(rand(4, 4, 2), Grid3D((4, 4, 2), (2π, 2π, 2π)); layout = ALAYOUT)),
+  :extract_modes!       => () -> extract_modes!(ScalarFieldPhysical(rand(4, 4, 2), Grid3D((4, 4, 2), (2π, 2π, 2π)); layout = ALAYOUT), agsphys()),
 )
 
 

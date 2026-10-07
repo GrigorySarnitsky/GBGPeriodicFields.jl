@@ -150,21 +150,21 @@ function canonical_pool(config; device = identity)
   rand(args...) = device(Base.rand(args...))
   P(R) = (grid.grid_size..., ntuple(_ -> 3, R)...)
   S(R) = GBGI.Fields.field_spectral_shape(grid, layout, Val(R))
-  physical = (ScalarFieldPhysical(rand(T, P(0)...), grid, layout),
-              VectorFieldPhysical(rand(T, P(1)...), grid, layout),
-              TensorFieldPhysical{2}(rand(T, P(2)...), grid, layout))
+  physical = (ScalarFieldPhysical(rand(T, P(0)...), grid; layout),
+              VectorFieldPhysical(rand(T, P(1)...), grid; layout),
+              TensorFieldPhysical{2}(rand(T, P(2)...), grid; layout))
   # `randn`, not `rand`: uniform complex draws put every Fourier coefficient in the positive quadrant,
   # so nothing in the spectral pool ever carried a negative real or imaginary part and a sign defect had
   # no fixture that could show it. The reference lane already draws signed, mean-zero coefficients.
-  spectral = (ScalarFieldSpectral(randn(Complex{T}, S(0)...), grid, layout),
-              VectorFieldSpectral(randn(Complex{T}, S(1)...), grid, layout),
-              TensorFieldSpectral{2}(randn(Complex{T}, S(2)...), grid, layout))
-  physical2 = (ScalarFieldPhysical(rand(T, P(0)...), grid, layout),
-               VectorFieldPhysical(rand(T, P(1)...), grid, layout),
-               TensorFieldPhysical{2}(rand(T, P(2)...), grid, layout))
-  spectral2 = (ScalarFieldSpectral(randn(Complex{T}, S(0)...), grid, layout),
-               VectorFieldSpectral(randn(Complex{T}, S(1)...), grid, layout),
-               TensorFieldSpectral{2}(randn(Complex{T}, S(2)...), grid, layout))
+  spectral = (ScalarFieldSpectral(randn(Complex{T}, S(0)...), grid; layout),
+              VectorFieldSpectral(randn(Complex{T}, S(1)...), grid; layout),
+              TensorFieldSpectral{2}(randn(Complex{T}, S(2)...), grid; layout))
+  physical2 = (ScalarFieldPhysical(rand(T, P(0)...), grid; layout),
+               VectorFieldPhysical(rand(T, P(1)...), grid; layout),
+               TensorFieldPhysical{2}(rand(T, P(2)...), grid; layout))
+  spectral2 = (ScalarFieldSpectral(randn(Complex{T}, S(0)...), grid; layout),
+               VectorFieldSpectral(randn(Complex{T}, S(1)...), grid; layout),
+               TensorFieldSpectral{2}(randn(Complex{T}, S(2)...), grid; layout))
   # THE COARSE SIDE OF THE RESOLUTION VERBS (decision 85). `embed_modes!` and `extract_modes!` take two
   # spectral fields on the SAME box at DIFFERENT resolutions, and REFUSE equal grids. Every field above
   # is on `config.grid`, so both of their slots were filled from it, every built call refused, and the
@@ -175,9 +175,9 @@ function canonical_pool(config; device = identity)
   coarse_size = map(n -> max(2, n ÷ 2), grid.grid_size)
   coarse_grid = Grid3D(coarse_size, grid.domain_size, grid.domain_size ./ coarse_size, grid.origin)
   CS(R) = GBGI.Fields.field_spectral_shape(coarse_grid, layout, Val(R))
-  coarse = (ScalarFieldSpectral(randn(Complex{T}, CS(0)...), coarse_grid, layout),
-            VectorFieldSpectral(randn(Complex{T}, CS(1)...), coarse_grid, layout),
-            TensorFieldSpectral{2}(randn(Complex{T}, CS(2)...), coarse_grid, layout))
+  coarse = (ScalarFieldSpectral(randn(Complex{T}, CS(0)...), coarse_grid; layout),
+            VectorFieldSpectral(randn(Complex{T}, CS(1)...), coarse_grid; layout),
+            TensorFieldSpectral{2}(randn(Complex{T}, CS(2)...), coarse_grid; layout))
   multipliers = FieldSpectralMultipliers(spectral[1])
   M = 12
   # Scaled on the HOST and moved afterwards. Broadcasting a device array against a host matrix is a

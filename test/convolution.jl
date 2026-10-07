@@ -443,9 +443,8 @@ end
 @testset "permuted rfft layout: translation kernel ⇔ circshift ($TP)" for TP in (Float64, Float32)
   grid_p = Grid3D((8, 6, 4), (TP(2π), TP(2π), TP(2π)))
   layout_p = RealFourierLayout((2, 1, 3))         # fold on spatial axis 2 (even ⇒ a live Nyquist factor)
-  f = ScalarFieldPhysical(rand(TP, 8, 6, 4), grid_p, layout_p)
-  scaffold = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_p, layout_p, Val(0))),
-                                 grid_p, layout_p)
+  f = ScalarFieldPhysical(rand(TP, 8, 6, 4), grid_p; layout = layout_p)
+  scaffold = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_p, layout_p, Val(0))), grid_p; layout = layout_p)
   plans = FieldTransformPlans(f, scaffold)
   fh = to_spectral(f, plans)
   m = FieldSpectralMultipliers(fh)
@@ -468,9 +467,8 @@ end
   rtol_c = TP === Float64 ? 1e-10 : 3e-4
   grid_c = Grid3D((8, 7, 6), (TP(2π), TP(4π), TP(6π)))
   layout_c = RealFourierLayout((3, 2, 1))                   # fold on spatial axis 3 (even)
-  f = ScalarFieldPhysical(rand(TP, 8, 7, 6), grid_c, layout_c)
-  scaff = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_c, layout_c, Val(0))),
-                              grid_c, layout_c)
+  f = ScalarFieldPhysical(rand(TP, 8, 7, 6), grid_c; layout = layout_c)
+  scaff = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_c, layout_c, Val(0))), grid_c; layout = layout_c)
   plans = FieldTransformPlans(f, scaff)
   fs = to_spectral(f, plans)
   m = FieldSpectralMultipliers(fs)
@@ -500,7 +498,7 @@ end
   # the lazy exponential kernel == the stored-kernel convolve route (permuted + odd + aniso)
   c = -TP(0.3)
   stored = GBGPeriodicFields.Convolution.StoredKernel(
-             ScalarFieldSpectral(Complex{TP}.(exp.(c .* expected_w2)), grid_c, layout_c))
+             ScalarFieldSpectral(Complex{TP}.(exp.(c .* expected_w2)), grid_c; layout = layout_c))
   ref_route = convolve(fs, stored)
   @test isapprox(field_data(exponential_convolve(fs, m, c)), field_data(ref_route);
                  rtol = rtol_c, atol = rtol_c)
@@ -513,14 +511,14 @@ end
   @test isapprox(field_data(moved_z), circshift(field_data(f), (0, 0, 3)); rtol = 20 * rtol_c)
 
   # α = 0, β ≠ 0 for every α/β form in the module (previously asserted nowhere)
-  other = ScalarFieldSpectral(rand(Complex{TP}, size(field_data(fs))...), grid_c, layout_c)
-  dst = ScalarFieldSpectral(copy(field_data(fs)), grid_c, layout_c)
+  other = ScalarFieldSpectral(rand(Complex{TP}, size(field_data(fs))...), grid_c; layout = layout_c)
+  dst = ScalarFieldSpectral(copy(field_data(fs)), grid_c; layout = layout_c)
   before = copy(field_data(dst))
   convolve!(dst, other, stored, TP(0), TP(2))
   @test field_data(dst) == 2 .* before
   exponential_convolve!(dst, other, m, c, TP(0), TP(2))
   @test field_data(dst) == 4 .* before
-  fused = ScalarFieldSpectral(zeros(Complex{TP}, size(field_data(fs))...), grid_c, layout_c)
+  fused = ScalarFieldSpectral(zeros(Complex{TP}, size(field_data(fs))...), grid_c; layout = layout_c)
   exponential_convolve!(fused, TP(0), other, TP(2), fs, m, c)     # two-operand: α = 0 drops a
   @test isapprox(field_data(fused), 2 .* field_data(exponential_convolve(fs, m, c));
                  rtol = rtol_c, atol = rtol_c)
@@ -529,16 +527,16 @@ end
 
   # aliasing directions never exercised: convolve! dest ≡ kernel (documented safe), the
   # two-operand exponential and kernel-composed combine! with dest ≡ a
-  kern_dst = ScalarFieldSpectral(copy(field_data(stored.field)), grid_c, layout_c)
+  kern_dst = ScalarFieldSpectral(copy(field_data(stored.field)), grid_c; layout = layout_c)
   convolve!(kern_dst, fs, GBGPeriodicFields.Convolution.StoredKernel(kern_dst))
   @test field_data(kern_dst) == field_data(ref_route)
-  combined = ScalarFieldSpectral(zeros(Complex{TP}, size(field_data(fs))...), grid_c, layout_c)
+  combined = ScalarFieldSpectral(zeros(Complex{TP}, size(field_data(fs))...), grid_c; layout = layout_c)
   combine!(combined, TP(1 // 2), fs, TP(2), other)          # the sequential reference input
-  a_dst = ScalarFieldSpectral(copy(field_data(fs)), grid_c, layout_c)
+  a_dst = ScalarFieldSpectral(copy(field_data(fs)), grid_c; layout = layout_c)
   exponential_convolve!(a_dst, TP(1 // 2), a_dst, TP(2), other, m, c)
   @test isapprox(field_data(a_dst), field_data(exponential_convolve(combined, m, c));
                  rtol = rtol_c, atol = rtol_c)
-  a_dst2 = ScalarFieldSpectral(copy(field_data(fs)), grid_c, layout_c)
+  a_dst2 = ScalarFieldSpectral(copy(field_data(fs)), grid_c; layout = layout_c)
   combine!(a_dst2, TP(1 // 2), a_dst2, TP(2), other, stored)
   @test isapprox(field_data(a_dst2), field_data(convolve(combined, stored)); rtol = rtol_c, atol = rtol_c)
 end
@@ -553,7 +551,7 @@ end
     g = Grid3D(gs, (TP(2π), TP(2π), TP(2π)))
     layout = RealFourierLayout()
     spec_shape = field_spectral_shape(g, layout, Val(0))
-    s0 = ScalarFieldSpectral(zeros(Complex{TP}, spec_shape), g, layout)
+    s0 = ScalarFieldSpectral(zeros(Complex{TP}, spec_shape), g; layout)
     mult = FieldSpectralMultipliers(s0)
     rng = MersenneTwister(50)
     h = (TP(0.3), TP(-0.7), TP(1.1))
@@ -563,13 +561,13 @@ end
     # The materialized product, declared as a kernel: it is the oracle the compressed form is compared
     # against, so it must be usable in the same argument position.
     oracle = GBGPeriodicFields.Convolution.StoredKernel(
-               ScalarFieldSpectral(copy(kernel_array(kernel)), g, layout))
+               ScalarFieldSpectral(copy(kernel_array(kernel)), g; layout))
 
     for R in (0, 1, 2)
       shape = R == 0 ? spec_shape : R == 1 ? (spec_shape..., 3) : (spec_shape..., 3, 3)
       data = rand(rng, Complex{TP}, shape...)
-      f = R == 0 ? ScalarFieldSpectral(data, g, layout) :
-          R == 1 ? VectorFieldSpectral(data, g, layout) : TensorFieldSpectral(data, g, layout)
+      f = R == 0 ? ScalarFieldSpectral(data, g; layout) :
+          R == 1 ? VectorFieldSpectral(data, g; layout) : TensorFieldSpectral(data, g; layout)
       # overwrite branch: bitwise equal to the stored kernel, at every tensor order
       @test field_data(convolve(f, kernel)) == field_data(convolve(f, oracle))
       # α/β accumulate branch (the fiberwise executor's other path)
@@ -588,7 +586,7 @@ end
     window = assignment_window(mult)
     @test window isa GBGPeriodicFields.Convolution.SeparableKernel
     @test eltype(window.factor_1) === TP                    # real factors, not complex storage
-    fs = ScalarFieldSpectral(rand(rng, Complex{TP}, spec_shape), g, layout)
+    fs = ScalarFieldSpectral(rand(rng, Complex{TP}, spec_shape), g; layout)
     @test isapprox(field_data(convolve(convolve(fs, window), inv(window))), field_data(fs);
                    rtol = TP === Float64 ? 1e-12 : 1.0f-4)
 
@@ -603,14 +601,13 @@ end
     @test stored isa GBGPeriodicFields.Convolution.StoredKernel      # the stored KERNEL class
     @test kernel_array(stored) == kernel_array(kernel)                # exactly the product
     @test field_data(convolve(fs, stored)) == field_data(convolve(fs, kernel))
-    uv = VectorFieldSpectral(rand(rng, Complex{TP}, spec_shape..., 3), g, layout)
+    uv = VectorFieldSpectral(rand(rng, Complex{TP}, spec_shape..., 3), g; layout)
     @test field_data(convolve(uv, stored)) == field_data(convolve(uv, kernel))
     @test eltype(field_data(materialize_kernel(window).field)) === Complex{TP}   # real factors → complex field
 
     # the domain check catches a kernel built for another grid
     other_grid = Grid3D((8, 7, 4), (TP(2π), TP(2π), TP(2π)))
-    other_spec = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(other_grid, layout, Val(0))),
-                                     other_grid, layout)
+    other_spec = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(other_grid, layout, Val(0))), other_grid; layout)
     foreign = translation_kernel(FieldSpectralMultipliers(other_spec), h)
     @test_throws ArgumentError convolve(fs, foreign)
   end
@@ -624,7 +621,7 @@ end
     g = Grid3D((8, 7, 6), (TP(2π), TP(4π), TP(6π)))          # mixed parity + anisotropic
     layout = RealFourierLayout()
     shape = field_spectral_shape(g, layout, Val(0))
-    s0 = ScalarFieldSpectral(zeros(Complex{TP}, shape), g, layout)
+    s0 = ScalarFieldSpectral(zeros(Complex{TP}, shape), g; layout)
     m = FieldSpectralMultipliers(s0)
     rng = MersenneTwister(51)
 
@@ -639,7 +636,7 @@ end
     # while the property itself never moved.
     big = Grid3D((64, 64, 64), (TP(2π), TP(4π), TP(6π)))
     big_multipliers = FieldSpectralMultipliers(
-      ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(big, layout, Val(0))...), big, layout))
+      ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(big, layout, Val(0))...), big; layout))
     big_cutoff = spectral_cutoff(big_multipliers, TP(3))
     @test cutoff.multipliers === m                            # references, never a copy
     @test big_cutoff.multipliers === big_multipliers
@@ -654,8 +651,8 @@ end
       for R in (0, 1, 2)
         shp = R == 0 ? shape : R == 1 ? (shape..., 3) : (shape..., 3, 3)
         data = rand(rng, Complex{TP}, shp...)
-        f = R == 0 ? ScalarFieldSpectral(data, g, layout) :
-            R == 1 ? VectorFieldSpectral(data, g, layout) : TensorFieldSpectral(data, g, layout)
+        f = R == 0 ? ScalarFieldSpectral(data, g; layout) :
+            R == 1 ? VectorFieldSpectral(data, g; layout) : TensorFieldSpectral(data, g; layout)
         @test field_data(convolve(f, kernel)) == field_data(convolve(f, stored))
         lazy = similar_field(f, Val(R)); sto = similar_field(f, Val(R))
         field_data(lazy) .= data; field_data(sto) .= data
@@ -663,14 +660,14 @@ end
         @test field_data(lazy) == field_data(sto)
       end
       # through the operators' kernel arity, and as a reduction weight
-      u = VectorFieldSpectral(rand(rng, Complex{TP}, shape..., 3), g, layout)
+      u = VectorFieldSpectral(rand(rng, Complex{TP}, shape..., 3), g; layout)
       @test field_data(helmholtz_projection(u, m, kernel)) == field_data(helmholtz_projection(u, m, stored))
       @test field_data(divergence(u, m, kernel)) == field_data(divergence(u, m, stored))
       @test weighted_inner(u, kernel) ≈ weighted_inner(u, stored)
     end
 
     # the sharp mask is an idempotent projection, and |k|² reproduces the Dirichlet weight
-    u = VectorFieldSpectral(rand(rng, Complex{TP}, shape..., 3), g, layout)
+    u = VectorFieldSpectral(rand(rng, Complex{TP}, shape..., 3), g; layout)
     @test field_data(convolve(convolve(u, cutoff), cutoff)) == field_data(convolve(u, cutoff))
     # `squared_wavenumber_field` returns the |k|² COORDINATE as a field, so using it as a weight states
     # the role. (That it is materialized at all is a separate question: |k|² is a radial symbol and
@@ -699,7 +696,7 @@ end
 
     # a kernel built for another base is rejected
     other = Grid3D((8, 7, 4), (TP(2π), TP(4π), TP(6π)))
-    o0 = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(other, layout, Val(0))), other, layout)
+    o0 = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(other, layout, Val(0))), other; layout)
     @test_throws ArgumentError convolve(u, spectral_cutoff(FieldSpectralMultipliers(o0), TP(3)))
   end
 end
@@ -715,8 +712,7 @@ end
 
   grid = Grid3D((8, 6, 4), (2π, 2π, 2π))
   layout = RealFourierLayout()
-  reference = ScalarFieldSpectral(zeros(ComplexF64, GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(0))),
-                                  grid, layout)
+  reference = ScalarFieldSpectral(zeros(ComplexF64, GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(0))), grid; layout)
   multipliers = FieldSpectralMultipliers(reference)
   radial = spectral_band(multipliers, 1, 3)
   separable = translation_kernel(multipliers, (0.1, 0.2, 0.3))
@@ -737,8 +733,7 @@ end
   end
   @test isempty(setdiff(declared, Set(keys(specimens))))
 
-  field = VectorFieldSpectral(randn(ComplexF64, GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(1))),
-                              grid, layout)
+  field = VectorFieldSpectral(randn(ComplexF64, GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(1))), grid; layout)
   for (class, kernel) in specimens
     # Every class materializes, onto the right base, agreeing with its own lazy data.
     stored = materialize_kernel(kernel)
@@ -775,8 +770,8 @@ end
                               T(2π / grid.domain_size[a]), 3)
     for R in (0, 1, 2)
       shape = field_spectral_shape(grid, layout, Val(R))
-      build(x) = R == 0 ? ScalarFieldSpectral(x, grid, layout) : R == 1 ? VectorFieldSpectral(x, grid, layout) :
-                          TensorFieldSpectral{2}(x, grid, layout)
+      build(x) = R == 0 ? ScalarFieldSpectral(x, grid; layout) : R == 1 ? VectorFieldSpectral(x, grid; layout) :
+                          TensorFieldSpectral{2}(x, grid; layout)
       f, b = build(randn(Complex{T}, shape...)), build(randn(Complex{T}, shape...))
       multipliers = FieldSpectralMultipliers(f)
       low, high, c, s = T(0.75), T(2.25), T(-1) / 20, T(3) / 10
@@ -805,8 +800,7 @@ end
       # Refused: a complex symbol, and a kernel built for another box.
       @test_throws ArgumentError exponential_convolve!(out, f, multipliers, c, s, radial_kernel(k -> complex(k), multipliers))
       other = Grid3D(sizes, T.((2π, 2π, 2π)))
-      foreign = spectral_band(FieldSpectralMultipliers(ScalarFieldSpectral(
-        zeros(Complex{T}, field_spectral_shape(other, layout, Val(0))...), other, layout)), low, high)
+      foreign = spectral_band(FieldSpectralMultipliers(ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(other, layout, Val(0))...), other; layout)), low, high)
       @test_throws ArgumentError exponential_convolve!(out, f, multipliers, c, s, foreign)
     end
   end
@@ -816,8 +810,7 @@ end
 @testset "materialize_kernel!: a kernel evaluated into existing storage ($T)" for T in (Float64, Float32)
   grid = Grid3D((8, 6, 5), T.((2π, 4π, 2π)))
   layout = RealFourierLayout()
-  reference = ScalarFieldSpectral(zeros(Complex{T}, GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(0))),
-                                  grid, layout)
+  reference = ScalarFieldSpectral(zeros(Complex{T}, GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(0))), grid; layout)
   multipliers = FieldSpectralMultipliers(reference)
   low, high = T(0.75), T(2.25)
   destination = StoredKernel(similar_field(reference, Val(0)))
@@ -829,8 +822,7 @@ end
   @test field_data(destination.field) == expected
   # A destination on another box is refused rather than written.
   other = Grid3D((8, 6, 5), T.((2π, 2π, 2π)))
-  foreign = StoredKernel(ScalarFieldSpectral(zeros(Complex{T}, GBGPeriodicFields.Fields.field_spectral_shape(other, layout, Val(0))),
-                                             other, layout))
+  foreign = StoredKernel(ScalarFieldSpectral(zeros(Complex{T}, GBGPeriodicFields.Fields.field_spectral_shape(other, layout, Val(0))), other; layout))
   @test_throws ArgumentError materialize_kernel!(foreign, spectral_band(multipliers, low, high))
 end
 
@@ -858,7 +850,7 @@ end
     tol = TP === Float64 ? 1e-12 : 2.0f-5
     grid = Grid3D((12, 10, 9), (TP(2π), TP(4π), TP(6π)))        # anisotropic, one odd axis
     layout = RealFourierLayout()
-    spectral_template = ScalarFieldSpectral(Array, grid, layout)
+    spectral_template = ScalarFieldSpectral(Array, grid; layout)
     plans = FieldTransformPlans(ScalarFieldPhysical(zeros(TP, 12, 10, 9), grid), spectral_template)
     mult = FieldSpectralMultipliers(spectral_template)
     sincc(y) = y == 0 ? one(TP) : sin(y) / y

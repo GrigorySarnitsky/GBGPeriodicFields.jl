@@ -127,7 +127,7 @@ _sum_all(xs...) = sum(xs)                                                 # any 
       qs_pos = scalar_points(); point_values(qs_pos) .= rand(T, M) .+ one(T)     # nonzero divisor
       # A coarser field over the same box, for the resolution verbs below.
       coarse_grid = Grid3D(grid.grid_size .÷ 2, grid.domain_size)
-      coarse_spectral = VectorFieldSpectral(Array, coarse_grid, layout)
+      coarse_spectral = VectorFieldSpectral(Array, coarse_grid; layout)
       field_data(coarse_spectral) .= 0
 
       # ----- spectral differential operators (lazy |k|² + fused kernels; decision 24) -----
@@ -538,9 +538,9 @@ end
   for T in (Float64, Float32)
     @testset "$T" begin
       grid, layout = Grid3D((16, 16, 16), T.((2pi, 2pi, 2pi))), RealFourierLayout()
-      sv  = VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid, layout)
-      dst = VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid, layout)
-      ss  = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout)
+      sv  = VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid; layout)
+      dst = VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid; layout)
+      ss  = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid; layout)
       m   = FieldSpectralMultipliers(sv)
       calls = (() -> laplacian!(dst, sv, m),
                () -> inverse_laplacian!(dst, sv, m),
@@ -579,9 +579,9 @@ end
     @testset "$T" begin
       N, M = 24, 4000
       grid, layout = Grid3D((N, N, N), T.((2pi, 2pi, 2pi))), RealFourierLayout()
-      fields = [VectorFieldPhysical(rand(T, N, N, N, 3), grid, layout) for _ in 1:33]
+      fields = [VectorFieldPhysical(rand(T, N, N, N, 3), grid; layout) for _ in 1:33]
       values = [VectorPointValues(rand(T, M, 3)) for _ in 1:33]
-      tensors = [TensorFieldPhysical{2}(rand(T, N, N, N, 3, 3), grid, layout) for _ in 1:6]
+      tensors = [TensorFieldPhysical{2}(rand(T, N, N, N, 3, 3), grid; layout) for _ in 1:6]
       tensor_values = [TensorPointValues(rand(T, M, 3, 3)) for _ in 1:6]
       points, source = PointSet(T(2pi) .* rand(T, M, 3)), PointSet(T(2pi) .* rand(T, M, 3))
       per_pass = Threads.nthreads() == 1 ? 1 : 4096 * Threads.nthreads()
@@ -615,7 +615,7 @@ end
       # hundred bytes — so the claim is relative: n weights cost no more than their groups of four,
       # each priced at one single-weight call. A regression that allocated per weight, or per mode,
       # breaks it.
-      scalar = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout)
+      scalar = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid; layout)
       spectral = similar_field(scalar, Val(1))
       field_data(spectral) .= one(Complex{T})
       multipliers = FieldSpectralMultipliers(spectral)
@@ -659,9 +659,9 @@ end
                      TensorFieldPhysical{2}(zeros(T, 8, 8, 8, 3, 3), grid))
         for (R, physical) in enumerate(physicals)
           shape = GBGPeriodicFields.field_spectral_shape(grid, layout, Val(R - 1))
-          spectral = R == 1 ? ScalarFieldSpectral(zeros(Complex{T}, shape...), grid, layout) :
-                     R == 2 ? VectorFieldSpectral(zeros(Complex{T}, shape...), grid, layout) :
-                              TensorFieldSpectral{2}(zeros(Complex{T}, shape...), grid, layout)
+          spectral = R == 1 ? ScalarFieldSpectral(zeros(Complex{T}, shape...), grid; layout) :
+                     R == 2 ? VectorFieldSpectral(zeros(Complex{T}, shape...), grid; layout) :
+                              TensorFieldSpectral{2}(zeros(Complex{T}, shape...), grid; layout)
           scratch = similar_field(spectral, similar(field_data(spectral)))
           plans = FieldTransformPlans(physical, spectral)
           to_spectral!(spectral, physical, plans)                       # warm both paths first
@@ -686,8 +686,8 @@ end
     @testset "$T" begin
       grid = Grid3D((8, 8, 8), T.((2pi, 2pi, 2pi)))
       layout = RealFourierLayout()
-      pv = VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid, layout)
-      sv = VectorFieldSpectral(rand(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid, layout)
+      pv = VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid; layout)
+      sv = VectorFieldSpectral(rand(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid; layout)
       q  = VectorPointValues(randn(T, 12, 3))
       ps = PointSet(rand(T, 12, 3))
       # The destinations are built HERE, not inside the measured expression: `similar_field`

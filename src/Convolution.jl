@@ -252,8 +252,7 @@ end
 Return a copy of a coefficientwise kernel, a `StoredKernel` owning storage no other shares.
 """
 materialize_kernel(kernel::StoredKernel) =
-  StoredKernel(ScalarFieldSpectral(copy(_kernel_data(kernel)),
-                                   _context_grid(kernel), _context_layout(kernel)))
+  StoredKernel(ScalarFieldSpectral(copy(_kernel_data(kernel)), _context_grid(kernel); layout = _context_layout(kernel)))
 
 
 """
@@ -474,7 +473,7 @@ function materialize_kernel(kernel::RadialKernel{T}) where {T}
                   length(kernel.multipliers.squared_wavenumber_2),
                   length(kernel.multipliers.squared_wavenumber_3)))
   @_assign! data .= _kernel_data(kernel)
-  return StoredKernel(ScalarFieldSpectral(data, kernel.grid, kernel.layout))
+  return StoredKernel(ScalarFieldSpectral(data, kernel.grid; layout = kernel.layout))
 end
 
 
@@ -614,7 +613,7 @@ function Base.inv(kernel::StoredKernel)
   all(!iszero, data) ||
     throw(ArgumentError("this kernel has a zero coefficient and is therefore not invertible; " *
                         "deconvolving by it would divide an annihilated mode by zero"))
-  return StoredKernel(ScalarFieldSpectral(inv.(data), _context_grid(kernel), _context_layout(kernel)))
+  return StoredKernel(ScalarFieldSpectral(inv.(data), _context_grid(kernel); layout = _context_layout(kernel)))
 end
 
 _context_grid(kernel::SeparableKernel) = kernel.grid
@@ -668,7 +667,7 @@ function materialize_kernel(kernel::SeparableKernel{T}) where {T}
   shape = (length(kernel.factor_1), length(kernel.factor_2), length(kernel.factor_3))
   data = similar(kernel.factor_1, Complex{T}, shape)
   @_assign! data .= kernel.factor_1 .* kernel.factor_2 .* kernel.factor_3
-  return StoredKernel(ScalarFieldSpectral(data, kernel.grid, kernel.layout))
+  return StoredKernel(ScalarFieldSpectral(data, kernel.grid; layout = kernel.layout))
 end
 
 

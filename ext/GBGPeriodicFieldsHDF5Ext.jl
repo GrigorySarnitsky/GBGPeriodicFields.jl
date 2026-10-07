@@ -134,17 +134,17 @@ function read_field(parent::HDF5.H5DataStore, name::AbstractString)
   grid = _reconstruct_grid(g, real(eltype(data)))
   layout = RealFourierLayout(Tuple(Int.(attrs(g)["fft_dims"])))
   if tag == "GBGPeriodicFields.ScalarFieldPhysical"
-    return ScalarFieldPhysical(data, grid, layout)
+    return ScalarFieldPhysical(data, grid; layout)
   elseif tag == "GBGPeriodicFields.ScalarFieldSpectral"
-    return ScalarFieldSpectral(data, grid, layout)
+    return ScalarFieldSpectral(data, grid; layout)
   elseif tag == "GBGPeriodicFields.VectorFieldPhysical"
-    return VectorFieldPhysical(data, grid, layout)
+    return VectorFieldPhysical(data, grid; layout)
   elseif tag == "GBGPeriodicFields.VectorFieldSpectral"
-    return VectorFieldSpectral(data, grid, layout)
+    return VectorFieldSpectral(data, grid; layout)
   elseif tag == "GBGPeriodicFields.TensorFieldPhysical"
-    return TensorFieldPhysical(data, grid, layout)
+    return TensorFieldPhysical(data, grid; layout)
   elseif tag == "GBGPeriodicFields.TensorFieldSpectral"
-    return TensorFieldSpectral(data, grid, layout)
+    return TensorFieldSpectral(data, grid; layout)
   else
     throw(ArgumentError("read_field: unrecognized field type tag \"$tag\" in group \"$name\""))
   end

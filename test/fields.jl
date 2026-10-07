@@ -194,8 +194,8 @@ end
     for (physical_type, spectral_type) in ((ScalarFieldPhysical, ScalarFieldSpectral),
                                            (VectorFieldPhysical, VectorFieldSpectral),
                                            (TensorFieldPhysical, TensorFieldSpectral))
-      physical = physical_type(Array, grid, layout)
-      spectral = spectral_type(Array, grid, layout)
+      physical = physical_type(Array, grid; layout)
+      spectral = spectral_type(Array, grid; layout)
       copyto!(field_data(physical), rand(TP, size(field_data(physical))))
       original = copy(field_data(physical))
       plans = FieldTransformPlans(physical, spectral)
@@ -209,12 +209,12 @@ end
   # scalar field transforms a vector and a tensor field. Under the old per-rank plans this call was
   # not merely slower — it did not exist, because the plan's tensor order was part of its type.
   grid = Grid3D((8, 7, 6), (TP(2π), TP(2π), TP(2π)))
-  scalar_plans = FieldTransformPlans(ScalarFieldPhysical(Array, grid, layout),
-                                     ScalarFieldSpectral(Array, grid, layout))
+  scalar_plans = FieldTransformPlans(ScalarFieldPhysical(Array, grid; layout),
+                                     ScalarFieldSpectral(Array, grid; layout))
   for (physical_type, spectral_type) in ((VectorFieldPhysical, VectorFieldSpectral),
                                          (TensorFieldPhysical, TensorFieldSpectral))
-    physical = physical_type(Array, grid, layout)
-    spectral = spectral_type(Array, grid, layout)
+    physical = physical_type(Array, grid; layout)
+    spectral = spectral_type(Array, grid; layout)
     copyto!(field_data(physical), rand(TP, size(field_data(physical))))
     original = copy(field_data(physical))
     to_spectral!(spectral, physical, scalar_plans)
@@ -223,8 +223,8 @@ end
   end
 
   # A host grid never needs the staging buffer: misalignment is answered by the planner flag.
-  @test FieldTransformPlans(ScalarFieldPhysical(Array, Grid3D((7, 5, 3), (TP(2π), TP(2π), TP(2π))), layout),
-                            ScalarFieldSpectral(Array, Grid3D((7, 5, 3), (TP(2π), TP(2π), TP(2π))), layout)
+  @test FieldTransformPlans(ScalarFieldPhysical(Array, Grid3D((7, 5, 3), (TP(2π), TP(2π), TP(2π))); layout),
+                            ScalarFieldSpectral(Array, Grid3D((7, 5, 3), (TP(2π), TP(2π), TP(2π))); layout)
                             ).component_scratch === nothing
 
   # The alignment predicate is a fact about the base, not a guess: all-odd grids are exactly the ones
@@ -244,9 +244,8 @@ end
   grid_p = Grid3D((8, 7, 6), (TP(2π), TP(4π), TP(6π)))        # mixed parity + anisotropic lengths
   for dims in ((2, 1, 3), (3, 2, 1))                          # odd fold (N=7), then even fold (N=6)
     layout_p = RealFourierLayout(dims)
-    field = VectorFieldPhysical(rand(TP, 8, 7, 6, 3), grid_p, layout_p)
-    scaffold = VectorFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_p, layout_p, Val(1))),
-                                   grid_p, layout_p)
+    field = VectorFieldPhysical(rand(TP, 8, 7, 6, 3), grid_p; layout = layout_p)
+    scaffold = VectorFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_p, layout_p, Val(1))), grid_p; layout = layout_p)
     plans = FieldTransformPlans(field, scaffold)
     back = to_physical(to_spectral(field, plans), plans)
     @test field_data(back) ≈ field_data(field)
@@ -288,8 +287,7 @@ end
   # feeding the convenience constructor's own arrays back must reproduce it field for field
   grid_m = Grid3D((8, 6, 4), (TP(2π), TP(2π), TP(2π)))
   layout_m = RealFourierLayout((2, 1, 3))
-  ref = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_m, layout_m, Val(0))),
-                            grid_m, layout_m)
+  ref = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_m, layout_m, Val(0))), grid_m; layout = layout_m)
   mc = FieldSpectralMultipliers(ref)
   for built in (
       FieldSpectralMultipliers(grid_m, layout_m,
@@ -315,7 +313,7 @@ end
   @test_throws DimensionMismatch ScalarFieldPhysical(zeros(TP, 8, 6, 5), grid_m)
   mismatched = ScalarFieldSpectral(
     zeros(Complex{TP}, field_spectral_shape(grid_m, RealFourierLayout(), Val(0))), grid_m)
-  physical_m = ScalarFieldPhysical(zeros(TP, 8, 6, 4), grid_m, layout_m)
+  physical_m = ScalarFieldPhysical(zeros(TP, 8, 6, 4), grid_m; layout = layout_m)
   @test_throws ArgumentError FieldTransformPlans(physical_m, mismatched)
 end
 
@@ -346,11 +344,10 @@ end
                           ((7, 8, 8), RealFourierLayout()))          # ODD folded axis: no Nyquist plane
     grid = Grid3D(sizes, T.((2pi, 2pi, 2pi)))
     for R in (0, 1, 2)
-      physical = R == 0 ? ScalarFieldPhysical(rand(T, sizes...), grid, layout) :
-                 R == 1 ? VectorFieldPhysical(rand(T, sizes..., 3), grid, layout) :
-                          TensorFieldPhysical{2}(rand(T, sizes..., 3, 3), grid, layout)
-      spectral = similar_field(ScalarFieldSpectral(
-        zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout), Val(R))
+      physical = R == 0 ? ScalarFieldPhysical(rand(T, sizes...), grid; layout) :
+                 R == 1 ? VectorFieldPhysical(rand(T, sizes..., 3), grid; layout) :
+                          TensorFieldPhysical{2}(rand(T, sizes..., 3, 3), grid; layout)
+      spectral = similar_field(ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid; layout), Val(R))
       plans = FieldTransformPlans(physical, spectral)
       transformed = to_spectral(physical, plans)
 
@@ -415,11 +412,10 @@ end
                           ((7, 8, 8), RealFourierLayout()))          # ODD folded axis: no Nyquist plane
     grid = Grid3D(sizes, T.((2pi, 2pi, 2pi)))
     for R in (0, 1, 2)
-      physical = R == 0 ? ScalarFieldPhysical(rand(T, sizes...), grid, layout) :
-                 R == 1 ? VectorFieldPhysical(rand(T, sizes..., 3), grid, layout) :
-                          TensorFieldPhysical{2}(rand(T, sizes..., 3, 3), grid, layout)
-      spectral = similar_field(ScalarFieldSpectral(
-        zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout), Val(R))
+      physical = R == 0 ? ScalarFieldPhysical(rand(T, sizes...), grid; layout) :
+                 R == 1 ? VectorFieldPhysical(rand(T, sizes..., 3), grid; layout) :
+                          TensorFieldPhysical{2}(rand(T, sizes..., 3, 3), grid; layout)
+      spectral = similar_field(ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid; layout), Val(R))
       plans = FieldTransformPlans(physical, spectral)
       transformed = to_spectral(physical, plans)
 
@@ -482,8 +478,7 @@ end
       @test field_data(source) == source_before
       @test reality_residual(dest) == 0
       other_grid = Grid3D(sizes, T.((2pi, 4pi, 2pi)))
-      foreign = similar_field(ScalarFieldSpectral(
-        zeros(Complex{T}, field_spectral_shape(other_grid, layout, Val(0))...), other_grid, layout), Val(R))
+      foreign = similar_field(ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(other_grid, layout, Val(0))...), other_grid; layout), Val(R))
       @test_throws ArgumentError reality_projection!(foreign, source)
 
       # No physical-representation method: there the projection is the identity (invariant 1).
@@ -501,11 +496,10 @@ end
     grid = Grid3D(sizes, T.((2pi, 4pi, 6pi)))
     for R in (0, 1, 2)
       values = rand(T, sizes..., ntuple(_ -> 3, R)...) .+ T(2)          # a mean well away from zero
-      physical = R == 0 ? ScalarFieldPhysical(values, grid, layout) :
-                 R == 1 ? VectorFieldPhysical(values, grid, layout) :
-                          TensorFieldPhysical{2}(values, grid, layout)
-      spectral = similar_field(ScalarFieldSpectral(
-        zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout), Val(R))
+      physical = R == 0 ? ScalarFieldPhysical(values, grid; layout) :
+                 R == 1 ? VectorFieldPhysical(values, grid; layout) :
+                          TensorFieldPhysical{2}(values, grid; layout)
+      spectral = similar_field(ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid; layout), Val(R))
       plans = FieldTransformPlans(physical, spectral)
       transformed = to_spectral(physical, plans)
       data = field_data(transformed)
@@ -545,10 +539,10 @@ end
 @testset "FieldTransformPlans(family, grid, layout) ($T)" for T in (Float64, Float32)
   for (sizes, layout) in (((8, 6, 5), RealFourierLayout()), ((7, 6, 6), RealFourierLayout((3, 1, 2))))
     grid = Grid3D(sizes, T.((2pi, 4pi, 2pi)))
-    physical = VectorFieldPhysical(randn(T, sizes..., 3), grid, layout)
-    template = VectorFieldSpectral(Array, grid, layout)
+    physical = VectorFieldPhysical(randn(T, sizes..., 3), grid; layout)
+    template = VectorFieldSpectral(Array, grid; layout)
     from_fields = FieldTransformPlans(physical, template)
-    from_family = FieldTransformPlans(Array, grid, layout)
+    from_family = FieldTransformPlans(Array, grid; layout)
     @test from_family.grid == grid && from_family.fourier_layout == layout
     @test field_data(to_spectral(physical, from_family)) == field_data(to_spectral(physical, from_fields))
     spectral = to_spectral(physical, from_fields)
@@ -557,8 +551,8 @@ end
     @test FieldTransformPlans(Array, grid).fourier_layout == RealFourierLayout()
     # A family declaring another precision, or a complex element, is refused.
     other = T === Float64 ? Float32 : Float64
-    @test_throws ArgumentError FieldTransformPlans(Array{other}, grid, layout)
-    @test_throws ArgumentError FieldTransformPlans(Array{Complex{T}}, grid, layout)
+    @test_throws ArgumentError FieldTransformPlans(Array{other}, grid; layout)
+    @test_throws ArgumentError FieldTransformPlans(Array{Complex{T}}, grid; layout)
   end
   # A timed plan search plans on arrays of its own: the caller's template fields are untouched.
   grid = Grid3D((8, 8, 8), T.((2pi, 2pi, 2pi)))
@@ -575,8 +569,8 @@ end
 @testset "FieldSpectralMultipliers(family, grid, layout) ($T)" for T in (Float64, Float32)
   for (sizes, layout) in (((8, 6, 5), RealFourierLayout()), ((7, 6, 6), RealFourierLayout((3, 1, 2))))
     grid = Grid3D(sizes, T.((2pi, 4pi, 6pi)))
-    from_field = FieldSpectralMultipliers(VectorFieldSpectral(Array, grid, layout))
-    from_family = FieldSpectralMultipliers(Array, grid, layout)
+    from_field = FieldSpectralMultipliers(VectorFieldSpectral(Array, grid; layout))
+    from_family = FieldSpectralMultipliers(Array, grid; layout)
     @test typeof(from_family) === typeof(from_field)
     @test GBGPeriodicFields.Fields._is_canonical(from_family)
     @test from_family.grid == grid && from_family.fourier_layout == layout
@@ -588,8 +582,8 @@ end
     @test convolve(spectral_cutoff(from_family, T(2)), spectral_cutoff(from_field, T(3))) isa RadialKernel
     @test FieldSpectralMultipliers(Array, grid).fourier_layout == RealFourierLayout()
     other = T === Float64 ? Float32 : Float64
-    @test_throws ArgumentError FieldSpectralMultipliers(Array{other}, grid, layout)
-    @test_throws ArgumentError FieldSpectralMultipliers(Array{Complex{T}}, grid, layout)
+    @test_throws ArgumentError FieldSpectralMultipliers(Array{other}, grid; layout)
+    @test_throws ArgumentError FieldSpectralMultipliers(Array{Complex{T}}, grid; layout)
   end
 end
 
@@ -602,22 +596,22 @@ end
       # and must carry the grid and layout it was given (the decision-48 metadata trap: metadata
       # must survive any operation that allocates its result).
       cases = (
-        (ScalarFieldPhysical(Array, grid, layout),
-         ScalarFieldPhysical(zeros(T, field_physical_shape(grid, Val(0))), grid, layout)),
-        (VectorFieldPhysical(Array, grid, layout),
-         VectorFieldPhysical(zeros(T, field_physical_shape(grid, Val(1))), grid, layout)),
-        (TensorFieldPhysical(Array, grid, layout),
-         TensorFieldPhysical(zeros(T, field_physical_shape(grid, Val(2))), grid, layout)),
-        (TensorFieldPhysical{3}(Array, grid, layout),
-         TensorFieldPhysical{3}(zeros(T, field_physical_shape(grid, Val(3))), grid, layout)),
-        (ScalarFieldSpectral(Array, grid, layout),
-         ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))), grid, layout)),
-        (VectorFieldSpectral(Array, grid, layout),
-         VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))), grid, layout)),
-        (TensorFieldSpectral(Array, grid, layout),
-         TensorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(2))), grid, layout)),
-        (TensorFieldSpectral{4}(Array, grid, layout),
-         TensorFieldSpectral{4}(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(4))), grid, layout)),
+        (ScalarFieldPhysical(Array, grid; layout),
+         ScalarFieldPhysical(zeros(T, field_physical_shape(grid, Val(0))), grid; layout)),
+        (VectorFieldPhysical(Array, grid; layout),
+         VectorFieldPhysical(zeros(T, field_physical_shape(grid, Val(1))), grid; layout)),
+        (TensorFieldPhysical(Array, grid; layout),
+         TensorFieldPhysical(zeros(T, field_physical_shape(grid, Val(2))), grid; layout)),
+        (TensorFieldPhysical{3}(Array, grid; layout),
+         TensorFieldPhysical{3}(zeros(T, field_physical_shape(grid, Val(3))), grid; layout)),
+        (ScalarFieldSpectral(Array, grid; layout),
+         ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))), grid; layout)),
+        (VectorFieldSpectral(Array, grid; layout),
+         VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))), grid; layout)),
+        (TensorFieldSpectral(Array, grid; layout),
+         TensorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(2))), grid; layout)),
+        (TensorFieldSpectral{4}(Array, grid; layout),
+         TensorFieldSpectral{4}(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(4))), grid; layout)),
       )
       for (allocated, twin) in cases
         @test typeof(allocated) === typeof(twin)
@@ -626,7 +620,7 @@ end
         @test field_layout(allocated) === layout
       end
       # ...and from similar_field of the twin — the reference-based and reference-free routes agree.
-      @test typeof(ScalarFieldSpectral(Array, grid, layout)) ===
+      @test typeof(ScalarFieldSpectral(Array, grid; layout)) ===
             typeof(similar_field(cases[5][2], Val(0)))
     end
 

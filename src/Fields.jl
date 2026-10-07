@@ -423,26 +423,21 @@ function field_data end
 """
     ScalarFieldPhysical(
       values_at_grid::AbstractArray{T, 3},
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout,
-    ) where {T<:AbstractFloat}
-
-    ScalarFieldPhysical(
-      values_at_grid::AbstractArray{T, 3},
-      grid::Grid3D{T},
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat}
 
     ScalarFieldPhysical(
       f,
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout = RealFourierLayout();
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
       array_type = Array,
     ) where {T<:AbstractFloat}
 
     ScalarFieldPhysical(
       family::Type{<:AbstractArray},
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout = RealFourierLayout(),
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat}
 
 Scalar field in physical representation, stored as its values on a three-dimensional physical grid.
@@ -452,7 +447,7 @@ The function constructor constructs a scalar field in physical representation by
 
 - `f` — the sampled function, called as `f(x, y, z)` at each grid point.
 - `grid` — the `Grid3D` the values are sampled on.
-- `fourier_layout` — the `RealFourierLayout` used when transforming the field.
+- `layout` — a keyword: the `RealFourierLayout` used when transforming the field.
 - `array_type` — the array type the sampled values are stored in (`Array` on the host, a
   device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 
@@ -461,7 +456,7 @@ The allocating constructor takes a storage `family` — `Array`, `CuArray`, `ROC
 Broadcasting over scalar fields in physical representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `ScalarFieldPhysical`.
 
-The two-argument constructors use the default `RealFourierLayout()` for the layout.
+The `layout` keyword defaults to the standard `RealFourierLayout()`.
 
 # Fields
 
@@ -474,17 +469,18 @@ struct ScalarFieldPhysical{T<:AbstractFloat, A<:AbstractArray{T, 3}, G<:Grid3D{T
   grid::G
   fourier_layout::L
 
-  function ScalarFieldPhysical(values_at_grid::A, grid::G, fourier_layout::L) where {T<:AbstractFloat, A<:AbstractArray{T, 3}, G<:Grid3D{T}, L<:RealFourierLayout}
+  function ScalarFieldPhysical(values_at_grid::A, grid::G; layout::L = RealFourierLayout()) where {T<:AbstractFloat, A<:AbstractArray{T, 3}, G<:Grid3D{T}, L<:RealFourierLayout}
+    fourier_layout = layout
     size(values_at_grid) == field_physical_shape(grid, Val(0)) || throw(DimensionMismatch("size(values_at_grid) must be equal to field_physical_shape(grid, Val(0))"))
     _check_owned_storage(values_at_grid, "a ScalarFieldPhysical")
     return new{T, A, G, L}(values_at_grid, grid, fourier_layout)
   end
 end
 
-ScalarFieldPhysical(values_at_grid::AbstractArray{T, 3}, grid::Grid3D{T}) where {T<:AbstractFloat} = ScalarFieldPhysical(values_at_grid, grid, RealFourierLayout())
 
 
-function ScalarFieldPhysical(f, grid::Grid3D{T}, fourier_layout::RealFourierLayout = RealFourierLayout(); array_type = Array) where {T<:AbstractFloat}
+function ScalarFieldPhysical(f, grid::Grid3D{T}; layout::RealFourierLayout = RealFourierLayout(), array_type = Array) where {T<:AbstractFloat}
+  fourier_layout = layout
   values_at_grid = Array{T}(undef, field_physical_shape(grid, Val(0))...)
 
   Δx₁, Δx₂, Δx₃ = grid.grid_spacing
@@ -496,27 +492,22 @@ function ScalarFieldPhysical(f, grid::Grid3D{T}, fourier_layout::RealFourierLayo
 
   values_at_grid = array_type === Array ? values_at_grid : array_type(values_at_grid)
 
-  return ScalarFieldPhysical(values_at_grid, grid, fourier_layout)
+  return ScalarFieldPhysical(values_at_grid, grid; layout = fourier_layout)
 end
 
 
 """
     ScalarFieldSpectral(
       fourier_coefficients::AbstractArray{Complex{T}, 3},
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout,
-    ) where {T<:AbstractFloat}
-
-    ScalarFieldSpectral(
-      fourier_coefficients::AbstractArray{Complex{T}, 3},
-      grid::Grid3D{T},
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat}
 
 
     ScalarFieldSpectral(
       family::Type{<:AbstractArray},
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout = RealFourierLayout(),
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat}
 
 Scalar field in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
@@ -530,7 +521,7 @@ Broadcasting over scalar fields in spectral representation is lifted to `fourier
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `ScalarFieldSpectral`.
 All such operations are coefficientwise; for example, `.*` does not represent a pseudospectral product of scalar fields.
 
-The two-argument constructor uses the default `RealFourierLayout()` for the layout.
+The `layout` keyword defaults to the standard `RealFourierLayout()`.
 
 # Arguments
 
@@ -540,7 +531,7 @@ The two-argument constructor uses the default `RealFourierLayout()` for the layo
 - `family` — the allocating form only: the storage family (`Array`, `CuArray`, `ROCArray`) given in
   place of the array.
 - `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
-- `fourier_layout` — the [`RealFourierLayout`](@ref); omitted, it is `RealFourierLayout()`.
+- `layout` — a keyword: the [`RealFourierLayout`](@ref), defaulting to the standard `RealFourierLayout()`.
 
 # Fields
 
@@ -553,7 +544,8 @@ struct ScalarFieldSpectral{T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 3}, 
   grid::G
   fourier_layout::L
 
-  function ScalarFieldSpectral(fourier_coefficients::Â, grid::G, fourier_layout::L) where {T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 3}, G<:Grid3D{T}, L<:RealFourierLayout}
+  function ScalarFieldSpectral(fourier_coefficients::Â, grid::G; layout::L = RealFourierLayout()) where {T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 3}, G<:Grid3D{T}, L<:RealFourierLayout}
+    fourier_layout = layout
     size(fourier_coefficients) == field_spectral_shape(grid, fourier_layout, Val(0)) ||
       throw(DimensionMismatch("size(fourier_coefficients) must be equal to field_spectral_shape(grid, fourier_layout, Val(0))"))
     _check_owned_storage(fourier_coefficients, "a ScalarFieldSpectral")
@@ -561,7 +553,6 @@ struct ScalarFieldSpectral{T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 3}, 
   end
 end
 
-ScalarFieldSpectral(fourier_coefficients::AbstractArray{Complex{T}, 3}, grid::Grid3D{T}) where {T<:AbstractFloat} = ScalarFieldSpectral(fourier_coefficients, grid, RealFourierLayout())
 
 
 field_data(field::ScalarFieldPhysical) = field.values_at_grid
@@ -577,27 +568,22 @@ field_data(field::ScalarFieldSpectral) = field.fourier_coefficients
 """
     VectorFieldPhysical(
       values_at_grid::AbstractArray{T, 4},
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout,
-    ) where {T<:AbstractFloat}
-
-    VectorFieldPhysical(
-      values_at_grid::AbstractArray{T, 4},
-      grid::Grid3D{T},
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat}
 
     VectorFieldPhysical(
       f,
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout = RealFourierLayout();
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
       array_type = Array,
     ) where {T<:AbstractFloat}
 
 
     VectorFieldPhysical(
       family::Type{<:AbstractArray},
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout = RealFourierLayout(),
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat}
 
 Vector field in physical representation, stored as its components on a three-dimensional physical grid.
@@ -608,7 +594,7 @@ The function constructor constructs a vector field in physical representation by
 - `f` — the sampled function, called as `f(x, y, z)`; it must return a three-component
   indexable object.
 - `grid` — the `Grid3D` the values are sampled on.
-- `fourier_layout` — the `RealFourierLayout` used when transforming the field.
+- `layout` — a keyword: the `RealFourierLayout` used when transforming the field.
 - `array_type` — the array type the sampled values are stored in (`Array` on the host, a
   device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 
@@ -618,7 +604,7 @@ Broadcasting over vector fields in physical representation is lifted to `values_
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `VectorFieldPhysical`.
 These operations are storage-wise and componentwise.
 
-The two-argument constructors use the default `RealFourierLayout()` for the layout.
+The `layout` keyword defaults to the standard `RealFourierLayout()`.
 
 # Fields
 
@@ -631,17 +617,18 @@ struct VectorFieldPhysical{T<:AbstractFloat, A<:AbstractArray{T, 4}, G<:Grid3D{T
   grid::G
   fourier_layout::L
 
-  function VectorFieldPhysical(values_at_grid::A, grid::G, fourier_layout::L) where {T<:AbstractFloat, A<:AbstractArray{T, 4}, G<:Grid3D{T}, L<:RealFourierLayout}
+  function VectorFieldPhysical(values_at_grid::A, grid::G; layout::L = RealFourierLayout()) where {T<:AbstractFloat, A<:AbstractArray{T, 4}, G<:Grid3D{T}, L<:RealFourierLayout}
+    fourier_layout = layout
     size(values_at_grid) == field_physical_shape(grid, Val(1)) || throw(DimensionMismatch("size(values_at_grid) must be equal to field_physical_shape(grid, Val(1))"))
     _check_owned_storage(values_at_grid, "a VectorFieldPhysical")
     return new{T, A, G, L}(values_at_grid, grid, fourier_layout)
   end
 end
 
-VectorFieldPhysical(values_at_grid::AbstractArray{T, 4}, grid::Grid3D{T}) where {T<:AbstractFloat} = VectorFieldPhysical(values_at_grid, grid, RealFourierLayout())
 
 
-function VectorFieldPhysical(f, grid::Grid3D{T}, fourier_layout::RealFourierLayout = RealFourierLayout(); array_type = Array) where {T<:AbstractFloat}
+function VectorFieldPhysical(f, grid::Grid3D{T}; layout::RealFourierLayout = RealFourierLayout(), array_type = Array) where {T<:AbstractFloat}
+  fourier_layout = layout
   values_at_grid = Array{T}(undef, field_physical_shape(grid, Val(1))...)
 
   Δx₁, Δx₂, Δx₃ = grid.grid_spacing
@@ -656,27 +643,22 @@ function VectorFieldPhysical(f, grid::Grid3D{T}, fourier_layout::RealFourierLayo
 
   values_at_grid = array_type === Array ? values_at_grid : array_type(values_at_grid)
 
-  return VectorFieldPhysical(values_at_grid, grid, fourier_layout)
+  return VectorFieldPhysical(values_at_grid, grid; layout = fourier_layout)
 end
 
 
 """
     VectorFieldSpectral(
       fourier_coefficients::AbstractArray{Complex{T}, 4},
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout,
-    ) where {T<:AbstractFloat}
-
-    VectorFieldSpectral(
-      fourier_coefficients::AbstractArray{Complex{T}, 4},
-      grid::Grid3D{T},
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat}
 
 
     VectorFieldSpectral(
       family::Type{<:AbstractArray},
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout = RealFourierLayout(),
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat}
 
 Vector field in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
@@ -687,7 +669,7 @@ Broadcasting over vector fields in spectral representation is lifted to `fourier
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `VectorFieldSpectral`.
 These operations are storage-wise and componentwise. They do not represent pseudospectral products or tensor contractions.
 
-The two-argument constructor uses the default `RealFourierLayout()` for the layout.
+The `layout` keyword defaults to the standard `RealFourierLayout()`.
 
 # Arguments
 
@@ -697,7 +679,7 @@ The two-argument constructor uses the default `RealFourierLayout()` for the layo
 - `family` — the allocating form only: the storage family (`Array`, `CuArray`, `ROCArray`) given in
   place of the array.
 - `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
-- `fourier_layout` — the [`RealFourierLayout`](@ref); omitted, it is `RealFourierLayout()`.
+- `layout` — a keyword: the [`RealFourierLayout`](@ref), defaulting to the standard `RealFourierLayout()`.
 
 # Fields
 
@@ -710,7 +692,8 @@ struct VectorFieldSpectral{T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 4}, 
   grid::G
   fourier_layout::L
 
-  function VectorFieldSpectral(fourier_coefficients::Â, grid::G, fourier_layout::L) where {T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 4}, G<:Grid3D{T}, L<:RealFourierLayout}
+  function VectorFieldSpectral(fourier_coefficients::Â, grid::G; layout::L = RealFourierLayout()) where {T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 4}, G<:Grid3D{T}, L<:RealFourierLayout}
+    fourier_layout = layout
     size(fourier_coefficients) == field_spectral_shape(grid, fourier_layout, Val(1)) ||
       throw(DimensionMismatch("size(fourier_coefficients) must be equal to field_spectral_shape(grid, fourier_layout, Val(1))"))
     _check_owned_storage(fourier_coefficients, "a VectorFieldSpectral")
@@ -718,7 +701,6 @@ struct VectorFieldSpectral{T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 4}, 
   end
 end
 
-VectorFieldSpectral(fourier_coefficients::AbstractArray{Complex{T}, 4}, grid::Grid3D{T}) where {T<:AbstractFloat} = VectorFieldSpectral(fourier_coefficients, grid, RealFourierLayout())
 
 
 field_data(field::VectorFieldPhysical) = field.values_at_grid
@@ -735,38 +717,28 @@ field_data(field::VectorFieldSpectral) = field.fourier_coefficients
 """
     TensorFieldPhysical{R}(
       values_at_grid::AbstractArray{T},
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout,
-    ) where {R, T<:AbstractFloat}
-
-    TensorFieldPhysical{R}(
-      values_at_grid::AbstractArray{T},
-      grid::Grid3D{T},
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
     ) where {R, T<:AbstractFloat}
 
     TensorFieldPhysical(
       values_at_grid::AbstractArray{T, N},
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout,
-    ) where {T<:AbstractFloat, N}
-
-    TensorFieldPhysical(
-      values_at_grid::AbstractArray{T, N},
-      grid::Grid3D{T},
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat, N}
 
     TensorFieldPhysical{R}(
       f,
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout = RealFourierLayout();
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
       array_type = Array,
     ) where {R, T<:AbstractFloat}
 
 
     TensorFieldPhysical{R}(
       family::Type{<:AbstractArray},
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout = RealFourierLayout(),
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat}
 
 Tensor field of order ``R \\ge 2`` in physical representation, stored as its components on a three-dimensional physical grid.
@@ -779,7 +751,7 @@ The function constructor constructs a tensor field of order ``R \\ge 2`` in phys
 - `f` — the sampled function, called as `f(x, y, z)`; it must return an indexable object with
   tensor-fiber shape `fiber_shape(Val(R))`.
 - `grid` — the `Grid3D` the values are sampled on.
-- `fourier_layout` — the `RealFourierLayout` used when transforming the field.
+- `layout` — a keyword: the `RealFourierLayout` used when transforming the field.
 - `array_type` — the array type the sampled values are stored in (`Array` on the host, a
   device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 
@@ -789,7 +761,7 @@ Broadcasting over tensor fields in physical representation is lifted to `values_
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `TensorFieldPhysical`.
 These operations are storage-wise and componentwise. They do not represent tensor contractions.
 
-The two-argument constructors use the default `RealFourierLayout()` for the layout.
+The `layout` keyword defaults to the standard `RealFourierLayout()`.
 
 # Fields
 
@@ -802,7 +774,8 @@ struct TensorFieldPhysical{R, T<:AbstractFloat, A<:AbstractArray{T}, G<:Grid3D{T
   grid::G
   fourier_layout::L
 
-  function TensorFieldPhysical{R}(values_at_grid::A, grid::G, fourier_layout::L) where {R, T<:AbstractFloat, A<:AbstractArray{T}, G<:Grid3D{T}, L<:RealFourierLayout}
+  function TensorFieldPhysical{R}(values_at_grid::A, grid::G; layout::L = RealFourierLayout()) where {R, T<:AbstractFloat, A<:AbstractArray{T}, G<:Grid3D{T}, L<:RealFourierLayout}
+    fourier_layout = layout
     (R isa Integer && R ≥ 2) || throw(ArgumentError("tensor order R must be an integer at least 2"))
     size(values_at_grid) == field_physical_shape(grid, Val(R)) || throw(DimensionMismatch("size(values_at_grid) must be equal to field_physical_shape(grid, Val(R))"))
     _check_owned_storage(values_at_grid, "a TensorFieldPhysical")
@@ -810,17 +783,13 @@ struct TensorFieldPhysical{R, T<:AbstractFloat, A<:AbstractArray{T}, G<:Grid3D{T
   end
 end
 
-TensorFieldPhysical{R}(values_at_grid::AbstractArray{T}, grid::Grid3D{T}) where {R, T<:AbstractFloat} =
-  TensorFieldPhysical{R}(values_at_grid, grid, RealFourierLayout())
-
-TensorFieldPhysical(values_at_grid::AbstractArray{T, N}, grid::Grid3D{T}, fourier_layout::RealFourierLayout) where {T<:AbstractFloat, N} =
-  TensorFieldPhysical{N - 3}(values_at_grid, grid, fourier_layout)
-
-TensorFieldPhysical(values_at_grid::AbstractArray{T, N}, grid::Grid3D{T}) where {T<:AbstractFloat, N} =
-  TensorFieldPhysical(values_at_grid, grid, RealFourierLayout())
+TensorFieldPhysical(values_at_grid::AbstractArray{T, N}, grid::Grid3D{T};
+    layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat, N} =
+  TensorFieldPhysical{N - 3}(values_at_grid, grid; layout)
 
 
-function TensorFieldPhysical{R}(f, grid::Grid3D{T}, fourier_layout::RealFourierLayout = RealFourierLayout(); array_type = Array) where {R, T<:AbstractFloat}
+function TensorFieldPhysical{R}(f, grid::Grid3D{T}; layout::RealFourierLayout = RealFourierLayout(), array_type = Array) where {R, T<:AbstractFloat}
+  fourier_layout = layout
   (R isa Integer && R ≥ 2) || throw(ArgumentError("tensor order R must be an integer at least 2"))
 
   values_at_grid = Array{T}(undef, field_physical_shape(grid, Val(R))...)
@@ -837,38 +806,28 @@ function TensorFieldPhysical{R}(f, grid::Grid3D{T}, fourier_layout::RealFourierL
 
   values_at_grid = array_type === Array ? values_at_grid : array_type(values_at_grid)
 
-  return TensorFieldPhysical{R}(values_at_grid, grid, fourier_layout)
+  return TensorFieldPhysical{R}(values_at_grid, grid; layout = fourier_layout)
 end
 
 
 """
     TensorFieldSpectral{R}(
       fourier_coefficients::AbstractArray{Complex{T}},
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout,
-    ) where {R, T<:AbstractFloat}
-
-    TensorFieldSpectral{R}(
-      fourier_coefficients::AbstractArray{Complex{T}},
-      grid::Grid3D{T},
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
     ) where {R, T<:AbstractFloat}
 
     TensorFieldSpectral(
       fourier_coefficients::AbstractArray{Complex{T}, N},
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout,
-    ) where {T<:AbstractFloat, N}
-
-    TensorFieldSpectral(
-      fourier_coefficients::AbstractArray{Complex{T}, N},
-      grid::Grid3D{T},
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat, N}
 
 
     TensorFieldSpectral{R}(
       family::Type{<:AbstractArray},
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout = RealFourierLayout(),
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat}
 
 Tensor field of order ``R \\ge 2`` in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
@@ -879,7 +838,7 @@ Broadcasting over tensor fields in spectral representation is lifted to `fourier
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `TensorFieldSpectral`.
 These operations are storage-wise and componentwise. They do not represent pseudospectral products or tensor contractions.
 
-The two-argument constructors use the default `RealFourierLayout()` for the layout.
+The `layout` keyword defaults to the standard `RealFourierLayout()`.
 
 # Arguments
 
@@ -889,7 +848,7 @@ The two-argument constructors use the default `RealFourierLayout()` for the layo
 - `family` — the allocating form only: the storage family (`Array`, `CuArray`, `ROCArray`) given in
   place of the array.
 - `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
-- `fourier_layout` — the [`RealFourierLayout`](@ref); omitted, it is `RealFourierLayout()`.
+- `layout` — a keyword: the [`RealFourierLayout`](@ref), defaulting to the standard `RealFourierLayout()`.
 
 # Fields
 
@@ -902,7 +861,8 @@ struct TensorFieldSpectral{R, T<:AbstractFloat, Â<:AbstractArray{Complex{T}}, 
   grid::G
   fourier_layout::L
 
-  function TensorFieldSpectral{R}(fourier_coefficients::Â, grid::G, fourier_layout::L) where {R, T<:AbstractFloat, Â<:AbstractArray{Complex{T}}, G<:Grid3D{T}, L<:RealFourierLayout}
+  function TensorFieldSpectral{R}(fourier_coefficients::Â, grid::G; layout::L = RealFourierLayout()) where {R, T<:AbstractFloat, Â<:AbstractArray{Complex{T}}, G<:Grid3D{T}, L<:RealFourierLayout}
+    fourier_layout = layout
     (R isa Integer && R ≥ 2) || throw(ArgumentError("tensor order R must be an integer at least 2"))
     size(fourier_coefficients) == field_spectral_shape(grid, fourier_layout, Val(R)) ||
       throw(DimensionMismatch("size(fourier_coefficients) must be equal to field_spectral_shape(grid, fourier_layout, Val(R))"))
@@ -911,14 +871,9 @@ struct TensorFieldSpectral{R, T<:AbstractFloat, Â<:AbstractArray{Complex{T}}, 
   end
 end
 
-TensorFieldSpectral{R}(fourier_coefficients::AbstractArray{Complex{T}}, grid::Grid3D{T}) where {R, T<:AbstractFloat} =
-  TensorFieldSpectral{R}(fourier_coefficients, grid, RealFourierLayout())
-
-TensorFieldSpectral(fourier_coefficients::AbstractArray{Complex{T}, N}, grid::Grid3D{T}, fourier_layout::RealFourierLayout) where {T<:AbstractFloat, N} =
-  TensorFieldSpectral{N - 3}(fourier_coefficients, grid, fourier_layout)
-
-TensorFieldSpectral(fourier_coefficients::AbstractArray{Complex{T}, N}, grid::Grid3D{T}) where {T<:AbstractFloat, N} =
-  TensorFieldSpectral(fourier_coefficients, grid, RealFourierLayout())
+TensorFieldSpectral(fourier_coefficients::AbstractArray{Complex{T}, N}, grid::Grid3D{T};
+    layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat, N} =
+  TensorFieldSpectral{N - 3}(fourier_coefficients, grid; layout)
 
 
 
@@ -974,58 +929,55 @@ function _check_family_element_type(family::Type{<:AbstractArray}, ::Grid3D{T}) 
 end
 
 
-function ScalarFieldPhysical(family::Type{<:AbstractArray}, grid::Grid3D{T},
-    fourier_layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
+function ScalarFieldPhysical(family::Type{<:AbstractArray}, grid::Grid3D{T};
+    layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
+  fourier_layout = layout
   _check_family_element_type(family, grid)
-  return ScalarFieldPhysical(_allocated_field_storage(family, T, field_physical_shape(grid, Val(0))),
-                             grid, fourier_layout)
+  return ScalarFieldPhysical(_allocated_field_storage(family, T, field_physical_shape(grid, Val(0))), grid; layout = fourier_layout)
 end
 
-function VectorFieldPhysical(family::Type{<:AbstractArray}, grid::Grid3D{T},
-    fourier_layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
+function VectorFieldPhysical(family::Type{<:AbstractArray}, grid::Grid3D{T};
+    layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
+  fourier_layout = layout
   _check_family_element_type(family, grid)
-  return VectorFieldPhysical(_allocated_field_storage(family, T, field_physical_shape(grid, Val(1))),
-                             grid, fourier_layout)
+  return VectorFieldPhysical(_allocated_field_storage(family, T, field_physical_shape(grid, Val(1))), grid; layout = fourier_layout)
 end
 
-function TensorFieldPhysical{R}(family::Type{<:AbstractArray}, grid::Grid3D{T},
-    fourier_layout::RealFourierLayout = RealFourierLayout()) where {R, T<:AbstractFloat}
+function TensorFieldPhysical{R}(family::Type{<:AbstractArray}, grid::Grid3D{T};
+    layout::RealFourierLayout = RealFourierLayout()) where {R, T<:AbstractFloat}
+  fourier_layout = layout
   _check_family_element_type(family, grid)
-  return TensorFieldPhysical{R}(_allocated_field_storage(family, T, field_physical_shape(grid, Val(R))),
-                                grid, fourier_layout)
+  return TensorFieldPhysical{R}(_allocated_field_storage(family, T, field_physical_shape(grid, Val(R))), grid; layout = fourier_layout)
 end
 
-TensorFieldPhysical(family::Type{<:AbstractArray}, grid::Grid3D{T},
-    fourier_layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat} =
-  TensorFieldPhysical{2}(family, grid, fourier_layout)
+TensorFieldPhysical(family::Type{<:AbstractArray}, grid::Grid3D{T};
+    layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat} =
+  TensorFieldPhysical{2}(family, grid; layout)
 
-function ScalarFieldSpectral(family::Type{<:AbstractArray}, grid::Grid3D{T},
-    fourier_layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
+function ScalarFieldSpectral(family::Type{<:AbstractArray}, grid::Grid3D{T};
+    layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
+  fourier_layout = layout
   _check_family_element_type(family, grid)
-  return ScalarFieldSpectral(
-    _allocated_field_storage(family, Complex{T}, field_spectral_shape(grid, fourier_layout, Val(0))),
-    grid, fourier_layout)
+  return ScalarFieldSpectral(_allocated_field_storage(family, Complex{T}, field_spectral_shape(grid, fourier_layout, Val(0))), grid; layout = fourier_layout)
 end
 
-function VectorFieldSpectral(family::Type{<:AbstractArray}, grid::Grid3D{T},
-    fourier_layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
+function VectorFieldSpectral(family::Type{<:AbstractArray}, grid::Grid3D{T};
+    layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
+  fourier_layout = layout
   _check_family_element_type(family, grid)
-  return VectorFieldSpectral(
-    _allocated_field_storage(family, Complex{T}, field_spectral_shape(grid, fourier_layout, Val(1))),
-    grid, fourier_layout)
+  return VectorFieldSpectral(_allocated_field_storage(family, Complex{T}, field_spectral_shape(grid, fourier_layout, Val(1))), grid; layout = fourier_layout)
 end
 
-function TensorFieldSpectral{R}(family::Type{<:AbstractArray}, grid::Grid3D{T},
-    fourier_layout::RealFourierLayout = RealFourierLayout()) where {R, T<:AbstractFloat}
+function TensorFieldSpectral{R}(family::Type{<:AbstractArray}, grid::Grid3D{T};
+    layout::RealFourierLayout = RealFourierLayout()) where {R, T<:AbstractFloat}
+  fourier_layout = layout
   _check_family_element_type(family, grid)
-  return TensorFieldSpectral{R}(
-    _allocated_field_storage(family, Complex{T}, field_spectral_shape(grid, fourier_layout, Val(R))),
-    grid, fourier_layout)
+  return TensorFieldSpectral{R}(_allocated_field_storage(family, Complex{T}, field_spectral_shape(grid, fourier_layout, Val(R))), grid; layout = fourier_layout)
 end
 
-TensorFieldSpectral(family::Type{<:AbstractArray}, grid::Grid3D{T},
-    fourier_layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat} =
-  TensorFieldSpectral{2}(family, grid, fourier_layout)
+TensorFieldSpectral(family::Type{<:AbstractArray}, grid::Grid3D{T};
+    layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat} =
+  TensorFieldSpectral{2}(family, grid; layout)
 
 
 field_data(field::TensorFieldPhysical) = field.values_at_grid
@@ -1064,57 +1016,57 @@ constructors instead, which take a storage family in place of the array
 function similar_field end
 
 similar_field(reference::ScalarFieldPhysical{T}, data::AbstractArray{T, 3}) where {T<:AbstractFloat} =
-  ScalarFieldPhysical(data, field_grid(reference), field_layout(reference))
+  ScalarFieldPhysical(data, field_grid(reference); layout = field_layout(reference))
 
 similar_field(reference::ScalarFieldSpectral{T}, data::AbstractArray{Complex{T}, 3}) where {T<:AbstractFloat} =
-  ScalarFieldSpectral(data, field_grid(reference), field_layout(reference))
+  ScalarFieldSpectral(data, field_grid(reference); layout = field_layout(reference))
 
 similar_field(reference::VectorFieldPhysical{T}, data::AbstractArray{T, 4}) where {T<:AbstractFloat} =
-  VectorFieldPhysical(data, field_grid(reference), field_layout(reference))
+  VectorFieldPhysical(data, field_grid(reference); layout = field_layout(reference))
 
 similar_field(reference::VectorFieldSpectral{T}, data::AbstractArray{Complex{T}, 4}) where {T<:AbstractFloat} =
-  VectorFieldSpectral(data, field_grid(reference), field_layout(reference))
+  VectorFieldSpectral(data, field_grid(reference); layout = field_layout(reference))
 
 similar_field(reference::TensorFieldPhysical{R, T}, data::AbstractArray{T, N}) where {R, T<:AbstractFloat, N} =
-  TensorFieldPhysical{R}(data, field_grid(reference), field_layout(reference))
+  TensorFieldPhysical{R}(data, field_grid(reference); layout = field_layout(reference))
 
 similar_field(reference::TensorFieldSpectral{R, T}, data::AbstractArray{Complex{T}, N}) where {R, T<:AbstractFloat, N} =
-  TensorFieldSpectral{R}(data, field_grid(reference), field_layout(reference))
+  TensorFieldSpectral{R}(data, field_grid(reference); layout = field_layout(reference))
 
 
 function similar_field(reference::AbstractFieldPhysical{T}, ::Val{0}) where {T<:AbstractFloat}
   values_at_grid = similar(field_data(reference), T, field_physical_shape(field_grid(reference), Val(0)))
-  return ScalarFieldPhysical(values_at_grid, field_grid(reference), field_layout(reference))
+  return ScalarFieldPhysical(values_at_grid, field_grid(reference); layout = field_layout(reference))
 end
 
 
 function similar_field(reference::AbstractFieldPhysical{T}, ::Val{1}) where {T<:AbstractFloat}
   values_at_grid = similar(field_data(reference), T, field_physical_shape(field_grid(reference), Val(1)))
-  return VectorFieldPhysical(values_at_grid, field_grid(reference), field_layout(reference))
+  return VectorFieldPhysical(values_at_grid, field_grid(reference); layout = field_layout(reference))
 end
 
 
 function similar_field(reference::AbstractFieldPhysical{T}, ::Val{R}) where {T<:AbstractFloat, R}
   values_at_grid = similar(field_data(reference), T, field_physical_shape(field_grid(reference), Val(R)))
-  return TensorFieldPhysical{R}(values_at_grid, field_grid(reference), field_layout(reference))
+  return TensorFieldPhysical{R}(values_at_grid, field_grid(reference); layout = field_layout(reference))
 end
 
 
 function similar_field(reference::AbstractFieldSpectral{T}, ::Val{0}) where {T<:AbstractFloat}
   fourier_coefficients = similar(field_data(reference), Complex{T}, field_spectral_shape(field_grid(reference), field_layout(reference), Val(0)))
-  return ScalarFieldSpectral(fourier_coefficients, field_grid(reference), field_layout(reference))
+  return ScalarFieldSpectral(fourier_coefficients, field_grid(reference); layout = field_layout(reference))
 end
 
 
 function similar_field(reference::AbstractFieldSpectral{T}, ::Val{1}) where {T<:AbstractFloat}
   fourier_coefficients = similar(field_data(reference), Complex{T}, field_spectral_shape(field_grid(reference), field_layout(reference), Val(1)))
-  return VectorFieldSpectral(fourier_coefficients, field_grid(reference), field_layout(reference))
+  return VectorFieldSpectral(fourier_coefficients, field_grid(reference); layout = field_layout(reference))
 end
 
 
 function similar_field(reference::AbstractFieldSpectral{T}, ::Val{R}) where {T<:AbstractFloat, R}
   fourier_coefficients = similar(field_data(reference), Complex{T}, field_spectral_shape(field_grid(reference), field_layout(reference), Val(R)))
-  return TensorFieldSpectral{R}(fourier_coefficients, field_grid(reference), field_layout(reference))
+  return TensorFieldSpectral{R}(fourier_coefficients, field_grid(reference); layout = field_layout(reference))
 end
 
 
@@ -1126,13 +1078,13 @@ Construct a field represented in physical space with storage array `data` and me
 function _similar_field_physical end
 
 _similar_field_physical(reference::ScalarFieldSpectral{T}, data::AbstractArray{T, 3}) where {T<:AbstractFloat} =
-  ScalarFieldPhysical(data, field_grid(reference), field_layout(reference))
+  ScalarFieldPhysical(data, field_grid(reference); layout = field_layout(reference))
 
 _similar_field_physical(reference::VectorFieldSpectral{T}, data::AbstractArray{T, 4}) where {T<:AbstractFloat} =
-  VectorFieldPhysical(data, field_grid(reference), field_layout(reference))
+  VectorFieldPhysical(data, field_grid(reference); layout = field_layout(reference))
 
 _similar_field_physical(reference::TensorFieldSpectral{R, T}, data::AbstractArray{T, N}) where {R, T<:AbstractFloat, N} =
-  TensorFieldPhysical{R}(data, field_grid(reference), field_layout(reference))
+  TensorFieldPhysical{R}(data, field_grid(reference); layout = field_layout(reference))
 
 
 """
@@ -1143,13 +1095,13 @@ Construct a field represented in spectral space with storage array `data` and me
 function _similar_field_spectral end
 
 _similar_field_spectral(reference::ScalarFieldPhysical{T}, data::AbstractArray{Complex{T}, 3}) where {T<:AbstractFloat} =
-  ScalarFieldSpectral(data, field_grid(reference), field_layout(reference))
+  ScalarFieldSpectral(data, field_grid(reference); layout = field_layout(reference))
 
 _similar_field_spectral(reference::VectorFieldPhysical{T}, data::AbstractArray{Complex{T}, 4}) where {T<:AbstractFloat} =
-  VectorFieldSpectral(data, field_grid(reference), field_layout(reference))
+  VectorFieldSpectral(data, field_grid(reference); layout = field_layout(reference))
 
 _similar_field_spectral(reference::TensorFieldPhysical{R, T}, data::AbstractArray{Complex{T}, N}) where {R, T<:AbstractFloat, N} =
-  TensorFieldSpectral{R}(data, field_grid(reference), field_layout(reference))
+  TensorFieldSpectral{R}(data, field_grid(reference); layout = field_layout(reference))
 
 
 """
@@ -1346,8 +1298,8 @@ end
 
     FieldTransformPlans(
       family::Type{<:AbstractArray},
-      grid::Grid3D{T},
-      layout::RealFourierLayout = RealFourierLayout();
+      grid::Grid3D{T};
+      layout::RealFourierLayout = RealFourierLayout(),
       fft_flags = nothing,
       fft_timelimit = Inf,
     ) where {T<:AbstractFloat}
@@ -1360,9 +1312,9 @@ Forward and inverse FFT plans connecting compatible fields represented in physic
   family; its values are never read or written.
 - `spectral` — a field in spectral representation on the same grid and layout, likewise only a
   template.
-- `family`, `grid`, `layout` — in place of the two fields: the storage family (`Array`, `CuArray`,
-  `ROCArray`), the [`Grid3D`](@ref) and the [`RealFourierLayout`](@ref), defaulting to the standard
-  one. This form needs no fields at all, the plans being built on one-component arrays of their own
+- `family`, `grid` — in place of the two fields: the storage family (`Array`, `CuArray`,
+  `ROCArray`) and the [`Grid3D`](@ref).
+- `layout` — a keyword of that form: the [`RealFourierLayout`](@ref), defaulting to the standard one. This form needs no fields at all, the plans being built on one-component arrays of their own
   either way.
 - `fft_flags` — an optional backend-specific FFT planner flag.
 - `fft_timelimit` — the planner time limit, used when `fft_flags` is given.
@@ -1471,8 +1423,8 @@ end
 # From the storage family alone (2026-10-01, the decision-74 pattern): a consumer holding only the
 # domain no longer allocates two fields to hand in as templates, the prototypes being one component
 # each and built here either way.
-function FieldTransformPlans(family::Type{<:AbstractArray}, grid::Grid3D{T},
-    layout::RealFourierLayout = RealFourierLayout(); fft_flags = nothing, fft_timelimit = Inf) where {T<:AbstractFloat}
+function FieldTransformPlans(family::Type{<:AbstractArray}, grid::Grid3D{T};
+    layout::RealFourierLayout = RealFourierLayout(), fft_flags = nothing, fft_timelimit = Inf) where {T<:AbstractFloat}
   _check_family_element_type(family, grid)
   physical_prototype = _allocated_field_storage(family, T, field_physical_shape(grid, Val(0)))
   spectral_prototype = _allocated_field_storage(family, Complex{T}, field_spectral_shape(grid, layout, Val(0)))
@@ -1836,8 +1788,8 @@ function _check_kernel_compatibility end
 
     FieldSpectralMultipliers(field::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
 
-    FieldSpectralMultipliers(family::Type{<:AbstractArray}, grid::Grid3D{T},
-                             fourier_layout::RealFourierLayout = RealFourierLayout())
+    FieldSpectralMultipliers(family::Type{<:AbstractArray}, grid::Grid3D{T};
+                             layout::RealFourierLayout = RealFourierLayout())
 
 One-dimensional Fourier wavenumber arrays for the operators applied coefficientwise in spectral
 representation — derivatives, the Laplacian, and the Helmholtz projection.
@@ -1858,8 +1810,9 @@ representation — derivatives, the Laplacian, and the Helmholtz projection.
   built from; both families are then derived with the correct Nyquist treatment and allocated on that
   field's storage backend.
 - `family` — in place of `field`: the storage family (`Array`, `CuArray`, `ROCArray`) the arrays are
-  allocated in, with `grid` and `fourier_layout` given directly, the layout defaulting to the standard
-  one. The arrays are derived exactly as from a field, so a caller holding no field needs none.
+  allocated in, with `grid` given directly. The arrays are derived exactly as from a field, so a caller
+  holding no field needs none.
+- `layout` — a keyword of the `family` form: the `RealFourierLayout`, defaulting to the standard one.
 
 Each array runs along one spatial axis in the FFT frequency ordering of `fourier_layout`; the half axis `fourier_layout.fft_dims[1]` stores only the nonnegative frequencies.
 The arrays must live on storage (CPU or GPU) matching the fields the multipliers are applied to.
@@ -1998,10 +1951,10 @@ FieldSpectralMultipliers(field::AbstractFieldSpectral{T}) where {T<:AbstractFloa
 # and the storage family the axis arrays are allocated in, so the three are taken directly and a
 # caller holding no field allocates none. The reference is an empty array of the family — `similar`
 # needs one to name the family, and an empty one costs a header.
-function FieldSpectralMultipliers(family::Type{<:AbstractArray}, grid::Grid3D{T},
-    fourier_layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
+function FieldSpectralMultipliers(family::Type{<:AbstractArray}, grid::Grid3D{T};
+    layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
   _check_family_element_type(family, grid)
-  return _canonical_multipliers(_allocated_field_storage(family, T, (0,)), grid, fourier_layout)
+  return _canonical_multipliers(_allocated_field_storage(family, T, (0,)), grid, layout)
 end
 
 
@@ -2641,13 +2594,13 @@ its metadata from a reference field. When [`adapt`](@ref) rebuilds a `FieldTrans
 no such reference — it has only the plans' own grid, layout and element type, the plans carrying
 no tensor order — so it needs this form.
 """
-_field_physical_of_order(data, grid, layout, ::Val{0}) = ScalarFieldPhysical(data, grid, layout)
-_field_physical_of_order(data, grid, layout, ::Val{1}) = VectorFieldPhysical(data, grid, layout)
-_field_physical_of_order(data, grid, layout, ::Val{R}) where {R} = TensorFieldPhysical{R}(data, grid, layout)
+_field_physical_of_order(data, grid, layout, ::Val{0}) = ScalarFieldPhysical(data, grid; layout)
+_field_physical_of_order(data, grid, layout, ::Val{1}) = VectorFieldPhysical(data, grid; layout)
+_field_physical_of_order(data, grid, layout, ::Val{R}) where {R} = TensorFieldPhysical{R}(data, grid; layout)
 
-_field_spectral_of_order(data, grid, layout, ::Val{0}) = ScalarFieldSpectral(data, grid, layout)
-_field_spectral_of_order(data, grid, layout, ::Val{1}) = VectorFieldSpectral(data, grid, layout)
-_field_spectral_of_order(data, grid, layout, ::Val{R}) where {R} = TensorFieldSpectral{R}(data, grid, layout)
+_field_spectral_of_order(data, grid, layout, ::Val{0}) = ScalarFieldSpectral(data, grid; layout)
+_field_spectral_of_order(data, grid, layout, ::Val{1}) = VectorFieldSpectral(data, grid; layout)
+_field_spectral_of_order(data, grid, layout, ::Val{R}) where {R} = TensorFieldSpectral{R}(data, grid; layout)
 
 
 """

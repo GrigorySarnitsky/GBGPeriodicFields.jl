@@ -91,8 +91,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # transform through a component buffer. Both paths must give the same answer.
       for dims in ((8, 7, 6), (7, 5, 3))
         odd_grid = Grid3D(dims, (T(2π), T(2π), T(2π)))
-        device_physical = VectorFieldPhysical(device_array_type(), odd_grid, layout)
-        device_spectral = VectorFieldSpectral(device_array_type(), odd_grid, layout)
+        device_physical = VectorFieldPhysical(device_array_type(), odd_grid; layout)
+        device_spectral = VectorFieldSpectral(device_array_type(), odd_grid; layout)
         sample = rand(T, size(field_data(device_physical)))
         copyto!(field_data(device_physical), sample)
         plans = FieldTransformPlans(device_physical, device_spectral)
@@ -104,10 +104,10 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       end
 
       # One plan pair serves every rank: built from a scalar field, applied to a vector one.
-      scalar_plans = FieldTransformPlans(ScalarFieldPhysical(device_array_type(), grid, layout),
-                                         ScalarFieldSpectral(device_array_type(), grid, layout))
-      vector_physical = VectorFieldPhysical(device_array_type(), grid, layout)
-      vector_spectral = VectorFieldSpectral(device_array_type(), grid, layout)
+      scalar_plans = FieldTransformPlans(ScalarFieldPhysical(device_array_type(), grid; layout),
+                                         ScalarFieldSpectral(device_array_type(), grid; layout))
+      vector_physical = VectorFieldPhysical(device_array_type(), grid; layout)
+      vector_spectral = VectorFieldSpectral(device_array_type(), grid; layout)
       vector_sample = rand(T, size(field_data(vector_physical)))
       copyto!(field_data(vector_physical), vector_sample)
       to_spectral!(vector_spectral, vector_physical, scalar_plans)
@@ -362,9 +362,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # the map is arithmetic on a work-item index — shows up as a mismatch rather than as plausible
       # numbers. The coarse grid is deliberately mixed-parity, like the suite's own grid.
       coarse_grid = Grid3D((4, 3, 2), (T(2π), T(2π), T(2π)))
-      host_coarse = VectorFieldSpectral(randn(Complex{T}, field_spectral_shape(coarse_grid, layout, Val(1))),
-                                        coarse_grid, layout)
-      host_fine = VectorFieldSpectral(randn(Complex{T}, field_spectral_shape(grid, layout, Val(1))), grid, layout)
+      host_coarse = VectorFieldSpectral(randn(Complex{T}, field_spectral_shape(coarse_grid, layout, Val(1))), coarse_grid; layout)
+      host_fine = VectorFieldSpectral(randn(Complex{T}, field_spectral_shape(grid, layout, Val(1))), grid; layout)
       device_coarse, device_fine = on_device(host_coarse), on_device(host_fine)
 
       embed_modes!(host_fine, host_coarse)
@@ -761,8 +760,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # Permuted rfft layout: the Parseval fold follows fft_dims on the device too — the spectral
       # inner's correction planes and the shell kernel's weight axis are selected by the layout.
       permuted_layout = RealFourierLayout((2, 1, 3))
-      permuted_h = ScalarFieldSpectral(rand(Complex{T}, field_spectral_shape(grid, permuted_layout, Val(0))),
-                                       grid, permuted_layout)
+      permuted_h = ScalarFieldSpectral(rand(Complex{T}, field_spectral_shape(grid, permuted_layout, Val(0))), grid; layout = permuted_layout)
       permuted_d = on_device(permuted_h)
       pmult_h = FieldSpectralMultipliers(permuted_h); pmult_d = FieldSpectralMultipliers(permuted_d)
       @test eq(inner(permuted_d, permuted_d), inner(permuted_h, permuted_h))
@@ -807,7 +805,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # host is the reference; the device must agree to the suite's tolerance, since a device
       # reduction and a device multiply-add round differently from the host's.
       M = 300
-      fields = [VectorFieldPhysical(rand(T, 8, 7, 6, 3), grid, layout) for _ in 1:33]
+      fields = [VectorFieldPhysical(rand(T, 8, 7, 6, 3), grid; layout) for _ in 1:33]
       fields_d = on_device.(fields)
       host_result, device_result = similar_field(fields[1], similar(field_data(fields[1]))),
                                    similar_field(fields_d[1], similar(field_data(fields_d[1])))
@@ -826,7 +824,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       add!(device_sum, values_d...)
       @test isapprox(Array(point_values(device_sum)), point_values(host_sum); rtol = rtol, atol = atol)
 
-      tensors = [TensorFieldPhysical{2}(rand(T, 8, 7, 6, 3, 3), grid, layout) for _ in 1:6]
+      tensors = [TensorFieldPhysical{2}(rand(T, 8, 7, 6, 3, 3), grid; layout) for _ in 1:6]
       tensors_d = on_device.(tensors)
       @test matches(map(six_tensor_map, tensors_d...), map(six_tensor_map, tensors...))
 
@@ -877,8 +875,8 @@ function aliased_device_allocations(::Type{T}) where {T<:AbstractFloat}
   v = on_device(VectorFieldPhysical(rand(T, n..., 3), grid))
   v2 = on_device(VectorFieldPhysical(rand(T, n..., 3), grid))
   A = on_device(TensorFieldPhysical{2}(rand(T, n..., 3, 3), grid))
-  plans = FieldTransformPlans(AT, grid, layout)
-  m = FieldSpectralMultipliers(AT, grid, layout)
+  plans = FieldTransformPlans(AT, grid; layout)
+  m = FieldSpectralMultipliers(AT, grid; layout)
   sh, vh, vh2, Ah = to_spectral(s, plans), to_spectral(v, plans), to_spectral(v2, plans), to_spectral(A, plans)
   radial = spectral_cutoff(m, T(3))
   separable = translation_kernel(m, T.((0.1, 0.2, 0.3)))
@@ -1008,10 +1006,10 @@ function device_cost_lane(::Type{T}) where {T<:AbstractFloat}
   n = (256, 256, 256)
   grid = Grid3D(n, T.((2π, 2π, 2π)))
   layout = RealFourierLayout()
-  m = FieldSpectralMultipliers(AT, grid, layout)
+  m = FieldSpectralMultipliers(AT, grid; layout)
   spectral(R) = adapt(AT, (R == 0 ? ScalarFieldSpectral : VectorFieldSpectral)(
-    randn(Complex{T}, field_spectral_shape(grid, layout, Val(R))...), grid, layout))
-  physical() = adapt(AT, VectorFieldPhysical(randn(T, n..., 3), grid, layout))
+    randn(Complex{T}, field_spectral_shape(grid, layout, Val(R))...), grid; layout))
+  physical() = adapt(AT, VectorFieldPhysical(randn(T, n..., 3), grid; layout))
   sh, sd = spectral(0), spectral(0)
   a, b, d = spectral(1), spectral(1), spectral(1)
   pa, pb, pd = physical(), physical(), physical()
@@ -1096,8 +1094,7 @@ end
     @testset "a device field and host multipliers cannot be combined" begin
       grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
       layout = RealFourierLayout()
-      host_spectral = ScalarFieldSpectral(
-          randn(ComplexF64, F.field_spectral_shape(grid, layout, Val(0))...), grid, layout)
+      host_spectral = ScalarFieldSpectral(randn(ComplexF64, F.field_spectral_shape(grid, layout, Val(0))...), grid; layout)
       device_spectral = on_device(host_spectral)
       host_multipliers = FieldSpectralMultipliers(host_spectral)
       device_multipliers = FieldSpectralMultipliers(device_spectral)
@@ -1115,8 +1112,8 @@ end
     # plans cannot be transferred at all, only rebuilt.
     @testset "moving a whole workspace between storage families" begin
       grid, layout = Grid3D((8, 8, 8), (2pi, 4pi, 6pi)), RealFourierLayout()
-      host_u = VectorFieldPhysical(rand(Float64, 8, 8, 8, 3), grid, layout)
-      host_z = ScalarFieldSpectral(zeros(ComplexF64, field_spectral_shape(grid, layout, Val(0))...), grid, layout)
+      host_u = VectorFieldPhysical(rand(Float64, 8, 8, 8, 3), grid; layout)
+      host_z = ScalarFieldSpectral(zeros(ComplexF64, field_spectral_shape(grid, layout, Val(0))...), grid; layout)
       host_plans = FieldTransformPlans(host_u, similar_field(host_z, Val(1)))
       host_multipliers = FieldSpectralMultipliers(similar_field(host_z, Val(1)))
       host_kernel = spectral_cutoff(host_multipliers, 3.0)
@@ -1133,7 +1130,7 @@ end
       @test reality_residual(adapt(AT, host_z)) == 0
       # Corrupted on the HOST and then moved, because a scalar write to a device array is exactly what
       # `allowscalar(false)` forbids — and what this operation must not need.
-      host_corrupt = ScalarFieldSpectral(copy(field_data(host_z)), grid, layout)
+      host_corrupt = ScalarFieldSpectral(copy(field_data(host_z)), grid; layout)
       field_data(host_corrupt)[1, 3, 2] += 0.6 + 0.25im
       @test reality_residual(adapt(AT, host_corrupt)) ≈ reality_residual(host_corrupt)
       @test reality_residual(adapt(AT, host_corrupt)) ≈ abs(0.6 + 0.25im)
@@ -1141,19 +1138,19 @@ end
       # result satisfies the condition EXACTLY — a kernel over the planes, never a scalar index.
       device_corrupt = adapt(AT, host_corrupt)
       reality_projection!(device_corrupt)
-      host_projected = reality_projection!(ScalarFieldSpectral(copy(field_data(host_corrupt)), grid, layout))
+      host_projected = reality_projection!(ScalarFieldSpectral(copy(field_data(host_corrupt)), grid; layout))
       @test reality_residual(device_corrupt) == 0
       @test Array(field_data(device_corrupt)) == field_data(host_projected)
       device_two = reality_projection!(adapt(AT, similar_field(host_corrupt, Val(0))), adapt(AT, host_corrupt))
       @test Array(field_data(device_two)) == field_data(host_projected)
       # Plans built from the storage family alone (decision 93) transform on the device exactly as the
       # field-built ones do.
-      family_plans = FieldTransformPlans(AT, grid, layout)
+      family_plans = FieldTransformPlans(AT, grid; layout)
       @test Array(field_data(to_spectral(device_u, family_plans))) ==
             Array(field_data(to_spectral(device_u, device_plans)))
       # So are multipliers (decision 94): the same device arrays as the moved host multipliers, and
       # the same canonical type.
-      family_multipliers = FieldSpectralMultipliers(AT, grid, layout)
+      family_multipliers = FieldSpectralMultipliers(AT, grid; layout)
       @test family_multipliers.wavenumber_1 isa AT
       @test typeof(family_multipliers) === typeof(device_multipliers)
       @test Array(family_multipliers.wavenumber_2) == host_multipliers.wavenumber_2
@@ -1234,8 +1231,7 @@ end
       @test repr(device_u) != repr(host_u)      # the two are refused against each other
       @test_throws ArgumentError adapt!(similar_field(adapt(AT, host_z), Val(0)),
                                         ScalarFieldSpectral(zeros(ComplexF64, field_spectral_shape(
-                                            Grid3D((8, 8, 8), (2pi, 2pi, 2pi)), layout, Val(0))...),
-                                            Grid3D((8, 8, 8), (2pi, 2pi, 2pi)), layout))
+                                            Grid3D((8, 8, 8), (2pi, 2pi, 2pi)), layout, Val(0))...), Grid3D((8, 8, 8), (2pi, 2pi, 2pi)); layout))
       # A round trip must return the values unchanged, and the metadata with them.
       returned = adapt(Array, device_u)
       @test field_data(returned) == field_data(host_u)
@@ -1262,7 +1258,7 @@ end
       grid = Grid3D((8, 6, 4), (2π, 2π, 2π))
       layout = RealFourierLayout()
       # Allocate directly on the device family — no host array, no reference field — and use it.
-      device_u = VectorFieldSpectral(AT, grid, layout)
+      device_u = VectorFieldSpectral(AT, grid; layout)
       @test field_data(device_u) isa AT
       @test size(field_data(device_u)) == field_spectral_shape(grid, layout, Val(1))
       device_s = ScalarFieldPhysical(AT, grid)

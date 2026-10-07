@@ -83,14 +83,14 @@ function run_value_lane(configs)
     # Kept separately so the accessor oracles compare against the array a field was BUILT from rather
     # than against the array the accessor returns.
     raw_vector = rand(T, P(1)...)
-    s  = ScalarFieldPhysical(rand(T, P(0)...), grid, layout)
-    s2 = ScalarFieldPhysical(rand(T, P(0)...), grid, layout)
-    u  = VectorFieldPhysical(copy(raw_vector), grid, layout)
-    v  = VectorFieldPhysical(rand(T, P(1)...), grid, layout)
-    A  = TensorFieldPhysical{2}(rand(T, P(2)...), grid, layout)
-    B  = TensorFieldPhysical{2}(rand(T, P(2)...), grid, layout)
-    signed = ScalarFieldPhysical(rand(T, P(0)...) .- T(1) / 2, grid, layout)
-    w  = VectorFieldPhysical(rand(T, P(1)...), grid, layout)      # a THIRD distinct vector operand
+    s  = ScalarFieldPhysical(rand(T, P(0)...), grid; layout)
+    s2 = ScalarFieldPhysical(rand(T, P(0)...), grid; layout)
+    u  = VectorFieldPhysical(copy(raw_vector), grid; layout)
+    v  = VectorFieldPhysical(rand(T, P(1)...), grid; layout)
+    A  = TensorFieldPhysical{2}(rand(T, P(2)...), grid; layout)
+    B  = TensorFieldPhysical{2}(rand(T, P(2)...), grid; layout)
+    signed = ScalarFieldPhysical(rand(T, P(0)...) .- T(1) / 2, grid; layout)
+    w  = VectorFieldPhysical(rand(T, P(1)...), grid; layout)      # a THIRD distinct vector operand
     α, β = T(3) / 10, T(7) / 10
     ds, du, dA = field_data(s), field_data(u), field_data(A)
 
@@ -209,8 +209,7 @@ function run_value_lane(configs)
     # Built here rather than above because they need the transform plans and multipliers, and because
     # the spectral references cost a full O(N²) DFT — cheap on these grids, and the price of an oracle
     # that calls no FFT of its own.
-    spectral_zero = ScalarFieldSpectral(zeros(Complex{T}, GBGI.Fields.field_spectral_shape(grid, layout, Val(0))...),
-                                        grid, layout)
+    spectral_zero = ScalarFieldSpectral(zeros(Complex{T}, GBGI.Fields.field_spectral_shape(grid, layout, Val(0))...), grid; layout)
     plans = FieldTransformPlans(s, spectral_zero)
     multipliers = FieldSpectralMultipliers(spectral_zero)
     shape = size(field_data(spectral_zero))
@@ -221,13 +220,13 @@ function run_value_lane(configs)
     coarse_size = map(n -> max(2, n ÷ 2), grid.grid_size)
     coarse_grid = Grid3D(coarse_size, grid.domain_size, grid.domain_size ./ coarse_size, grid.origin)
     coarse_shape(R) = GBGI.Fields.field_spectral_shape(coarse_grid, layout, Val(R))
-    ch = ScalarFieldSpectral(randn(Complex{T}, coarse_shape(0)...), coarse_grid, layout)
-    coarse_zero = ScalarFieldSpectral(zeros(Complex{T}, coarse_shape(0)...), coarse_grid, layout)
+    ch = ScalarFieldSpectral(randn(Complex{T}, coarse_shape(0)...), coarse_grid; layout)
+    coarse_zero = ScalarFieldSpectral(zeros(Complex{T}, coarse_shape(0)...), coarse_grid; layout)
     sh = to_spectral(s, plans)
     uh = to_spectral(u, FieldTransformPlans(u, similar_field(spectral_zero, Val(1))))
     Ah = to_spectral(A, FieldTransformPlans(A, similar_field(spectral_zero, Val(2))))
     # A strictly positive field, so the reciprocal an `inv` oracle needs is well defined everywhere.
-    spectral_zero_ones = ScalarFieldSpectral(ones(Complex{T}, shape...), grid, layout)
+    spectral_zero_ones = ScalarFieldSpectral(ones(Complex{T}, shape...), grid; layout)
     # Per-axis fractions, not a uniform half cell — at h = Δ/2 the even-axis Nyquist factor `cos(πh/Δ)`
     # is exactly zero, which is the one term decision 28 exists for. See `invocations.jl`.
     offset = ntuple(d -> (T(3)/10, T(1)/2, T(7)/10)[d] * grid.grid_spacing[d], 3)
@@ -273,7 +272,7 @@ function run_value_lane(configs)
     spectral_comparisons = LEDGER_FIXTURES_ONLY ? () : (
       (:to_spectral,   field_data(sh),                       ref_dft_forward(ds, grid, layout)),
       # Plans built from the storage family alone (2026-10-01), against the same literal DFT sum.
-      (:to_spectral,   field_data(to_spectral(s, FieldTransformPlans(Array, grid, layout))),
+      (:to_spectral,   field_data(to_spectral(s, FieldTransformPlans(Array, grid; layout))),
                                                              ref_dft_forward(ds, grid, layout)),
       (:to_physical,   field_data(to_physical(sh, plans)),   ref_dft_inverse(field_data(sh), grid, layout)),
       # ABOVE R = 0. The transform was anchored to a raw-array oracle only for a scalar, while every
@@ -287,7 +286,7 @@ function run_value_lane(configs)
       (:to_spectral,   field_data(Ah),                       ref_dft_forward(dA, grid, layout)),
       (:to_physical,   field_data(to_physical(Ah, FieldTransformPlans(A, Ah))),
                                                              ref_dft_inverse(field_data(Ah), grid, layout)),
-      (:to_spectral!,  field_data(to_spectral!(similar_field(spectral_zero, Val(0)), ScalarFieldPhysical(copy(ds), grid, layout), plans)),
+      (:to_spectral!,  field_data(to_spectral!(similar_field(spectral_zero, Val(0)), ScalarFieldPhysical(copy(ds), grid; layout), plans)),
                                                              ref_dft_forward(ds, grid, layout)),
       # The |k|² symbol itself, materialized: `squared_wavenumber_field` was DELETED by decision 60,
       # so this row tests `radial_kernel(identity, …)`, which is that same object at a closure's cost.
@@ -427,7 +426,7 @@ function run_value_lane(configs)
       # ── the spectral operators and their in-place twins ───────────────────────────────────────
       (:gradient,       field_data(gradient(sh, multipliers)),  ref_gradient(field_data(sh), grid, layout)),
       # Multipliers built from the storage family alone (decision 94), against the same oracle.
-      (:gradient,       field_data(gradient(sh, FieldSpectralMultipliers(Array, grid, layout))),
+      (:gradient,       field_data(gradient(sh, FieldSpectralMultipliers(Array, grid; layout))),
                         ref_gradient(field_data(sh), grid, layout)),
       # The JACOBIAN mode, with its index convention actually pinned. `gradient(vector)` was exercised
       # only through `symmetric_gradient = sym(gradient(u))`, and `sym(M) = sym(Mᵀ)` erases a transposed
@@ -571,7 +570,7 @@ function run_value_lane(configs)
       # `to_physical!` may consume its spectral input as scratch (invariant 11), so it is handed a
       # copy and the reference is taken from the pristine one.
       (:to_physical!,   field_data(to_physical!(similar_field(s, Val(0)),
-                                                ScalarFieldSpectral(copy(field_data(sh)), grid, layout), plans)),
+                                                ScalarFieldSpectral(copy(field_data(sh)), grid; layout), plans)),
                         ref_dft_inverse(field_data(sh), grid, layout)),
       (:copyto!,        field_data(copyto!(similar_field(u, Val(1)), Base.broadcasted(+, u, v))),
                         ref_add(du, field_data(v))),
@@ -1080,12 +1079,12 @@ function run_value_lane(configs)
       for scheme in (DirectDFT(), NUFFT(sh; tol = 1e-10))
         base = zeros(Complex{T}, size(field_data(sh)))
         push!(generated, (:anterpolate!,
-                          band(field_data(anterpolate!(ScalarFieldSpectral(copy(base), grid, layout), points, q, scheme))),
+                          band(field_data(anterpolate!(ScalarFieldSpectral(copy(base), grid; layout), points, q, scheme))),
                           band(ref_spectral_anterpolate(base, point_positions(points), point_values(q),
                                                         grid, layout, 0, one(T), zero(T)))))
         seeded = randn(rng_for_scatter, Complex{T}, size(field_data(sh)))
         push!(generated, (:anterpolate!,
-                          band(field_data(anterpolate!(ScalarFieldSpectral(copy(seeded), grid, layout), points, q, scheme, α, β))),
+                          band(field_data(anterpolate!(ScalarFieldSpectral(copy(seeded), grid; layout), points, q, scheme, α, β))),
                           band(ref_spectral_anterpolate(seeded, point_positions(points), point_values(q),
                                                         grid, layout, 0, α, β))))
       end
@@ -1214,7 +1213,7 @@ function run_value_lane(configs)
       # entered as scale × field, in the single-operand and two-operand forms.
       exponent2 = -T(1) / 20
       offset_scale = T(3) / 10
-      offset_field = ScalarFieldSpectral(real.(field_data(sh)) .+ zero(Complex{T}), grid, layout)
+      offset_field = ScalarFieldSpectral(real.(field_data(sh)) .+ zero(Complex{T}), grid; layout)
       symbol2 = complex.(ref_exponential_symbol(grid, layout, size(field_data(sh))[1:3], exponent2)) .*
                 exp.(offset_scale .* real.(field_data(offset_field)))
       push!(generated, (:exponential_convolve,
@@ -1274,7 +1273,7 @@ function run_value_lane(configs)
     # grouped pass must copy before the first group overwrites it.
     if !LEDGER_FIXTURES_ONLY
       for n in (9, 33)
-        many = [VectorFieldPhysical(rand(T, P(1)...), grid, layout) for _ in 1:n]
+        many = [VectorFieldPhysical(rand(T, P(1)...), grid; layout) for _ in 1:n]
         raw = [copy(field_data(f)) for f in many]
         push!(generated, (:add!, field_data(add!(similar_field(many[1], Val(1)), many...)), foldl(ref_add, raw)))
         push!(generated, (:subtract!, field_data(subtract!(similar_field(many[1], Val(1)), many...)),
@@ -1321,7 +1320,7 @@ function run_value_lane(configs)
 
       # Six second-order sources, each in its own slot of an asymmetric map, on both bases.
       six(A1, A2, A3, A4, A5, A6) = A1 * A2 + 2A3 - A4 * A5 + transpose(A6)
-      tensor_sources = [TensorFieldPhysical{2}(rand(T, P(2)...), grid, layout) for _ in 1:6]
+      tensor_sources = [TensorFieldPhysical{2}(rand(T, P(2)...), grid; layout) for _ in 1:6]
       tensor_values = [TensorPointValues{2}(rand(T, 9, 3, 3)) for _ in 1:6]
       for (sources, data, count) in ((tensor_sources, field_data, prod(grid.grid_size)), (tensor_values, point_values, 9))
         raw_sources = [reshape(copy(data(x)), count, 3, 3) for x in sources]

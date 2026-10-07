@@ -23,13 +23,12 @@ function _bench(config)
   set_threading_cutoff!(config.threaded ? 1 : typemax(Int))
   Random.seed!(config.seed)          # the configuration's seed, not the global stream's position
   P(R) = (grid.grid_size..., ntuple(_ -> 3, R)...)
-  spectral() = ScalarFieldSpectral(zeros(Complex{T}, GBGI.Fields.field_spectral_shape(grid, layout, Val(0))...),
-                                   grid, layout)
-  s = ScalarFieldPhysical(rand(T, P(0)...) .- T(1) / 2, grid, layout)
-  u = VectorFieldPhysical(rand(T, P(1)...) .- T(1) / 2, grid, layout)
-  v = VectorFieldPhysical(rand(T, P(1)...) .- T(1) / 2, grid, layout)
-  A = TensorFieldPhysical{2}(rand(T, P(2)...) .- T(1) / 2, grid, layout)
-  B = TensorFieldPhysical{2}(rand(T, P(2)...) .- T(1) / 2, grid, layout)
+  spectral() = ScalarFieldSpectral(zeros(Complex{T}, GBGI.Fields.field_spectral_shape(grid, layout, Val(0))...), grid; layout)
+  s = ScalarFieldPhysical(rand(T, P(0)...) .- T(1) / 2, grid; layout)
+  u = VectorFieldPhysical(rand(T, P(1)...) .- T(1) / 2, grid; layout)
+  v = VectorFieldPhysical(rand(T, P(1)...) .- T(1) / 2, grid; layout)
+  A = TensorFieldPhysical{2}(rand(T, P(2)...) .- T(1) / 2, grid; layout)
+  B = TensorFieldPhysical{2}(rand(T, P(2)...) .- T(1) / 2, grid; layout)
   z = spectral()
   plans0 = FieldTransformPlans(s, z)
   plans1 = FieldTransformPlans(u, similar_field(z, Val(1)))
@@ -38,7 +37,7 @@ function _bench(config)
   return (T = T, grid = grid, layout = layout, s = s, u = u, v = v, A = A, B = B, z = z,
           plans0 = plans0, plans1 = plans1, plans2 = plans2, multipliers = multipliers,
           sh = to_spectral(s, plans0), uh = to_spectral(u, plans1), vh = to_spectral(v, plans1),
-          th = to_spectral(ScalarFieldPhysical(rand(T, P(0)...) .- T(1) / 2, grid, layout), plans0),
+          th = to_spectral(ScalarFieldPhysical(rand(T, P(0)...) .- T(1) / 2, grid; layout), plans0),
           Ah = to_spectral(A, plans2),
           points = PointSet(rand(T, 16, 3) .* reshape(collect(grid.domain_size), 1, 3) .+
                             reshape(collect(grid.origin), 1, 3)),
@@ -198,8 +197,7 @@ function run_relations_lane(configs)
        # refuses and `inner` now does too (the peer-rejection gate found `inner` was the one
        # exception, 2026-08-29). The lane conflated the contexts, not the package.
        prod(config.grid.grid_size) *
-         inner(b.s, anterpolate!(GBGI.Fields.ScalarFieldPhysical(zeros(b.T, config.grid.grid_size...),
-                                                                 config.grid, config.layout),
+         inner(b.s, anterpolate!(GBGI.Fields.ScalarFieldPhysical(zeros(b.T, config.grid.grid_size...), config.grid; layout = config.layout),
                                  b.points, b.q, CatmullRom))),
       # ── algebraic identity ────────────────────────────────────────────────────────────────────
       ("∇·(∇×u) = 0",
@@ -262,8 +260,7 @@ function run_relations_lane(configs)
        let invertible = StoredKernel(
              ScalarFieldSpectral(GBGPeriodicFields.Convolution._kernel_data(
                                    materialize_kernel(spectral_cutoff(m, b.T(3)))) .+
-                                 one(Complex{b.T}),
-                                 config.grid, config.layout))
+                                 one(Complex{b.T}), config.grid; layout = config.layout))
          field_data(convolve(convolve(b.sh, invertible), inv(invertible)))
        end,
        field_data(b.sh)),
@@ -358,8 +355,7 @@ allocation, ordering, and domain rejection.
 """
 # A third-order section, built once per use. Decision 56 keeps STORAGE working above the ceiling — it is
 # the fiber-assembly operations that refuse — so constructing this must itself succeed.
-_third_order(b) = TensorFieldPhysical{3}(zeros(b.T, size(field_data(b.s))..., 3, 3, 3),
-                                         field_grid(b.s), field_layout(b.s))
+_third_order(b) = TensorFieldPhysical{3}(zeros(b.T, size(field_data(b.s))..., 3, 3, 3), field_grid(b.s); layout = field_layout(b.s))
 
 
 function run_property_lanes(configs)
@@ -546,7 +542,7 @@ function run_property_lanes(configs)
          ("a section over borrowed storage",
           () -> ScalarFieldPhysical(view(rand(b.T, config.grid.grid_size .+ 1...),
                                          1:config.grid.grid_size[1], 1:config.grid.grid_size[2],
-                                         1:config.grid.grid_size[3]), config.grid, config.layout)))
+                                         1:config.grid.grid_size[3]), config.grid; layout = config.layout)))
       count!(:domain_rejection)
       # The exception TYPE, not merely that something was thrown. `catch; true` counts a `MethodError`
       # from a renamed keyword or a typo in the test as a correct refusal, so a deleted validation stays

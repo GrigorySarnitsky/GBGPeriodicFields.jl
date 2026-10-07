@@ -552,15 +552,15 @@ end
   # permuted-fold representatives, one per executor family (broadcast M2, fiberwise-executor
   # M3, the zero-mode constant path): the algebra is coefficientwise, so these pin that no
   # code path silently assumes the fold sits on array dimension 1
-  p_scaff = VectorFieldSpectral(zeros(Complex{TP}, field_spectral_shape(g8, layout_p, Val(1))), g8, layout_p)
-  p1 = VectorFieldPhysical(rand(TP, 8, 6, 4, 3), g8, layout_p)
-  p2 = VectorFieldPhysical(rand(TP, 8, 6, 4, 3), g8, layout_p)
+  p_scaff = VectorFieldSpectral(zeros(Complex{TP}, field_spectral_shape(g8, layout_p, Val(1))), g8; layout = layout_p)
+  p1 = VectorFieldPhysical(rand(TP, 8, 6, 4, 3), g8; layout = layout_p)
+  p2 = VectorFieldPhysical(rand(TP, 8, 6, 4, 3), g8; layout = layout_p)
   plans_p = FieldTransformPlans(p1, p_scaff)
   p1s = to_spectral(p1, plans_p); p2s = to_spectral(p2, plans_p)
   @test field_data(to_physical(p1s + p2s, plans_p)) ≈ field_data(p1) .+ field_data(p2)
   @test field_data(to_physical(p1s + kv, plans_p)) ≈ field_data(p1) .+ kv_shape   # zero-mode path
-  ps_scaff = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(g8, layout_p, Val(0))), g8, layout_p)
-  ps_phys = ScalarFieldPhysical(zeros(TP, 8, 6, 4), g8, layout_p)
+  ps_scaff = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(g8, layout_p, Val(0))), g8; layout = layout_p)
+  ps_phys = ScalarFieldPhysical(zeros(TP, 8, 6, 4), g8; layout = layout_p)
   plans_ps = FieldTransformPlans(ps_phys, ps_scaff)
   @test field_data(to_physical(dot(p1s, kv), plans_ps)) ≈
         dropdims(sum(kv_shape .* field_data(p1), dims = 4), dims = 4)
@@ -643,8 +643,8 @@ end
     gp = Grid3D((8, 6, 4), (2π, 2π, 2π))
     for fold in ((2, 1, 3), (3, 2, 1), (1, 3, 2))
       lp = RealFourierLayout(fold)
-      Ap = TensorFieldPhysical(rand(MersenneTwister(41), 8, 6, 4, 3, 3), gp, lp)
-      up = VectorFieldPhysical(rand(MersenneTwister(42), 8, 6, 4, 3), gp, lp)
+      Ap = TensorFieldPhysical(rand(MersenneTwister(41), 8, 6, 4, 3, 3), gp; layout = lp)
+      up = VectorFieldPhysical(rand(MersenneTwister(42), 8, 6, 4, 3), gp; layout = lp)
       @test field_layout(map(det, Ap)).fft_dims == fold              # tensor → scalar
       @test field_layout(map(x -> 2x, Ap)).fft_dims == fold          # order-preserving
       @test field_layout(map(x -> x * transpose(x), up)).fft_dims == fold   # vector → tensor
@@ -679,11 +679,10 @@ end
 
   # The spectral kernel alias, on the representation where convolution is defined.
   layout = RealFourierLayout()
-  spectral = ScalarFieldSpectral(
-    zeros(ComplexF64, GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(0))), grid, layout)
+  spectral = ScalarFieldSpectral(zeros(ComplexF64, GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(0))), grid; layout)
   multipliers = FieldSpectralMultipliers(spectral)
   us = VectorFieldSpectral(randn(ComplexF64,
-    GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(1))), grid, layout)
+    GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(1))), grid; layout)
   kernel = spectral_band(multipliers, 0, 2)
   @test field_data(us ⋆ kernel) == field_data(convolve(us, kernel))
 end

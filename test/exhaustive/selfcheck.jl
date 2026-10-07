@@ -29,15 +29,12 @@ function _defect_preservation!(destination, source)
   return destination
 end
 
-_defect_structural(field) = ScalarFieldPhysical(fill(NaN, size(field_data(field))),
-                                                field_grid(field), field_layout(field))
+_defect_structural(field) = ScalarFieldPhysical(fill(NaN, size(field_data(field))), field_grid(field); layout = field_layout(field))
 
 # Returns a field on a DIFFERENT grid and layout: the metadata-propagation defect that broke `map` for
 # every permuted layout from the day it shipped (decision 48).
 _defect_metadata(field) =
-  ScalarFieldPhysical(copy(field_data(field)),
-                      Grid3D(field_grid(field).grid_size, (4π, 4π, 4π)),
-                      RealFourierLayout((2, 1, 3)))
+  ScalarFieldPhysical(copy(field_data(field)), Grid3D(field_grid(field).grid_size, (4π, 4π, 4π)); layout = RealFourierLayout((2, 1, 3)))
 
 _defect_determinism(field) = sum(field_data(field)) + rand()
 

@@ -247,11 +247,9 @@ const CANONICAL_LAYOUT = RealFourierLayout()
 const CANONICAL_GRID32 = Grid3D((8, 6, 4), (2f0 * π, 2f0 * π, 2f0 * π))
 
 _scalar_spectral(T, grid, layout) =
-  ScalarFieldSpectral(zeros(Complex{T}, GBG.Fields.field_spectral_shape(grid, layout, Val(0))...),
-                      grid, layout)
+  ScalarFieldSpectral(zeros(Complex{T}, GBG.Fields.field_spectral_shape(grid, layout, Val(0))...), grid; layout)
 _vector_spectral(T, grid, layout) =
-  VectorFieldSpectral(zeros(Complex{T}, GBG.Fields.field_spectral_shape(grid, layout, Val(1))...),
-                      grid, layout)
+  VectorFieldSpectral(zeros(Complex{T}, GBG.Fields.field_spectral_shape(grid, layout, Val(1))...), grid; layout)
 
 # A foreign object AT THE TENSOR ORDER THE SLOT TAKES. Every mismatch builder used to return a scalar,
 # so an entry point whose slot needs a vector or a tensor never dispatched at all: the cell threw a
@@ -261,8 +259,7 @@ _spectral_at(T, grid, layout, order::Int) =
   order == 0 ? _scalar_spectral(T, grid, layout) :
   order == 1 ? _vector_spectral(T, grid, layout) :
                TensorFieldSpectral{2}(zeros(Complex{T},
-                                            GBG.Fields.field_spectral_shape(grid, layout, Val(2))...),
-                                      grid, layout)
+                                            GBG.Fields.field_spectral_shape(grid, layout, Val(2))...), grid; layout)
 
 canonical_carrier() = _scalar_spectral(Float64, CANONICAL_GRID, CANONICAL_LAYOUT)
 
@@ -272,7 +269,7 @@ canonical_carrier() = _scalar_spectral(Float64, CANONICAL_GRID, CANONICAL_LAYOUT
 # it returns a section, and a unary OPERATION is reported as a mismatch axis forever.
 canonical_carriers() =
   (canonical_carrier(),
-   TensorFieldPhysical{2}(zeros(CANONICAL_GRID.grid_size..., 3, 3), CANONICAL_GRID, CANONICAL_LAYOUT),
+   TensorFieldPhysical{2}(zeros(CANONICAL_GRID.grid_size..., 3, 3), CANONICAL_GRID; layout = CANONICAL_LAYOUT),
    PointSet(zeros(4, 3)), ScalarPointValues(zeros(4)), TensorPointValues{2}(zeros(4, 3, 3)),
    FieldSpectralMultipliers(canonical_carrier()))
 
@@ -405,7 +402,7 @@ function run_mismatch_lane()
   # The declared point-set axes, actually swept: every count boundary against every geometry, checked
   # for the property that a transfer verb either works or refuses — never returns a wrong answer.
   pointset_cases = pointset_pool(grid)
-  physical = ScalarFieldPhysical(rand(grid.grid_size...), grid, layout)
+  physical = ScalarFieldPhysical(rand(grid.grid_size...), grid; layout)
   values = ScalarPointValues(zeros(8))
   kernel = spectral_cutoff(multipliers, 3.0)
 
@@ -461,11 +458,10 @@ function run_mismatch_lane()
   # candidates carry the same count as `points` so the base check is not what refuses them.
   M = npoints(points)
   canonical_by_order = (scalar, vector,
-                        TensorFieldSpectral{2}(zeros(ComplexF64, GBG.Fields.field_spectral_shape(grid, layout, Val(2))...),
-                                               grid, layout),
+                        TensorFieldSpectral{2}(zeros(ComplexF64, GBG.Fields.field_spectral_shape(grid, layout, Val(2))...), grid; layout),
                         physical,
-                        VectorFieldPhysical(zeros(grid.grid_size..., 3), grid, layout),
-                        TensorFieldPhysical{2}(zeros(grid.grid_size..., 3, 3), grid, layout),
+                        VectorFieldPhysical(zeros(grid.grid_size..., 3), grid; layout),
+                        TensorFieldPhysical{2}(zeros(grid.grid_size..., 3, 3), grid; layout),
                         ScalarPointValues(zeros(M)), VectorPointValues(zeros(M, 3)),
                         TensorPointValues{2}(zeros(M, 3, 3)))
   # Which orders a slot accepts, and which one is its NATURAL input. The natural input matters because

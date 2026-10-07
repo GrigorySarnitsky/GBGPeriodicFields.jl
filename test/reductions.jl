@@ -545,9 +545,9 @@ end
   grid = Grid3D((8, 7, 6), (T(2π), T(2π), T(2π)))
   for dims in ((2, 1, 3), (3, 2, 1))
     layout = RealFourierLayout(dims)
-    phys = VectorFieldPhysical(rand(T, 8, 7, 6, 3), grid, layout)
-    phys2 = VectorFieldPhysical(rand(T, 8, 7, 6, 3), grid, layout)
-    scaffold = VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))), grid, layout)
+    phys = VectorFieldPhysical(rand(T, 8, 7, 6, 3), grid; layout)
+    phys2 = VectorFieldPhysical(rand(T, 8, 7, 6, 3), grid; layout)
+    scaffold = VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))), grid; layout)
     plans = FieldTransformPlans(phys, scaffold)
     sp = to_spectral(phys, plans)
     sp2 = to_spectral(phys2, plans)
@@ -558,7 +558,7 @@ end
     @test inner(sp, sp2) ≈ inner(phys, phys2) atol = atol
     shells, spectrum = radial_spectrum(sp, m)
     @test sum(spectrum) ≈ inner(sp, sp) atol = atol
-    ones_w = GBGPeriodicFields.Convolution.StoredKernel(ScalarFieldSpectral(fill(one(Complex{T}), field_spectral_shape(grid, layout, Val(0))), grid, layout))
+    ones_w = GBGPeriodicFields.Convolution.StoredKernel(ScalarFieldSpectral(fill(one(Complex{T}), field_spectral_shape(grid, layout, Val(0))), grid; layout))
     @test weighted_inner(sp, ones_w) ≈ inner(sp, sp) atol = atol
     separations, correlation = radial_correlation(sp, plans)  # end-to-end under the permuted fold
     @test correlation[1] ≈ inner(sp, sp) atol = atol          # C(0) = ⟨|f|²⟩
@@ -645,7 +645,7 @@ end
     A = TensorFieldPhysical(rand(rng, TP, 6, 4, 8, 3, 3), g)
     layout = RealFourierLayout()
     sspec = to_spectral(s, FieldTransformPlans(ScalarFieldPhysical(zeros(TP, 6, 4, 8), g),
-                                               ScalarFieldSpectral(zeros(Complex{TP}, 4, 4, 8), g, layout)))
+                                               ScalarFieldSpectral(zeros(Complex{TP}, 4, 4, 8), g; layout)))
     N = 6 * 4 * 8
     m = sum(field_data(s)) / N
     var_ref = sum((field_data(s) .- m) .^ 2) / (N - 1)
@@ -739,9 +739,9 @@ end
   grid = Grid3D((8, 6, 4), (2π, 2π, 2π))
   layout = RealFourierLayout()
   shape(R) = GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(R))
-  scalar = ScalarFieldSpectral(randn(ComplexF64, shape(0)...), grid, layout)
-  vector = VectorFieldSpectral(randn(ComplexF64, shape(1)...), grid, layout)
-  tensor = TensorFieldSpectral{2}(randn(ComplexF64, shape(2)...), grid, layout)
+  scalar = ScalarFieldSpectral(randn(ComplexF64, shape(0)...), grid; layout)
+  vector = VectorFieldSpectral(randn(ComplexF64, shape(1)...), grid; layout)
+  tensor = TensorFieldSpectral{2}(randn(ComplexF64, shape(2)...), grid; layout)
 
   @test_throws DimensionMismatch inner(scalar, vector)
   @test_throws DimensionMismatch inner(vector, scalar)
@@ -752,9 +752,9 @@ end
 
   # Every matching pair still contracts, and still agrees with Parseval against its own physical form —
   # so the new check rejects only what it should, and the branch it guards still computes.
-  physical = (ScalarFieldPhysical(randn(grid.grid_size...), grid, layout),
-              VectorFieldPhysical(randn(grid.grid_size..., 3), grid, layout),
-              TensorFieldPhysical{2}(randn(grid.grid_size..., 3, 3), grid, layout))
+  physical = (ScalarFieldPhysical(randn(grid.grid_size...), grid; layout),
+              VectorFieldPhysical(randn(grid.grid_size..., 3), grid; layout),
+              TensorFieldPhysical{2}(randn(grid.grid_size..., 3, 3), grid; layout))
   for (physical_field, spectral_like) in zip(physical, (scalar, vector, tensor))
     plans = FieldTransformPlans(physical_field, spectral_like)
     transformed = to_spectral(physical_field, plans)
@@ -775,9 +775,9 @@ end
     grid = Grid3D(sizes, T.((2π, 4π, 6π)))
     for R in (0, 1, 2)
       shape = field_spectral_shape(grid, layout, Val(R))
-      f = R == 0 ? ScalarFieldSpectral(randn(Complex{T}, shape...), grid, layout) :
-          R == 1 ? VectorFieldSpectral(randn(Complex{T}, shape...), grid, layout) :
-                   TensorFieldSpectral{2}(randn(Complex{T}, shape...), grid, layout)
+      f = R == 0 ? ScalarFieldSpectral(randn(Complex{T}, shape...), grid; layout) :
+          R == 1 ? VectorFieldSpectral(randn(Complex{T}, shape...), grid; layout) :
+                   TensorFieldSpectral{2}(randn(Complex{T}, shape...), grid; layout)
       m = FieldSpectralMultipliers(f)
       for w in (spectral_band(m, T(0.5), T(2.5)), tophat_window(m, T(0.7)),
                 materialize_kernel(radial_kernel(identity, m)),
@@ -792,10 +792,10 @@ end
 @testset "weighted_inner over a tuple of weights ($T)" for T in (Float64, Float32)
   grid = Grid3D((8, 8, 8), T.((2pi, 4pi, 6pi)))
   for layout in (RealFourierLayout(), RealFourierLayout((2, 1, 3))), R in (0, 1, 2)
-    physical = R == 0 ? ScalarFieldPhysical(rand(T, 8, 8, 8), grid, layout) :
-               R == 1 ? VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid, layout) :
-                        TensorFieldPhysical{2}(rand(T, 8, 8, 8, 3, 3), grid, layout)
-    scalar_spec = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout)
+    physical = R == 0 ? ScalarFieldPhysical(rand(T, 8, 8, 8), grid; layout) :
+               R == 1 ? VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid; layout) :
+                        TensorFieldPhysical{2}(rand(T, 8, 8, 8, 3, 3), grid; layout)
+    scalar_spec = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid; layout)
     spectral = similar_field(scalar_spec, Val(R))
     field = to_spectral(physical, FieldTransformPlans(physical, spectral))
     multipliers = FieldSpectralMultipliers(field)
@@ -836,15 +836,14 @@ end
 
   # Every refusal the single-weight form makes, the tuple form makes too — in any position.
   layout = RealFourierLayout()
-  scalar_spec = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout)
+  scalar_spec = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid; layout)
   multipliers = FieldSpectralMultipliers(scalar_spec)
   good = spectral_cutoff(multipliers, T(2))
   complex_weight = translation_kernel(multipliers, (T(0.1), T(0.2), T(0.3)))     # a phase: not real
   @test_throws ArgumentError weighted_inner(scalar_spec, (complex_weight,))
   @test_throws ArgumentError weighted_inner(scalar_spec, (good, complex_weight))
   foreign_grid = Grid3D((8, 8, 8), T.((2pi, 2pi, 2pi)))
-  foreign = spectral_cutoff(FieldSpectralMultipliers(ScalarFieldSpectral(
-    zeros(Complex{T}, field_spectral_shape(foreign_grid, layout, Val(0))...), foreign_grid, layout)), T(2))
+  foreign = spectral_cutoff(FieldSpectralMultipliers(ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(foreign_grid, layout, Val(0))...), foreign_grid; layout)), T(2))
   @test_throws ArgumentError weighted_inner(scalar_spec, (good, foreign))
 
   # Physical representation has no weighted inner, tuple or not (invariant 1).

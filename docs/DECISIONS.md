@@ -4020,3 +4020,26 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       results history is keyed on them. The consumer `GBGHomogeneousTurbulence` must convert its
       calls.
 
+99. **The Fourier layout is a keyword** (2026-10-07, owner-ruled). The six field constructors, the
+    family forms of `FieldTransformPlans` and `FieldSpectralMultipliers`, and the function-sampling
+    constructors took the layout as an optional third positional argument.
+
+    - **Why a keyword.** The layout says which axis the real transform halves. It selects no method,
+      there being one layout type, and nearly every call takes the default, a permuted layout being
+      the exception. Under `RULE.API.POSITIONAL` an argument with a default is a keyword, and as one the
+      rare call reads for itself: `VectorFieldSpectral(Array, grid; layout = RealFourierLayout((3, 1, 2)))`.
+
+    - **One way to pass it.** The types' inner constructors took the layout positionally, and the
+      package's own code called that form throughout; a keyword at the outer constructors alone would
+      have left two spellings. The inner constructors now take `layout` as a keyword with the standard
+      default, the separate two-argument shorthands are gone, and every call was converted.
+
+    - **Unchanged:** the explicit six-array `FieldSpectralMultipliers(grid, layout, k...)`, whose layout
+      is required, and `RealFourierLayout(fft_dims)`, whose argument is the value itself. The stored
+      field is still `fourier_layout`, read through `field_layout`.
+
+    - **Breaking.** A call passing the layout third now throws a `MethodError`. About 470 calls were
+      converted across the source, tests, benchmarks and examples. The consumer
+      `GBGHomogeneousTurbulence` must pass the layout by keyword, and is told with decisions 97 and 98,
+      so it migrates once.
+

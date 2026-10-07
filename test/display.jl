@@ -83,23 +83,23 @@ has_display(type) = any(m -> m.module in MODULES, methods(Base.show, Tuple{IO, t
   @testset "no display floods" begin
     # The bound is generous: the point is that nothing prints an array, not that any particular
     # wording fits. The largest legitimate line is a `ProductKernel`, which nests its two factors.
-    multipliers = FieldSpectralMultipliers(ScalarFieldSpectral(Array, grid, layout))
+    multipliers = FieldSpectralMultipliers(ScalarFieldSpectral(Array, grid; layout))
     samples = Any[
       grid, layout,
-      ScalarFieldPhysical(Array, grid, layout), VectorFieldSpectral(Array, grid, layout),
-      TensorFieldPhysical{2}(Array, grid, layout),
+      ScalarFieldPhysical(Array, grid; layout), VectorFieldSpectral(Array, grid; layout),
+      TensorFieldPhysical{2}(Array, grid; layout),
       points, VectorPointValues(rand(T, 500, 3)),
       point_traversal_order(grid, points), PointTraversalOrderScratch(grid, points),
       multipliers,
-      FieldTransformPlans(ScalarFieldPhysical(Array, grid, layout),
-                          ScalarFieldSpectral(Array, grid, layout)),
+      FieldTransformPlans(ScalarFieldPhysical(Array, grid; layout),
+                          ScalarFieldSpectral(Array, grid; layout)),
       spectral_cutoff(multipliers, T(4)),
       translation_kernel(multipliers, (T(0.1), T(0.2), T(0.3))),
       materialize_kernel(spectral_cutoff(multipliers, T(4))),
       convolve(spectral_cutoff(multipliers, T(4)),
                translation_kernel(multipliers, (T(0.1), T(0.2), T(0.3)))),
       CatmullRom, LalescuSpline(8; smoothness = 2), LagrangeSpline(6), DirectDFT(),
-      NUFFT(ScalarFieldSpectral(Array, grid, layout)),
+      NUFFT(ScalarFieldSpectral(Array, grid; layout)),
     ]
     for sample in samples
       @test length(repr(sample)) ≤ 200
@@ -110,8 +110,8 @@ has_display(type) = any(m -> m.module in MODULES, methods(Base.show, Tuple{IO, t
   @testset "the compact form is self-delimiting" begin
     # It appears inside a container, inside `$(...)` and inside an exception, so a bare `Type: a, b`
     # could not be told from its neighbours once a container puts commas between elements.
-    a = ScalarFieldPhysical(Array, grid, layout)
-    b = VectorFieldPhysical(Array, grid, layout)
+    a = ScalarFieldPhysical(Array, grid; layout)
+    b = VectorFieldPhysical(Array, grid; layout)
     for sample in (a, b, points, CatmullRom)
       @test occursin(repr(sample), repr([sample, sample]))
     end
@@ -123,12 +123,12 @@ has_display(type) = any(m -> m.module in MODULES, methods(Base.show, Tuple{IO, t
     # one string, and an error explaining why two of them will not combine shows the reader the same
     # text twice. Every pair here is rejected by `_check_field_domain_compatibility`.
     variants = [
-      ScalarFieldPhysical(Array, grid, layout),
-      ScalarFieldPhysical(Array, Grid3D((16, 16, 16), (T(4π), T(2π), T(2π))), layout),
+      ScalarFieldPhysical(Array, grid; layout),
+      ScalarFieldPhysical(Array, Grid3D((16, 16, 16), (T(4π), T(2π), T(2π))); layout),
       ScalarFieldPhysical(Array, Grid3D((16, 16, 16), (T(2π), T(2π), T(2π));
-                                        origin = (T(-π), T(0), T(0))), layout),
-      ScalarFieldPhysical(Array, Grid3D((8, 16, 16), (T(2π), T(2π), T(2π))), layout),
-      ScalarFieldPhysical(Array, grid, RealFourierLayout((3, 1, 2))),
+                                        origin = (T(-π), T(0), T(0))); layout),
+      ScalarFieldPhysical(Array, Grid3D((8, 16, 16), (T(2π), T(2π), T(2π))); layout),
+      ScalarFieldPhysical(Array, grid; layout = RealFourierLayout((3, 1, 2))),
     ]
     for i in eachindex(variants), j in eachindex(variants)
       i < j || continue
@@ -141,7 +141,7 @@ has_display(type) = any(m -> m.module in MODULES, methods(Base.show, Tuple{IO, t
 
     # A rounded coordinate would reintroduce the same defect one axis-scale down: the grid check is
     # exact equality, so boxes differing in the sixth digit are refused and must not collide.
-    near = ScalarFieldPhysical(Array, Grid3D((16, 16, 16), (T(2π), T(2π), T(2π) + T(1e-9))), layout)
+    near = ScalarFieldPhysical(Array, Grid3D((16, 16, 16), (T(2π), T(2π), T(2π) + T(1e-9))); layout)
     @test_throws ArgumentError Fields._check_field_domain_compatibility(variants[1], near)
     @test repr(variants[1]) != repr(near)
 
@@ -151,13 +151,13 @@ has_display(type) = any(m -> m.module in MODULES, methods(Base.show, Tuple{IO, t
     # domain applies this one's index maps and returns a wrong answer, so `_check_matching_context`
     # refuses it; a traversal scratch is refused a rebuild against a grid it was not built for.
     other_grid = Grid3D((16, 16, 16), (T(4π), T(2π), T(2π)))
-    @test repr(NUFFT(ScalarFieldSpectral(Array, grid, layout))) !=
-          repr(NUFFT(ScalarFieldSpectral(Array, other_grid, layout)))
+    @test repr(NUFFT(ScalarFieldSpectral(Array, grid; layout))) !=
+          repr(NUFFT(ScalarFieldSpectral(Array, other_grid; layout)))
     @test repr(PointTraversalOrderScratch(grid, points)) !=
           repr(PointTraversalOrderScratch(other_grid, points))
     # And the kernels, which reach the same domain check through `_check_kernel_compatibility`.
-    @test repr(spectral_cutoff(FieldSpectralMultipliers(ScalarFieldSpectral(Array, grid, layout)), T(4))) !=
-          repr(spectral_cutoff(FieldSpectralMultipliers(ScalarFieldSpectral(Array, other_grid, layout)), T(4)))
+    @test repr(spectral_cutoff(FieldSpectralMultipliers(ScalarFieldSpectral(Array, grid; layout)), T(4))) !=
+          repr(spectral_cutoff(FieldSpectralMultipliers(ScalarFieldSpectral(Array, other_grid; layout)), T(4)))
 
     # The same property for the transfer schemes, which invariant 14 refuses across precisions.
     @test repr(LalescuSpline(8; smoothness = 2)) != repr(LalescuSpline(8; smoothness = 2, T = Float32))
@@ -175,7 +175,7 @@ has_display(type) = any(m -> m.module in MODULES, methods(Base.show, Tuple{IO, t
   end
 
   @testset "the REPL form carries what the compact one abbreviates" begin
-    field = VectorFieldSpectral(Array, grid, layout)
+    field = VectorFieldSpectral(Array, grid; layout)
     text = repr(MIME"text/plain"(), field)
     @test occursin("\n", text)
     # The stored shape is NOT the grid for a field in spectral representation, and the element type
@@ -188,7 +188,7 @@ has_display(type) = any(m -> m.module in MODULES, methods(Base.show, Tuple{IO, t
     # Every quantity is host-side metadata, so these are safe under `allowscalar(false)` and force no
     # synchronisation. Measured here on the host, where a read of a plain `Array` is invisible: the
     # standing guard is that a display allocates nothing per call beyond its own string.
-    field = ScalarFieldPhysical(Array, grid, layout)
+    field = ScalarFieldPhysical(Array, grid; layout)
     buffer = IOBuffer()
     show(buffer, field)                       # warm up
     bytes = @allocated show(IOBuffer(), field)

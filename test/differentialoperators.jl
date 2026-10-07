@@ -382,18 +382,14 @@ end
   ys = [(j - 1) * lengths[2] / sizes[2] for j in 1:6]
   zs = [(l - 1) * lengths[3] / sizes[3] for l in 1:4]
 
-  s = ScalarFieldPhysical(
-    [sin(kf[1] * xs[i]) * cos(kf[2] * ys[j]) for i in 1:8, j in 1:6, l in 1:4], grid_p, layout_p)
-  s_scaffold = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_p, layout_p, Val(0))),
-                                   grid_p, layout_p)
+  s = ScalarFieldPhysical([sin(kf[1] * xs[i]) * cos(kf[2] * ys[j]) for i in 1:8, j in 1:6, l in 1:4], grid_p; layout = layout_p)
+  s_scaffold = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_p, layout_p, Val(0))), grid_p; layout = layout_p)
   plans_s = FieldTransformPlans(s, s_scaffold)
-  v_scaffold_p = VectorFieldPhysical(zeros(TP, 8, 6, 4, 3), grid_p, layout_p)
-  v_scaffold_s = VectorFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_p, layout_p, Val(1))),
-                                     grid_p, layout_p)
+  v_scaffold_p = VectorFieldPhysical(zeros(TP, 8, 6, 4, 3), grid_p; layout = layout_p)
+  v_scaffold_s = VectorFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_p, layout_p, Val(1))), grid_p; layout = layout_p)
   plans_v = FieldTransformPlans(v_scaffold_p, v_scaffold_s)
-  t_scaffold_p = TensorFieldPhysical{2}(zeros(TP, 8, 6, 4, 3, 3), grid_p, layout_p)
-  t_scaffold_s = TensorFieldSpectral{2}(
-    zeros(Complex{TP}, field_spectral_shape(grid_p, layout_p, Val(2))), grid_p, layout_p)
+  t_scaffold_p = TensorFieldPhysical{2}(zeros(TP, 8, 6, 4, 3, 3), grid_p; layout = layout_p)
+  t_scaffold_s = TensorFieldSpectral{2}(zeros(Complex{TP}, field_spectral_shape(grid_p, layout_p, Val(2))), grid_p; layout = layout_p)
   plans_t = FieldTransformPlans(t_scaffold_p, t_scaffold_s)
   sh = to_spectral(s, plans_s)
   m = FieldSpectralMultipliers(sh)
@@ -410,8 +406,8 @@ end
 
   # u = (sin(kf₂ y), sin(kf₃ z), sin(kf₁ x)) is solenoidal with closed-form curl and symmetric
   # gradient; v = u + ∇s has divergence Δs and the exact Helmholtz projection ℙv = u
-  u = VectorFieldPhysical(zeros(TP, 8, 6, 4, 3), grid_p, layout_p)
-  v = VectorFieldPhysical(zeros(TP, 8, 6, 4, 3), grid_p, layout_p)
+  u = VectorFieldPhysical(zeros(TP, 8, 6, 4, 3), grid_p; layout = layout_p)
+  v = VectorFieldPhysical(zeros(TP, 8, 6, 4, 3), grid_p; layout = layout_p)
   for l in 1:4, j in 1:6, i in 1:8
     field_data(u)[i, j, l, 1] = sin(kf[2] * ys[j])
     field_data(u)[i, j, l, 2] = sin(kf[3] * zs[l])
@@ -450,20 +446,19 @@ end
   # the derivative family zeroes both (gradient and curl annihilate it), the squared family
   # keeps the true k² (the laplacian scales it exactly, invariant 5)
   kN = (sizes[1] ÷ 2 * kf[1], sizes[2] ÷ 2 * kf[2])
-  f_nyq = ScalarFieldPhysical(
-    [cos(kN[1] * xs[i]) * cos(kN[2] * ys[j]) for i in 1:8, j in 1:6, l in 1:4], grid_p, layout_p)
+  f_nyq = ScalarFieldPhysical([cos(kN[1] * xs[i]) * cos(kN[2] * ys[j]) for i in 1:8, j in 1:6, l in 1:4], grid_p; layout = layout_p)
   fh_nyq = to_spectral(f_nyq, plans_s)
   @test maximum(abs, field_data(to_physical(gradient(fh_nyq, m), plans_v))) ≤ atol_c
   @test field_data(to_physical(laplacian(fh_nyq, m), plans_s)) ≈
         -(kN[1]^2 + kN[2]^2) .* field_data(f_nyq) atol = 40 * atol_c
-  w_nyq = VectorFieldPhysical(zeros(TP, 8, 6, 4, 3), grid_p, layout_p)
+  w_nyq = VectorFieldPhysical(zeros(TP, 8, 6, 4, 3), grid_p; layout = layout_p)
   view(field_data(w_nyq), :, :, :, 3) .= field_data(f_nyq)
   @test maximum(abs, field_data(to_physical(curl(to_spectral(w_nyq, plans_v), m), plans_v))) ≤ atol_c
 
   # kernel-composed arities on a FULL-SPECTRUM random field (Nyquist content flows through the
   # decision-42 projector and the kernel product): fused == sequential, and the α = 0, β ≠ 0
   # branch — previously asserted nowhere in the package — must reduce to dest ← β·dest
-  vr = VectorFieldPhysical(rand(TP, 8, 6, 4, 3), grid_p, layout_p)
+  vr = VectorFieldPhysical(rand(TP, 8, 6, 4, 3), grid_p; layout = layout_p)
   vrh = to_spectral(vr, plans_v)
   # `squared_wavenumber_field` returns the |k|² COORDINATE, a field a consumer builds symbols from —
   # so using it as a kernel now states that role explicitly.
@@ -484,11 +479,11 @@ end
 
   # dest === source aliasing for the coefficientwise pair (previously unpinned anywhere)
   lap_ref = laplacian(vrh, m)
-  aliased = VectorFieldSpectral(copy(field_data(vrh)), grid_p, layout_p)
+  aliased = VectorFieldSpectral(copy(field_data(vrh)), grid_p; layout = layout_p)
   laplacian!(aliased, aliased, m)
   @test field_data(aliased) == field_data(lap_ref)
   inv_ref = inverse_laplacian(vrh, m)
-  aliased_inv = VectorFieldSpectral(copy(field_data(vrh)), grid_p, layout_p)
+  aliased_inv = VectorFieldSpectral(copy(field_data(vrh)), grid_p; layout = layout_p)
   inverse_laplacian!(aliased_inv, aliased_inv, m)
   @test field_data(aliased_inv) == field_data(inv_ref)
 end
@@ -502,13 +497,13 @@ end
   for TP in (Float64, Float32)
     gk = Grid3D((8, 6, 4), (TP(2π), TP(4π), TP(6π)))
     lk = RealFourierLayout()
-    s0 = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(gk, lk, Val(0))), gk, lk)
+    s0 = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(gk, lk, Val(0))), gk; layout = lk)
     mk = FieldSpectralMultipliers(s0)
     compressed = translation_kernel(mk, (TP(0.3), TP(-0.7), TP(1.1)))
     stored = materialize_kernel(compressed)
     rng = MersenneTwister(50)
-    u = VectorFieldSpectral(rand(rng, Complex{TP}, size(field_data(s0))..., 3), gk, lk)
-    A = TensorFieldSpectral(rand(rng, Complex{TP}, size(field_data(s0))..., 3, 3), gk, lk)
+    u = VectorFieldSpectral(rand(rng, Complex{TP}, size(field_data(s0))..., 3), gk; layout = lk)
+    A = TensorFieldSpectral(rand(rng, Complex{TP}, size(field_data(s0))..., 3, 3), gk; layout = lk)
     both(build) = field_data(build(compressed)) == field_data(build(stored))
 
     @test both(k -> convolve(u, k))                                     # Convolution
@@ -528,7 +523,7 @@ end
     divergence!(as, u, mk, stored, TP(1 // 2), TP(2))
     @test field_data(ac) == field_data(as)
     # the kernel-composed combine! (Convolution) takes both too
-    b = VectorFieldSpectral(rand(rng, Complex{TP}, size(field_data(s0))..., 3), gk, lk)
+    b = VectorFieldSpectral(rand(rng, Complex{TP}, size(field_data(s0))..., 3), gk; layout = lk)
     cc = similar_field(u, Val(1)); cs = similar_field(u, Val(1))
     combine!(cc, TP(1 // 3), u, TP(2 // 3), b, compressed)
     combine!(cs, TP(1 // 3), u, TP(2 // 3), b, stored)
@@ -583,8 +578,7 @@ end
     w_exact(x, y, z) = (-cos(z), -cos(x), -cos(y))
     u_phys = VectorFieldPhysical(u_exact, grid)
     w_phys = VectorFieldPhysical(w_exact, grid)
-    spec(f) = to_spectral(f, FieldTransformPlans(f, VectorFieldSpectral(
-      zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid, layout)))
+    spec(f) = to_spectral(f, FieldTransformPlans(f, VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid; layout)))
     w_hat = spec(w_phys)
     multipliers = FieldSpectralMultipliers(w_hat)
     recovered = to_physical(inverse_curl(w_hat, multipliers),
@@ -599,8 +593,8 @@ end
   grid = Grid3D((16, 12, 10), (T(2π), T(4π), T(6π)))          # anisotropic, mixed parity
   layout = RealFourierLayout()
   rng = MersenneTwister(4242)
-  raw = VectorFieldPhysical(rand(rng, T, 16, 12, 10, 3), grid, layout)
-  scratch = VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid, layout)
+  raw = VectorFieldPhysical(rand(rng, T, 16, 12, 10, 3), grid; layout)
+  scratch = VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid; layout)
   plans = FieldTransformPlans(raw, scratch)
   field = to_spectral(raw, plans)
   multipliers = FieldSpectralMultipliers(field)

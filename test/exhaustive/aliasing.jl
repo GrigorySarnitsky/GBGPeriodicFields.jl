@@ -78,10 +78,10 @@ function build_pool(c::Config, R, cplx)
   shape = xshape(c, R, cplx)
   T = cplx ? Complex{c.eltype} : c.eltype
   wrap(data) = cplx ?
-    (R == 0 ? ScalarFieldSpectral(data, c.grid, c.layout) :
-     R == 1 ? VectorFieldSpectral(data, c.grid, c.layout) : TensorFieldSpectral{2}(data, c.grid, c.layout)) :
-    (R == 0 ? ScalarFieldPhysical(data, c.grid, c.layout) :
-     R == 1 ? VectorFieldPhysical(data, c.grid, c.layout) : TensorFieldPhysical{2}(data, c.grid, c.layout))
+    (R == 0 ? ScalarFieldSpectral(data, c.grid; layout = c.layout) :
+     R == 1 ? VectorFieldSpectral(data, c.grid; layout = c.layout) : TensorFieldSpectral{2}(data, c.grid; layout = c.layout)) :
+    (R == 0 ? ScalarFieldPhysical(data, c.grid; layout = c.layout) :
+     R == 1 ? VectorFieldPhysical(data, c.grid; layout = c.layout) : TensorFieldPhysical{2}(data, c.grid; layout = c.layout))
   # No parent scaffolding: decision 59 removed the view entries those parents existed for, and the
   # per-combination restore of them was a no-op copied twice per case for 96 configurations.
   shared = wrap(rand(T, shape...))
@@ -137,10 +137,10 @@ function refused_constructions(c::Config, R, cplx)
   flat = rand(T, prod(shape) + 1)
   trailing = ntuple(_ -> Colon(), length(shape) - 3)
   wrap(data) = cplx ?
-    (R == 0 ? ScalarFieldSpectral(data, c.grid, c.layout) :
-     R == 1 ? VectorFieldSpectral(data, c.grid, c.layout) : TensorFieldSpectral{2}(data, c.grid, c.layout)) :
-    (R == 0 ? ScalarFieldPhysical(data, c.grid, c.layout) :
-     R == 1 ? VectorFieldPhysical(data, c.grid, c.layout) : TensorFieldPhysical{2}(data, c.grid, c.layout))
+    (R == 0 ? ScalarFieldSpectral(data, c.grid; layout = c.layout) :
+     R == 1 ? VectorFieldSpectral(data, c.grid; layout = c.layout) : TensorFieldSpectral{2}(data, c.grid; layout = c.layout)) :
+    (R == 0 ? ScalarFieldPhysical(data, c.grid; layout = c.layout) :
+     R == 1 ? VectorFieldPhysical(data, c.grid; layout = c.layout) : TensorFieldPhysical{2}(data, c.grid; layout = c.layout))
   candidates = (("view offset",          () -> wrap(view(P, 1:shape[1], :, :, trailing...))),
                 ("view full",            () -> wrap(view(rand(T, shape...), :, :, :, trailing...))),
                 ("reshape(view) offset", () -> wrap(reshape(view(flat, 2:prod(shape) + 1), shape...))))

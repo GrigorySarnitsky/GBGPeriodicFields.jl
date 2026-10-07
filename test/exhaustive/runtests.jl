@@ -49,10 +49,10 @@ const SPECTRAL = true
 # kernel all have to live on the same grid, layout and element type as the pool.
 function operations_for(c::Config)
   T = c.eltype
-  sspec = ScalarFieldSpectral(zeros(Complex{T}, xshape(c, 0, SPECTRAL)), c.grid, c.layout)
+  sspec = ScalarFieldSpectral(zeros(Complex{T}, xshape(c, 0, SPECTRAL)), c.grid; layout = c.layout)
   m = FieldSpectralMultipliers(sspec)
-  v = VectorFieldPhysical(rand(T, xshape(c, 1, PHYSICAL)...), c.grid, c.layout)
-  A = TensorFieldPhysical{2}(rand(T, xshape(c, 2, PHYSICAL)...), c.grid, c.layout)
+  v = VectorFieldPhysical(rand(T, xshape(c, 1, PHYSICAL)...), c.grid; layout = c.layout)
+  A = TensorFieldPhysical{2}(rand(T, xshape(c, 2, PHYSICAL)...), c.grid; layout = c.layout)
   # Per-axis fractions rather than a uniform half cell: at h = Δ/2 the even-axis Nyquist factor is
   # exactly zero on BOTH sides, so the comparison could not falsify that term. See `invocations.jl`.
   kernel = translation_kernel(m,
@@ -123,8 +123,8 @@ function run_reference_lane()
     T = c.eltype
     Random.seed!(c.seed)             # honour the configuration's seed here too
     SH(R) = xshape(c, R, true)
-    s = ScalarFieldSpectral(randn(Complex{T}, SH(0)...), c.grid, c.layout)
-    u = VectorFieldSpectral(randn(Complex{T}, SH(1)...), c.grid, c.layout)
+    s = ScalarFieldSpectral(randn(Complex{T}, SH(0)...), c.grid; layout = c.layout)
+    u = VectorFieldSpectral(randn(Complex{T}, SH(1)...), c.grid; layout = c.layout)
     m = FieldSpectralMultipliers(s)
     rtol = T === Float32 ? 1.0f-3 : 1e-9
     for (name, got, want) in (

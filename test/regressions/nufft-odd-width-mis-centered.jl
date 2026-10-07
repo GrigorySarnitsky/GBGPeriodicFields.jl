@@ -43,7 +43,7 @@ Random.seed!(555)
       data[i1, i2, i3] = randn() + im * randn()
     end
   end
-  field = ScalarFieldSpectral(data, grid, layout)
+  field = ScalarFieldSpectral(data, grid; layout)
 
   M = 40
   points = PointSet(2π .* rand(M, 3))

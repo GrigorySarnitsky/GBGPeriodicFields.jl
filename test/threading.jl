@@ -461,14 +461,14 @@ end
     throw(Reached("fiberwise_pass"))
 
   g = Grid3D((8, 6, 4), (2π, 2π, 2π)); l = RealFourierLayout()
-  s0 = ScalarFieldSpectral(zeros(ComplexF64, 5, 6, 4), g, l)
+  s0 = ScalarFieldSpectral(zeros(ComplexF64, 5, 6, 4), g; layout = l)
   m = FieldSpectralMultipliers(s0)
-  u = VectorFieldSpectral(rand(ComplexF64, 5, 6, 4, 3), g, l)
-  b = VectorFieldSpectral(rand(ComplexF64, 5, 6, 4, 3), g, l)
+  u = VectorFieldSpectral(rand(ComplexF64, 5, 6, 4, 3), g; layout = l)
+  b = VectorFieldSpectral(rand(ComplexF64, 5, 6, 4, 3), g; layout = l)
   d = M.Fields.similar_field(u, Val(1))
   sep = translation_kernel(m, (0.3, -0.7, 1.1))
   rad = spectral_cutoff(m, 3.0)
-  coarse = VectorFieldSpectral(zeros(ComplexF64, 3, 3, 2, 3), Grid3D((4, 3, 2), (2π, 2π, 2π)), l)
+  coarse = VectorFieldSpectral(zeros(ComplexF64, 3, 3, 2, 3), Grid3D((4, 3, 2), (2π, 2π, 2π)); layout = l)
   up = VectorFieldPhysical(rand(8, 6, 4, 3), g)
   vp = VectorFieldPhysical(rand(8, 6, 4, 3), g)
 

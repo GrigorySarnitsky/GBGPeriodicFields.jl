@@ -39,7 +39,7 @@ _copied(section) = similar_field(section, copy(field_data(section)))
 
       @testset "add!/subtract! over n sections is the left fold" begin
         for n in (9, 16, 17, 33, 64)
-          physical = [VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid, layout) for _ in 1:n]
+          physical = [VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid; layout) for _ in 1:n]
           points = [VectorPointValues(rand(T, M, 3)) for _ in 1:n]
           for (bang, update!) in ((add!, (r, x) -> (r .+= x)), (subtract!, (r, x) -> (r .-= x)))
             for sections in (physical, points)
@@ -65,7 +65,7 @@ _copied(section) = similar_field(section, copy(field_data(section)))
         end
 
         # Spectral representation: the same fold over complex coefficients.
-        scalar_spec = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout)
+        scalar_spec = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid; layout)
         spectral = [similar_field(scalar_spec, Val(1)) for _ in 1:33]
         foreach(s -> field_data(s) .= rand(Complex{T}, size(field_data(s))), spectral)
         reference = copy(field_data(spectral[1]))
@@ -76,7 +76,7 @@ _copied(section) = similar_field(section, copy(field_data(section)))
       end
 
       @testset "map! over six tensor sources" begin
-        fields = [TensorFieldPhysical{2}(rand(T, 8, 8, 8, 3, 3), grid, layout) for _ in 1:6]
+        fields = [TensorFieldPhysical{2}(rand(T, 8, 8, 8, 3, 3), grid; layout) for _ in 1:6]
         values = [TensorPointValues(rand(T, M, 3, 3)) for _ in 1:6]
         for (sources, count) in ((fields, 8^3), (values, M))
           destination = _zeroed(sources[1])
@@ -99,7 +99,7 @@ _copied(section) = similar_field(section, copy(field_data(section)))
         # Past 32 sources, where `Base.map` over the source tuple left its specialized path: the
         # allocating `map` inferred a `Union` of every order, and `map!` allocated about 1.9 KB per
         # point in its per-point fiber reads. Both were found by the exhaustive survey.
-        fields = [VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid, layout) for _ in 1:33]
+        fields = [VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid; layout) for _ in 1:33]
         values = [VectorPointValues(rand(T, M, 3)) for _ in 1:33]
         for (sources, data) in ((fields, field_data), (values, point_values))
           expected = foldl((x, y) -> x .+ y, [copy(data(x)) for x in sources])
@@ -145,8 +145,8 @@ _copied(section) = similar_field(section, copy(field_data(section)))
       end
 
       @testset "weighted_inner over n weights agrees with each single call" begin
-        physical = VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid, layout)
-        scalar_spec = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout)
+        physical = VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid; layout)
+        scalar_spec = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid; layout)
         field = to_spectral(physical, FieldTransformPlans(physical, similar_field(scalar_spec, Val(1))))
         multipliers = FieldSpectralMultipliers(field)
         classes = (spectral_band(multipliers, T(1), T(2)),

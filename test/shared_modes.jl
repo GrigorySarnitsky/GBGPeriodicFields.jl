@@ -22,7 +22,7 @@ using GBGPeriodicFields: Fields
 const LAYOUTS = (RealFourierLayout(), RealFourierLayout((3, 1, 2)))
 
 spectral_of(f, grid, layout, ::Val{R}) where {R} = begin
-  physical = R == 0 ? ScalarFieldPhysical(f, grid, layout) : VectorFieldPhysical(Array, grid, layout)
+  physical = R == 0 ? ScalarFieldPhysical(f, grid; layout) : VectorFieldPhysical(Array, grid; layout)
   if R == 1
     for c in 1:3, k in 1:grid.grid_size[3], j in 1:grid.grid_size[2], i in 1:grid.grid_size[1]
       x = grid.origin[1] + (i - 1) * grid.grid_spacing[1]
@@ -31,13 +31,13 @@ spectral_of(f, grid, layout, ::Val{R}) where {R} = begin
       field_data(physical)[i, j, k, c] = f(x, y, z) + c
     end
   end
-  spectral = R == 0 ? ScalarFieldSpectral(Array, grid, layout) : VectorFieldSpectral(Array, grid, layout)
+  spectral = R == 0 ? ScalarFieldSpectral(Array, grid; layout) : VectorFieldSpectral(Array, grid; layout)
   to_spectral!(spectral, physical, FieldTransformPlans(physical, spectral))
   return spectral
 end
 
 zeroed(::Val{R}, grid, layout) where {R} = begin
-  field = R == 0 ? ScalarFieldSpectral(Array, grid, layout) : VectorFieldSpectral(Array, grid, layout)
+  field = R == 0 ? ScalarFieldSpectral(Array, grid; layout) : VectorFieldSpectral(Array, grid; layout)
   field_data(field) .= 0
   return field
 end
@@ -59,10 +59,10 @@ end
     @test embed_modes!(fine, coarse) === fine
 
     physical = to_physical(fine, FieldTransformPlans(
-      R == 0 ? ScalarFieldPhysical(Array, fine_grid, layout) : VectorFieldPhysical(Array, fine_grid, layout), fine))
+      R == 0 ? ScalarFieldPhysical(Array, fine_grid; layout) : VectorFieldPhysical(Array, fine_grid; layout), fine))
     reference = spectral_of(f, fine_grid, layout, Val(R))
     expected = to_physical(reference, FieldTransformPlans(
-      R == 0 ? ScalarFieldPhysical(Array, fine_grid, layout) : VectorFieldPhysical(Array, fine_grid, layout), reference))
+      R == 0 ? ScalarFieldPhysical(Array, fine_grid; layout) : VectorFieldPhysical(Array, fine_grid; layout), reference))
     tolerance = T === Float32 ? 1f-4 : 1e-12
     @test maximum(abs, field_data(physical) .- field_data(expected)) < tolerance
     # A real field embeds to a real field's spectrum: the conjugate partners move together.
@@ -75,9 +75,9 @@ end
     fine_grid = Grid3D((18, 24, 30), (L, L, 2L))
     layout = RealFourierLayout()
     build(grid) = begin
-      physical = R == 0 ? ScalarFieldPhysical(rand(T, grid.grid_size...), grid, layout) :
-                          VectorFieldPhysical(rand(T, grid.grid_size..., 3), grid, layout)
-      spectral = R == 0 ? ScalarFieldSpectral(Array, grid, layout) : VectorFieldSpectral(Array, grid, layout)
+      physical = R == 0 ? ScalarFieldPhysical(rand(T, grid.grid_size...), grid; layout) :
+                          VectorFieldPhysical(rand(T, grid.grid_size..., 3), grid; layout)
+      spectral = R == 0 ? ScalarFieldSpectral(Array, grid; layout) : VectorFieldSpectral(Array, grid; layout)
       to_spectral!(spectral, physical, FieldTransformPlans(physical, spectral))
     end
     u, w = build(coarse_grid), build(fine_grid)
@@ -93,7 +93,7 @@ end
     coarse_grid, fine_grid = Grid3D((8, 8, 8), (L, L, L)), Grid3D((32, 32, 32), (L, L, L))
     layout = RealFourierLayout()
     amplitude(field, grid) = begin
-      physical = to_physical(field, FieldTransformPlans(ScalarFieldPhysical(Array, grid, layout), field))
+      physical = to_physical(field, FieldTransformPlans(ScalarFieldPhysical(Array, grid; layout), field))
       (maximum(field_data(physical)) - minimum(field_data(physical))) / 2
     end
     coarse = spectral_of((x, y, z) -> T(2.5) * cos(x), coarse_grid, layout, Val(0))
@@ -108,8 +108,8 @@ end
     L = T(2π)
     coarse_grid, fine_grid = Grid3D((6, 8, 10), (L, L, 2L)), Grid3D((18, 24, 30), (L, L, 2L))
     layout = RealFourierLayout()
-    physical = ScalarFieldPhysical(rand(T, 6, 8, 10), coarse_grid, layout)
-    coarse = ScalarFieldSpectral(Array, coarse_grid, layout)
+    physical = ScalarFieldPhysical(rand(T, 6, 8, 10), coarse_grid; layout)
+    coarse = ScalarFieldSpectral(Array, coarse_grid; layout)
     to_spectral!(coarse, physical, FieldTransformPlans(physical, coarse))
     fine = zeroed(Val(0), fine_grid, layout); embed_modes!(fine, coarse)
     back = zeroed(Val(0), coarse_grid, layout); extract_modes!(back, fine)
@@ -186,7 +186,7 @@ end
     shifted = Grid3D((8, 8, 8), (L, L, L); origin = (T(1), T(0), T(0)))
     @test_throws ArgumentError embed_modes!(fine, zeroed(Val(0), shifted, layout))
     @test_throws ArgumentError embed_modes!(fine, zeroed(Val(0), coarse_grid, RealFourierLayout((3, 1, 2))))
-    @test_throws ArgumentError embed_modes!(fine, VectorFieldSpectral(Array, coarse_grid, layout))
+    @test_throws ArgumentError embed_modes!(fine, VectorFieldSpectral(Array, coarse_grid; layout))
 
     mixed = Grid3D((8, 20, 8), (L, L, L))     # larger than the fine grid on one axis, smaller on another
     @test_throws ArgumentError embed_modes!(fine, zeroed(Val(0), mixed, layout))

@@ -124,9 +124,8 @@ end
     Random.seed!(99); M = 300
     points = PointSet(T(2π) .* rand(T, M, 3))
     traversal = point_traversal_order(grid, points)
-    spectral = ScalarFieldSpectral(randn(Complex{T}, GBGPeriodicFields.field_spectral_shape(grid, layout, Val(0))...),
-                                   grid, layout)
-    reference = ScalarFieldSpectral(zeros(Complex{T}, size(field_data(spectral))...), grid, layout)
+    spectral = ScalarFieldSpectral(randn(Complex{T}, GBGPeriodicFields.field_spectral_shape(grid, layout, Val(0))...), grid; layout)
+    reference = ScalarFieldSpectral(zeros(Complex{T}, size(field_data(spectral))...), grid; layout)
     scheme = NUFFT(reference; tol = T === Float64 ? 1e-10 : 1e-5)
 
     plain, sorted = ScalarPointValues(zeros(T, M)), ScalarPointValues(zeros(T, M))
@@ -135,8 +134,8 @@ end
     @test point_values(plain) == point_values(sorted)                 # bitwise, as for the splines
 
     quantities = ScalarPointValues(rand(T, M))
-    deposited_plain = ScalarFieldSpectral(zeros(Complex{T}, size(field_data(spectral))...), grid, layout)
-    deposited_sorted = ScalarFieldSpectral(zeros(Complex{T}, size(field_data(spectral))...), grid, layout)
+    deposited_plain = ScalarFieldSpectral(zeros(Complex{T}, size(field_data(spectral))...), grid; layout)
+    deposited_sorted = ScalarFieldSpectral(zeros(Complex{T}, size(field_data(spectral))...), grid; layout)
     anterpolate!(deposited_plain, points, quantities, scheme)
     anterpolate!(deposited_sorted, points, quantities, scheme; traversal)
     @test isapprox(field_data(deposited_plain), field_data(deposited_sorted); rtol = sqrt(eps(T)))
@@ -307,7 +306,7 @@ end
 
     # And the transfer it drives is the same one, which is the claim a consumer actually cares about.
     layout = RealFourierLayout()
-    u = VectorFieldPhysical(Array, grid, layout)
+    u = VectorFieldPhysical(Array, grid; layout)
     field_data(u) .= rand(T, size(field_data(u)))
     @test point_values(interpolate(u, points, CatmullRom; traversal = rebuilt)) ==
           point_values(interpolate(u, points, CatmullRom))

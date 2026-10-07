@@ -177,9 +177,8 @@ end
   xs = [(i - 1) * TP(2π) / 8 for i in 1:8]
   ys = [(j - 1) * TP(2π) / 6 for j in 1:6]
   zs = [(l - 1) * TP(2π) / 4 for l in 1:4]
-  phys = ScalarFieldPhysical(rand(TP, 8, 6, 4), grid_p, layout_p)
-  scaffold = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_p, layout_p, Val(0))),
-                                 grid_p, layout_p)
+  phys = ScalarFieldPhysical(rand(TP, 8, 6, 4), grid_p; layout = layout_p)
+  scaffold = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_p, layout_p, Val(0))), grid_p; layout = layout_p)
   plans = FieldTransformPlans(phys, scaffold)
   fh = to_spectral(phys, plans)
 
@@ -199,8 +198,7 @@ end
                  rtol = tol_nodes, atol = tol_nodes)
 
   # NUFFT vs its DirectDFT oracle off-grid, on a band-limited field under the permuted fold
-  band = ScalarFieldPhysical([sin(xs[i]) * cos(ys[j]) + TP(3) / 10 for i in 1:8, j in 1:6, l in 1:4],
-                             grid_p, layout_p)
+  band = ScalarFieldPhysical([sin(xs[i]) * cos(ys[j]) + TP(3) / 10 for i in 1:8, j in 1:6, l in 1:4], grid_p; layout = layout_p)
   bh = to_spectral(band, plans)
   rng = MersenneTwister(7)
   points = PointSet(TP(2π) .* rand(rng, TP, 40, 3))
@@ -282,9 +280,8 @@ end
   fundamental = ntuple(a -> TP(2π) / grid_h.domain_size[a], 3)
   tol = TP === Float64 ? 1e-11 : 2e-4
 
-  phys = ScalarFieldPhysical(rand(TP, 8, 7, 6), grid_h, layout_h)
-  scaff = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_h, layout_h, Val(0))),
-                              grid_h, layout_h)
+  phys = ScalarFieldPhysical(rand(TP, 8, 7, 6), grid_h; layout = layout_h)
+  scaff = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_h, layout_h, Val(0))), grid_h; layout = layout_h)
   plans = FieldTransformPlans(phys, scaff)
   fh = to_spectral(phys, plans)
 
@@ -309,9 +306,8 @@ end
   # band-limited analytic reconstruction off-grid, and genuine out-of-box periodicity (whole
   # periods added per axis — never exercised for the spectral schemes before)
   band_fn(x, y) = cos(fundamental[1] * x) + sin(fundamental[2] * y)
-  band = ScalarFieldPhysical(
-    [band_fn(origin[1] + (i - 1) * spacing[1], origin[2] + (j - 1) * spacing[2])
-     for i in 1:8, j in 1:7, l in 1:6], grid_h, layout_h)
+  band = ScalarFieldPhysical([band_fn(origin[1] + (i - 1) * spacing[1], origin[2] + (j - 1) * spacing[2])
+     for i in 1:8, j in 1:7, l in 1:6], grid_h; layout = layout_h)
   bh = to_spectral(band, plans)
   rng = MersenneTwister(21)
   P = Matrix{TP}(undef, 20, 3)
@@ -346,7 +342,7 @@ end
   @test isapprox(left, right; rtol = TP === Float64 ? 1e-6 : 5e-3)
 
   # α = 0, β ≠ 0 for the spectral-scheme scatters (the pure β-rescale branch)
-  dest0 = ScalarFieldSpectral(copy(field_data(bh)), grid_h, layout_h)
+  dest0 = ScalarFieldSpectral(copy(field_data(bh)), grid_h; layout = layout_h)
   before0 = copy(field_data(dest0))
   anterpolate!(dest0, points, q, DirectDFT(), TP(0), TP(2))
   @test field_data(dest0) == 2 .* before0
@@ -359,13 +355,12 @@ end
   @test isapprox(Array(point_values(dirty)), inside; rtol = 20 * tol, atol = 20 * tol)
 
   # R = 2: NUFFT over a tensor field (never constructed before; DirectDFT is the oracle)
-  t_phys = TensorFieldPhysical{2}(zeros(TP, 8, 7, 6, 3, 3), grid_h, layout_h)
+  t_phys = TensorFieldPhysical{2}(zeros(TP, 8, 7, 6, 3, 3), grid_h; layout = layout_h)
   for l in 1:6, j in 1:7, i in 1:8
     field_data(t_phys)[i, j, l, :, :] .= band_fn(origin[1] + (i - 1) * spacing[1],
                                                  origin[2] + (j - 1) * spacing[2])
   end
-  t_scaff = TensorFieldSpectral{2}(zeros(Complex{TP}, field_spectral_shape(grid_h, layout_h, Val(2))),
-                                   grid_h, layout_h)
+  t_scaff = TensorFieldSpectral{2}(zeros(Complex{TP}, field_spectral_shape(grid_h, layout_h, Val(2))), grid_h; layout = layout_h)
   plans_t = FieldTransformPlans(t_phys, t_scaff)
   th = to_spectral(t_phys, plans_t)
   exact_t = Array(point_values(interpolate(th, points, DirectDFT())))
@@ -388,8 +383,8 @@ end
   for TP in (Float64, Float32)
     g = Grid3D((8, 8, 8), (TP(2π), TP(2π), TP(2π)))
     layout = RealFourierLayout()
-    scalar_reference = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(g, layout, Val(0))), g, layout)
-    vector_reference = VectorFieldSpectral(zeros(Complex{TP}, field_spectral_shape(g, layout, Val(1))), g, layout)
+    scalar_reference = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(g, layout, Val(0))), g; layout)
+    vector_reference = VectorFieldSpectral(zeros(Complex{TP}, field_spectral_shape(g, layout, Val(1))), g; layout)
     points = PointSet(TP(2π) .* rand(MersenneTwister(52), TP, 6, 3))
     vector_values = VectorPointValues(rand(MersenneTwister(53), TP, 6, 3))
 
@@ -422,10 +417,10 @@ end
   layout = RealFourierLayout()
   grid = Grid3D((8, 8, 8), (T(2π), T(2π), T(2π)))
   rng = MersenneTwister(20260802)
-  physical = ScalarFieldPhysical(rand(rng, T, 8, 8, 8), grid, layout)
+  physical = ScalarFieldPhysical(rand(rng, T, 8, 8, 8), grid; layout)
   spectral = to_spectral(physical, FieldTransformPlans(physical,
       ScalarFieldSpectral(zeros(Complex{T},
-          GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(0))...), grid, layout)))
+          GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(0))...), grid; layout)))
   points = PointSet(rand(rng, T, 12, 3) .* T(2π))
 
   # The same field with the Nyquist plane removed on each even axis: the last stored slot on the folded
@@ -439,7 +434,7 @@ end
                    ndims(projected_data))
     projected_data[plane...] .= 0
   end
-  projected = ScalarFieldSpectral(projected_data, grid, layout)
+  projected = ScalarFieldSpectral(projected_data, grid; layout)
 
   fast = point_values(interpolate(spectral, points, NUFFT(spectral; tol = 1e-10)))
   exact_projected = point_values(interpolate(projected, points, DirectDFT()))

@@ -47,16 +47,16 @@ function unified_residency(::Type{T}) where {T<:AbstractFloat}
   unified(array) = CUDA.is_unified(array)
 
   @testset "family constructors" begin
-    for field in (ScalarFieldPhysical(CuArray, grid, layout), ScalarFieldSpectral(CuArray, grid, layout),
-                  VectorFieldPhysical(CuArray, grid, layout), VectorFieldSpectral(CuArray, grid, layout),
-                  TensorFieldPhysical{2}(CuArray, grid, layout), TensorFieldSpectral{2}(CuArray, grid, layout))
+    for field in (ScalarFieldPhysical(CuArray, grid; layout), ScalarFieldSpectral(CuArray, grid; layout),
+                  VectorFieldPhysical(CuArray, grid; layout), VectorFieldSpectral(CuArray, grid; layout),
+                  TensorFieldPhysical{2}(CuArray, grid; layout), TensorFieldSpectral{2}(CuArray, grid; layout))
       @test unified(field_data(field))
     end
   end
 
-  host_u = VectorFieldPhysical(rand(T, 8, 7, 6, 3), grid, layout)
+  host_u = VectorFieldPhysical(rand(T, 8, 7, 6, 3), grid; layout)
   u = adapt(CuArray, host_u)
-  spectral_u = VectorFieldSpectral(CuArray, grid, layout)
+  spectral_u = VectorFieldSpectral(CuArray, grid; layout)
   multipliers = FieldSpectralMultipliers(spectral_u)
   plans = FieldTransformPlans(u, spectral_u)
 
@@ -80,7 +80,7 @@ function unified_residency(::Type{T}) where {T<:AbstractFloat}
   end
 
   @testset "kernels" begin
-    scalar_spectral = ScalarFieldSpectral(CuArray, grid, layout)
+    scalar_spectral = ScalarFieldSpectral(CuArray, grid; layout)
     scalar_multipliers = FieldSpectralMultipliers(scalar_spectral)
     @test unified(translation_kernel(scalar_multipliers, (T(0.1), T(0.2), T(0.3))).factor_1)
     @test unified(field_data(materialize_kernel(spectral_cutoff(scalar_multipliers, T(2))).field))
@@ -112,8 +112,8 @@ function unified_oversubscription()
   end
   @info "unified oversubscription: $(pairs) field pairs, $(round(needed / 2^30; digits = 1)) GiB on a " *
         "$(round(CUDA.total_memory() / 2^30; digits = 1)) GiB card"
-  physical = [ScalarFieldPhysical(CuArray, grid, layout) for _ in 1:pairs]
-  spectral = [ScalarFieldSpectral(CuArray, grid, layout) for _ in 1:pairs]
+  physical = [ScalarFieldPhysical(CuArray, grid; layout) for _ in 1:pairs]
+  spectral = [ScalarFieldSpectral(CuArray, grid; layout) for _ in 1:pairs]
   @test needed > CUDA.total_memory()
   plans = FieldTransformPlans(physical[1], spectral[1])
   for (index, field) in enumerate(physical)

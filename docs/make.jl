@@ -39,9 +39,11 @@ function build_examples()
                     codefence = "```julia" => "```")
 end
 
-# The doc rules live in GBGCodingTools. What remains here is the post-build markup check below,
-# which has not yet been shown equivalent to a rule. `lint_review_closure`, which held the old
-# in-tree review instruments' banked rounds to closure, went with those instruments on 2026-10-06.
+# The doc rules live in GBGCodingTools, and `GBGCodingTools.makedocs` runs the site rules over the
+# built pages. Two hand-written lints that stood here are gone: `lint_review_closure`, which held the
+# old in-tree review instruments' banked rounds to closure, went with those instruments on 2026-10-06,
+# and `lint_rendered_markup` on 2026-10-07, `RULE.TEX.RENDERED_MARKUP` catching its motivating case
+# while ignoring the lone asterisk of a glob or a product, which the lint would have failed the build on.
 
 # `lint_prose_shape` lived here and is RETIRED (2026-09-18): `RULE.DOC.SHAPE` in GBGCodingTools does
 # the same job over a superset of the files — it also reads `ext/`, which this lint never did — and
@@ -126,53 +128,6 @@ GBGCodingTools.makedocs(ROOT;
   ]
 )
 
-# A markdown emphasis marker survives into the RENDERED text only when the parser gave up on it,
-# so finding one in prose IS the defect — no judgement required. `docs/src/index.md` carried
-# `*pairs a section against a **measure***`, an emphasis nesting CommonMark cannot resolve, and it
-# rendered as literal asterisks in the Home page's opening paragraph.
-#
-# It shipped past everything. The deterministic battery HAS a built-HTML surface, but all four of
-# its questions are about `@docs`/`@autodocs` placement — nothing ever read the rendered PROSE and
-# asked whether any markup had failed to render. The panel's `style-editor` hat reads the raw built
-# HTML for exactly this class and did not report it; the `cold-reader` hat reads the Home page and
-# did not either. The seeded calibration has no broken-markup class, so the recall of every
-# instrument against it was not merely zero but never asked. A reader found it.
-#
-# This runs AFTER `makedocs` because it reads the built page. Code, `pre` and math are stripped
-# first, since a literal `*` or `_` is legitimate inside them; Documenter emits client-side KaTeX as
-# raw `$…$` and `\[…\]` in the text, which is why those are stripped as text rather than as tags.
-function lint_rendered_markup(build_dir)
-  isdir(build_dir) || return
-  offenders = String[]
-  for (root, _, files) in walkdir(build_dir), file in files
-    file == "index.html" || continue
-    path = joinpath(root, file)
-    html = read(path, String)
-    html = replace(html, r"<(code|pre|script|style)\b.*?</\1>"is => " ")
-    m = match(r"<article\b.*?</article>"is, html)
-    m === nothing || (html = m.match)
-    text = replace(html, r"<[^>]+>" => " ")
-    text = replace(text, r"\\\[.*?\\\]"s => " ")
-    text = replace(text, r"\$[^\$\n]*\$" => " ")
-    for line in split(text, '\n')
-      chars = collect(line)
-      for mm in eachmatch(r"\*\*?[^\s*]|(?<![\w\\])__[^\s_]", line)
-        at = length(collect(SubString(line, 1, prevind(line, mm.offset)))) + 1
-        lo = max(1, at - 70); hi = min(length(chars), at + 80)
-        push!(offenders, "$(relpath(path, build_dir)): …$(join(split(String(chars[lo:hi]))," "))…")
-      end
-    end
-  end
-  if !isempty(offenders)
-    for o in unique(offenders); println("  RENDERED-MARKUP: ", o); end
-    error("doc lint failed: markdown emphasis rendered literally on a built page. The source " *
-          "nests emphasis in a way CommonMark cannot resolve (`*a **b***` is the usual shape) — " *
-          "rewrite so the spans do not overlap, e.g. `*a* **b**.")
-  end
-  @info "doc lint: rendered markup OK (no emphasis marker survived into prose)"
-end
-
-lint_rendered_markup(joinpath(@__DIR__, "build"))
 
 deploydocs(
   repo      = "github.com/GrigorySarnitsky/GBGPeriodicFields.jl",

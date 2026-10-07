@@ -1363,9 +1363,9 @@ _wrap_field(data, grid, ::Val{R}) where {R} = TensorFieldPhysical{R}(data, grid)
 
 # Layout-taking forms for work fields derived from a reference: the fold must follow the
 # reference's fft_dims (decision 41), which the field constructors' default would drop.
-_wrap_field(data, grid, layout, ::Val{0}) = ScalarFieldPhysical(data, grid, layout)
-_wrap_field(data, grid, layout, ::Val{1}) = VectorFieldPhysical(data, grid, layout)
-_wrap_field(data, grid, layout, ::Val{R}) where {R} = TensorFieldPhysical{R}(data, grid, layout)
+_wrap_field(data, grid, layout, ::Val{0}) = ScalarFieldPhysical(data, grid; layout)
+_wrap_field(data, grid, layout, ::Val{1}) = VectorFieldPhysical(data, grid; layout)
+_wrap_field(data, grid, layout, ::Val{R}) where {R} = TensorFieldPhysical{R}(data, grid; layout)
 
 _single_point_value(values::ScalarPointValues) = Array(point_values(values))[1]
 _single_point_value(values::VectorPointValues) = SVector{3}(Array(point_values(values))[1, :])
@@ -2021,9 +2021,9 @@ end
 
 # Spectral-field wrappers (the spectral siblings of `_wrap_field`), for the oversampled work
 # fields; they carry the reference's Fourier layout so a permuted fold survives (decision 41).
-_wrap_field_spectral(data, grid, layout, ::Val{0}) = ScalarFieldSpectral(data, grid, layout)
-_wrap_field_spectral(data, grid, layout, ::Val{1}) = VectorFieldSpectral(data, grid, layout)
-_wrap_field_spectral(data, grid, layout, ::Val{R}) where {R} = TensorFieldSpectral{R}(data, grid, layout)
+_wrap_field_spectral(data, grid, layout, ::Val{0}) = ScalarFieldSpectral(data, grid; layout)
+_wrap_field_spectral(data, grid, layout, ::Val{1}) = VectorFieldSpectral(data, grid; layout)
+_wrap_field_spectral(data, grid, layout, ::Val{R}) where {R} = TensorFieldSpectral{R}(data, grid; layout)
 
 
 #####################################################

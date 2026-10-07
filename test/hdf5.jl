@@ -54,7 +54,7 @@ using Random
     @testset "permuted rfft layout: fft_dims round-trips ($T)" for T in (Float64, Float32)
       grid = Grid3D((8, 7, 6), (T(2π), T(4π), T(2π)))
       layout = RealFourierLayout((2, 1, 3))                   # odd fold on spatial axis 2 ⇒ data (8, 4, 6)
-      f = VectorFieldSpectral(rand(Complex{T}, 8, 4, 6, 3), grid, layout)
+      f = VectorFieldSpectral(rand(Complex{T}, 8, 4, 6, 3), grid; layout)
       h5open(path, "w") do file
         write_field(file, "permuted", f)
       end
@@ -445,10 +445,10 @@ end
   layout = RealFourierLayout((2, 1, 3))
   path = tempname() * ".h5"
   makers = (
-    (R, a) -> R == 0 ? ScalarFieldPhysical(a, grid, layout) : R == 1 ? VectorFieldPhysical(a, grid, layout) :
-                       TensorFieldPhysical{2}(a, grid, layout),
-    (R, a) -> R == 0 ? ScalarFieldSpectral(a, grid, layout) : R == 1 ? VectorFieldSpectral(a, grid, layout) :
-                       TensorFieldSpectral{2}(a, grid, layout))
+    (R, a) -> R == 0 ? ScalarFieldPhysical(a, grid; layout) : R == 1 ? VectorFieldPhysical(a, grid; layout) :
+                       TensorFieldPhysical{2}(a, grid; layout),
+    (R, a) -> R == 0 ? ScalarFieldSpectral(a, grid; layout) : R == 1 ? VectorFieldSpectral(a, grid; layout) :
+                       TensorFieldSpectral{2}(a, grid; layout))
   shapes = ((R) -> field_physical_shape(grid, Val(R)), (R) -> field_spectral_shape(grid, layout, Val(R)))
   elements = (T, Complex{T})
   h5open(path, "w") do file
@@ -475,11 +475,11 @@ end
     sentinel(field) = (fill!(field_data(field), 7); field)
     other_T = T === Float64 ? Float32 : Float64
     refusals = (
-      sentinel(ScalarFieldPhysical(zeros(T, sizes...), grid, layout)),
-      sentinel(VectorFieldSpectral(Array, grid, layout)),
-      sentinel(VectorFieldPhysical(zeros(other_T, sizes..., 3), Grid3D(sizes, other_T.((2π, 4π, 2π))), layout)),
-      sentinel(VectorFieldPhysical(zeros(T, sizes..., 3), grid, RealFourierLayout())),
-      sentinel(VectorFieldPhysical(zeros(T, sizes..., 3), Grid3D(sizes, T.((2π, 2π, 2π))), layout)))
+      sentinel(ScalarFieldPhysical(zeros(T, sizes...), grid; layout)),
+      sentinel(VectorFieldSpectral(Array, grid; layout)),
+      sentinel(VectorFieldPhysical(zeros(other_T, sizes..., 3), Grid3D(sizes, other_T.((2π, 4π, 2π))); layout)),
+      sentinel(VectorFieldPhysical(zeros(T, sizes..., 3), grid; layout = RealFourierLayout())),
+      sentinel(VectorFieldPhysical(zeros(T, sizes..., 3), Grid3D(sizes, T.((2π, 2π, 2π))); layout)))
     for destination in refusals
       @test_throws ArgumentError read_field!(destination, file, name)
       @test all(==(7), field_data(destination))
@@ -487,7 +487,7 @@ end
     # A precision mismatch names the precisions, not the complex storage element of a field in
     # spectral representation.
     other_grid = Grid3D(sizes, other_T.((2π, 4π, 2π)))
-    spectral = VectorFieldSpectral(Array, other_grid, layout)
+    spectral = VectorFieldSpectral(Array, other_grid; layout)
     message = try read_field!(spectral, file, "f2_1"); "" catch error; sprint(showerror, error) end
     @test occursin("holds a $(T) field", message) && occursin("destination is $(other_T)", message)
     @test !occursin("Complex", message)

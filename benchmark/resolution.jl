@@ -19,16 +19,16 @@ function add_resolution!(group, AT, ::Type{T}, grid, tag) where {T}
   block_size = map(n -> min(16, n ÷ 2), grid.grid_size)
   half_size = map(n -> max(2, n ÷ 2), grid.grid_size)
 
-  fine_scalar = ScalarFieldSpectral(AT, grid, layout)
-  fine_vector = VectorFieldSpectral(AT, grid, layout)
+  fine_scalar = ScalarFieldSpectral(AT, grid; layout)
+  fine_vector = VectorFieldSpectral(AT, grid; layout)
   fill!(field_data(fine_scalar), 0)
   fill!(field_data(fine_vector), 0)
 
   for (label, coarse_size) in (("block", block_size), ("half", half_size))
     all(coarse_size .< grid.grid_size) || continue
     coarse_grid = Grid3D(coarse_size, grid.domain_size)
-    coarse_scalar = ScalarFieldSpectral(AT, coarse_grid, layout)
-    coarse_vector = VectorFieldSpectral(AT, coarse_grid, layout)
+    coarse_scalar = ScalarFieldSpectral(AT, coarse_grid; layout)
+    coarse_vector = VectorFieldSpectral(AT, coarse_grid; layout)
     fill!(field_data(coarse_scalar), 0)
     fill!(field_data(coarse_vector), 0)
 

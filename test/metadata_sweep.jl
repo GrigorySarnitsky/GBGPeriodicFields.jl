@@ -34,12 +34,12 @@ const FOLDS = ((1, 2, 3), (2, 1, 3), (3, 2, 1), (1, 3, 2))
       rng = MersenneTwister(53)
       spec(R) = (shape = field_spectral_shape(g, layout, Val(R));
                  data = rand(rng, Complex{TP}, shape...);
-                 R == 0 ? ScalarFieldSpectral(data, g, layout) :
-                 R == 1 ? VectorFieldSpectral(data, g, layout) : TensorFieldSpectral(data, g, layout))
+                 R == 0 ? ScalarFieldSpectral(data, g; layout) :
+                 R == 1 ? VectorFieldSpectral(data, g; layout) : TensorFieldSpectral(data, g; layout))
       phys(R) = (shape = field_physical_shape(g, Val(R));
                  data = rand(rng, TP, shape...);
-                 R == 0 ? ScalarFieldPhysical(data, g, layout) :
-                 R == 1 ? VectorFieldPhysical(data, g, layout) : TensorFieldPhysical(data, g, layout))
+                 R == 0 ? ScalarFieldPhysical(data, g; layout) :
+                 R == 1 ? VectorFieldPhysical(data, g; layout) : TensorFieldPhysical(data, g; layout))
 
       s0, u0, A0 = spec(0), spec(1), spec(2)
       sp, up, Ap = phys(0), phys(1), phys(2)

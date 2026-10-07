@@ -22,10 +22,10 @@ using GBGPeriodicFields
   grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
   layout = RealFourierLayout()
 
-  scalar = ScalarFieldPhysical(Array, grid, layout);  field_data(scalar) .= 1.0
-  vector = VectorFieldPhysical(Array, grid, layout);  field_data(vector) .= 0.5
-  destination = ScalarFieldPhysical(Array, grid, layout)
-  spectral = ScalarFieldSpectral(Array, grid, layout)
+  scalar = ScalarFieldPhysical(Array, grid; layout);  field_data(scalar) .= 1.0
+  vector = VectorFieldPhysical(Array, grid; layout);  field_data(vector) .= 0.5
+  destination = ScalarFieldPhysical(Array, grid; layout)
+  spectral = ScalarFieldSpectral(Array, grid; layout)
 
   point_data = VectorPointValues(fill(0.5, 2, 3))
   point_destination = ScalarPointValues(zeros(2))
