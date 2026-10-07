@@ -274,9 +274,9 @@ end
 # velocity is recorded for the Lagrangian statistics.
 
 function advect!(X, u, dt, p)
-  v1 = point_values(interpolate(u, PointSet(X)))          # CatmullRom gather (package)
+  v1 = point_values(interpolate(u, PointSet(X), CatmullRom))          # CatmullRom gather (package)
   Xmid = mod.(X .+ dt .* v1, p.L)
-  v2 = point_values(interpolate(u, PointSet(Xmid)))
+  v2 = point_values(interpolate(u, PointSet(Xmid), CatmullRom))
   X .= mod.(X .+ (dt / 2) .* (v1 .+ v2), p.L)
   return v1
 end
