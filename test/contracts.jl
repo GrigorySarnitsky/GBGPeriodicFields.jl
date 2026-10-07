@@ -144,11 +144,11 @@ end
   points32 = PointSet(Float32.(rand(16, 3) .* 2π))
   out64 = ScalarPointValues(zeros(16))
   out32 = ScalarPointValues(zeros(Float32, 16))
-  @test interpolate!(out64, field, points64) === out64
-  @test_throws ArgumentError interpolate!(out64, field, points32)
-  @test_throws ArgumentError interpolate!(out32, field, points64)
-  @test_throws ArgumentError anterpolate!(field, points32, out64)
-  @test_throws ArgumentError anterpolate!(field, points64, out32)
+  @test interpolate!(out64, field, points64, CatmullRom) === out64
+  @test_throws ArgumentError interpolate!(out64, field, points32, CatmullRom)
+  @test_throws ArgumentError interpolate!(out32, field, points64, CatmullRom)
+  @test_throws ArgumentError anterpolate!(field, points32, out64, CatmullRom)
+  @test_throws ArgumentError anterpolate!(field, points64, out32, CatmullRom)
 end
 
 

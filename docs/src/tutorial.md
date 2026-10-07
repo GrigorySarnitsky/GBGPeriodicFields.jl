@@ -159,12 +159,12 @@ julia> points = PointSet([0.5 1.0 1.5; 2.0 3.0 4.0]);
 julia> npoints(points)
 2
 
-julia> sampled = interpolate(u, points);
+julia> sampled = interpolate(u, points, CatmullRom);
 
 julia> point_value_tensor_order(sampled)
 1
 
-julia> scattered = anterpolate(grid, points, sampled);
+julia> scattered = anterpolate(grid, points, sampled, CatmullRom);
 
 julia> size(field_data(scattered))
 (16, 16, 16, 3)

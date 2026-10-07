@@ -100,16 +100,16 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       xs = PointSet(coords)
 
       linear(x, y, z) = T(0.3) + T(0.7) * x - T(0.4) * y + T(0.2) * z
-      values = interpolate(ScalarFieldPhysical(linear, grid), xs)
+      values = interpolate(ScalarFieldPhysical(linear, grid), xs, CatmullRom)
       @test point_values(values) ≈ [linear(coords[p, :]...) for p in 1:M] rtol = poly_tol
 
       quadratic(x, y, z) = T(1) + x - T(0.5) * y^2 + T(0.3) * x * z
-      vq = interpolate(ScalarFieldPhysical(quadratic, grid), xs)
+      vq = interpolate(ScalarFieldPhysical(quadratic, grid), xs, CatmullRom)
       @test point_values(vq) ≈ [quadratic(coords[p, :]...) for p in 1:M] rtol = poly_tol
 
       # Vector field: each component interpolated independently.
       vf = VectorFieldPhysical((x, y, z) -> (linear(x, y, z), -quadratic(x, y, z), T(2) * linear(x, y, z)), grid)
-      vv = interpolate(vf, xs)
+      vv = interpolate(vf, xs, CatmullRom)
       @test vv isa VectorPointValues
       for p in 1:M
         @test point_values(vv)[p, :] ≈ [linear(coords[p, :]...), -quadratic(coords[p, :]...), 2 * linear(coords[p, :]...)] rtol = poly_tol
@@ -131,8 +131,8 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
                (VectorFieldPhysical(rand(T, 16, 15, 14, 3), grid),              VectorPointValues(rand(T, M, 3))),
                (TensorFieldPhysical{2}(rand(T, 16, 15, 14, 3, 3), grid),        TensorPointValues{2}(rand(T, M, 3, 3))))
       for (field, q) in cases
-        Wf = interpolate(field, xs)
-        Wtq = anterpolate(grid, xs, q)
+        Wf = interpolate(field, xs, CatmullRom)
+        Wtq = anterpolate(grid, xs, q, CatmullRom)
         @test dot(point_values(Wf), point_values(q)) ≈ dot(field_data(field), field_data(Wtq)) rtol = adj_tol
       end
     end
@@ -150,8 +150,8 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
                (VectorFieldPhysical(rand(T, 16, 15, 14, 3), grid),       VectorPointValues(rand(T, M, 3))),
                (TensorFieldPhysical{2}(rand(T, 16, 15, 14, 3, 3), grid), TensorPointValues{2}(rand(T, M, 3, 3))))
       for (field, q) in cases
-        @test isapprox(M * inner(interpolate(field, xs), q),
-                       N * inner(field, anterpolate(grid, xs, q)); rtol = adj_tol)
+        @test isapprox(M * inner(interpolate(field, xs, CatmullRom), q),
+                       N * inner(field, anterpolate(grid, xs, q, CatmullRom)); rtol = adj_tol)
       end
     end
 
@@ -159,7 +159,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       xs = PointSet(T(2π) .* rand(T, M, 3))
       q = ScalarPointValues(rand(T, M))
 
-      deposited = anterpolate(grid, xs, q)
+      deposited = anterpolate(grid, xs, q, CatmullRom)
       @test sum(field_data(deposited)) ≈ sum(point_values(q)) rtol = (T == Float64 ? 1e-10 : 1e-4)
 
       # overwrite (β = 0) must ignore the destination's prior contents (NaN included)
@@ -169,12 +169,12 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       @test field_data(overwrite) ≈ field_data(deposited) rtol = (T == Float64 ? 1e-12 : 1e-4)
 
       # α scaling
-      scaled = anterpolate(grid, xs, q)
+      scaled = anterpolate(grid, xs, q, CatmullRom)
       anterpolate!(scaled, xs, q, CatmullRom, T(3), T(0))
       @test field_data(scaled) ≈ 3 .* field_data(deposited) rtol = (T == Float64 ? 1e-10 : 1e-3)
 
       # accumulate (β = 1): deposit twice ⇒ 2× the single deposit
-      accumulate = anterpolate(grid, xs, q)
+      accumulate = anterpolate(grid, xs, q, CatmullRom)
       anterpolate!(accumulate, xs, q, CatmullRom, T(1), T(1))
       @test field_data(accumulate) ≈ 2 .* field_data(deposited) rtol = (T == Float64 ? 1e-10 : 1e-3)
     end
@@ -208,7 +208,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       coords = hcat((origin[d] .+ Δ[d] .* (1.5 .+ ((10, 8, 12)[d] - 4) .* rand(M)) for d in 1:3)...)
       xs = PointSet(coords)
       lin(x, y, z) = 0.5 + 0.3x - 1.1y + 0.02z
-      v = interpolate(ScalarFieldPhysical(lin, grid), xs)
+      v = interpolate(ScalarFieldPhysical(lin, grid), xs, CatmullRom)
       @test point_values(v) ≈ [lin(coords[p, :]...) for p in 1:M] rtol = 1e-9   # per-axis origin/spacing correct
       q = ScalarPointValues(rand(M))
       whole = PointSet(hcat((origin[d] .+ ((2π, 0.5, 40.0)[d]) .* rand(M) for d in 1:3)...))
@@ -222,7 +222,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       field = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + sin(z), grid)
       node_index = [(1, 1, 1), (3, 4, 5), (8, 8, 8), (1, 8, 4)]
       coords = [Δ * (idx[d] - 1) for idx in node_index, d in 1:3]
-      v = interpolate(field, PointSet(coords))
+      v = interpolate(field, PointSet(coords), CatmullRom)
       @test point_values(v) ≈ [field_data(field)[idx...] for idx in node_index] rtol = 1e-12  # interpolating property
     end
 
@@ -250,7 +250,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       xs = PointSet(2π .* rand(20, 3))
       f3 = TensorFieldPhysical{3}(rand(6, 6, 6, 3, 3, 3), grid)
       q3 = TensorPointValues{3}(rand(20, 3, 3, 3))
-      @test interpolate(f3, xs) isa TensorPointValues{3}
+      @test interpolate(f3, xs, CatmullRom) isa TensorPointValues{3}
       @test adjoint(f3, xs, q3, CatmullRom)
       @test conserves(grid, xs, q3, CatmullRom)
     end
@@ -276,9 +276,9 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
     @testset "single point (M = 1)" begin
       grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
       xs = PointSet(reshape([1.1, 2.2, 0.7], 1, 3))
-      @test length(point_values(interpolate(ScalarFieldPhysical((x, y, z) -> sin(x), grid), xs))) == 1
+      @test length(point_values(interpolate(ScalarFieldPhysical((x, y, z) -> sin(x), grid), xs, CatmullRom))) == 1
       q = ScalarPointValues([2.5])
-      @test sum(field_data(anterpolate(grid, xs, q))) ≈ 2.5 rtol = 1e-12
+      @test sum(field_data(anterpolate(grid, xs, q, CatmullRom))) ≈ 2.5 rtol = 1e-12
     end
   end
 end

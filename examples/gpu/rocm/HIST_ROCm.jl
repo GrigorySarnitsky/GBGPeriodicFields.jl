@@ -293,9 +293,9 @@ end
 ## =============================================================================
 
 function advect!(X, u, dt, p)
-  v1 = point_values(interpolate(u, PointSet(X)))          # CatmullRom gather (package, device kernel)
+  v1 = point_values(interpolate(u, PointSet(X), CatmullRom))          # CatmullRom gather (package, device kernel)
   Xmid = mod.(X .+ FT(dt) .* v1, FT(p.L))
-  v2 = point_values(interpolate(u, PointSet(Xmid)))
+  v2 = point_values(interpolate(u, PointSet(Xmid), CatmullRom))
   X .= mod.(X .+ (FT(dt) / 2) .* (v1 .+ v2), FT(p.L))
   return v1
 end

@@ -46,7 +46,7 @@ and scatter weights it applies.
 
 A transfer `scheme` (an [`AbstractTransferScheme`](@ref)) fixes the weights and the representation it acts on.
 Two families ship: the physical-domain local splines of Lalescu, Teaca & Carati (2010)
-(the default [`CatmullRom`](@ref)), which act on a field in physical representation, and the spectral-domain exact
+(such as [`CatmullRom`](@ref)), which act on a field in physical representation, and the spectral-domain exact
 `DirectDFT` / fast `NUFFT` that act on a field in spectral representation. The point-value data types and their fiberwise algebra
 live in the `Points` module.
 
@@ -197,7 +197,7 @@ It reproduces polynomials up to degree ``\\min(2m{+}1, 2n)`` (for ``n \\ge 1``) 
 stencil samples one branch of that polynomial — a periodic base wraps the stencil at the boundary, and
 the wrapped samples come from the opposite edge, which no non-periodic polynomial continues. Special cases:
 ``m = 0`` is linear interpolation over the two central nodes (independent of ``n``); ``n = 1, m = 1``
-is the Catmull–Rom spline (the default [`CatmullRom`](@ref), quadratic precision). For the ``C^0``
+is the Catmull–Rom spline ([`CatmullRom`](@ref), quadratic precision). For the ``C^0``
 Lagrange hierarchy (degree ``2n{+}1``, all ``2n{+}2`` nodes interpolated) use [`LagrangeSpline`](@ref).
 Used by [`interpolate`](@ref) (grid → point) and [`anterpolate`](@ref) (point → grid).
 
@@ -398,7 +398,7 @@ end
 """
     CatmullRom
 
-`CatmullRom` is the default: the cubic ``n = 1, m = 1``
+`CatmullRom`, the usual choice: the cubic ``n = 1, m = 1``
 [`LalescuSpline`](@ref), a four-point
 ``C^1`` stencil that reproduces the Catmull–Rom spline (and quadratic polynomials exactly).
 """
@@ -1122,7 +1122,7 @@ end
 
 """
     interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical,
-                 points::PointSet, scheme::AbstractSplineScheme = CatmullRom;
+                 points::PointSet, scheme::AbstractSplineScheme;
                  traversal = nothing)
     interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral,
                  points::PointSet, scheme::DirectDFT)
@@ -1160,7 +1160,7 @@ and approximate otherwise; the spectral schemes reconstruct the band-limited fie
 (`DirectDFT`) or to a set tolerance (`NUFFT`).
 """
 function interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical, points::PointSet,
-                      scheme::AbstractSplineScheme = CatmullRom; traversal = nothing)
+                      scheme::AbstractSplineScheme; traversal = nothing)
   point_value_tensor_order(out) == field_tensor_order(field) ||
     throw(ArgumentError("output tensor order $(point_value_tensor_order(out)) must equal field tensor order $(field_tensor_order(field))"))
   _check_npoints_match(out, points)
@@ -1180,7 +1180,7 @@ end
 
 
 """
-    interpolate(field::AbstractFieldPhysical, points, scheme = CatmullRom;
+    interpolate(field::AbstractFieldPhysical, points, scheme::AbstractSplineScheme;
                 traversal = nothing)
     interpolate(field::AbstractFieldSpectral, points, scheme::DirectDFT)
     interpolate(field::AbstractFieldSpectral, points, scheme::NUFFT;
@@ -1191,7 +1191,7 @@ tensor order and return `field` sampled at `points`. See `interpolate!` for the 
 accuracy.
 """
 function interpolate(field::AbstractFieldPhysical, points::PointSet,
-                     scheme::AbstractSplineScheme = CatmullRom; traversal = nothing)
+                     scheme::AbstractSplineScheme; traversal = nothing)
   T = field_scalar_type(field)
   data = similar(point_positions(points), T, (npoints(points), fiber_shape(Val(field_tensor_order(field)))...))
   return interpolate!(_wrap_point_values(data, Val(field_tensor_order(field))), field, points, scheme; traversal)
@@ -1224,7 +1224,7 @@ end
 """
     anterpolate!(field::AbstractFieldPhysical, points::PointSet,
                  quantities::AbstractPointValues,
-                 scheme::AbstractSplineScheme = CatmullRom,
+                 scheme::AbstractSplineScheme,
                  α::Real = true, β::Real = false; traversal = nothing)
     anterpolate!(field::AbstractFieldSpectral, points::PointSet,
                  quantities::AbstractPointValues, scheme::DirectDFT,
@@ -1278,7 +1278,7 @@ this operation *spreading* (immersed-boundary methods), *deposition* or *charge 
     (an early use of "anterpolation" for the adjoint of interpolation).
 """
 function anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities::AbstractPointValues,
-                      scheme::AbstractSplineScheme = CatmullRom, α::Real = true, β::Real = false;
+                      scheme::AbstractSplineScheme, α::Real = true, β::Real = false;
                       traversal = nothing)
   field_tensor_order(field) == point_value_tensor_order(quantities) ||
     throw(ArgumentError("field tensor order $(field_tensor_order(field)) must equal quantities tensor order $(point_value_tensor_order(quantities))"))
@@ -1305,7 +1305,7 @@ end
 
 
 """
-    anterpolate(grid::Grid3D, points, quantities, scheme = CatmullRom;
+    anterpolate(grid::Grid3D, points, quantities, scheme::AbstractSplineScheme;
                 traversal = nothing)
     anterpolate(reference::AbstractFieldSpectral, points, quantities, scheme::DirectDFT)
     anterpolate(reference::AbstractFieldSpectral, points, quantities, scheme::NUFFT;
@@ -1318,7 +1318,7 @@ spectral representation like `reference` (same grid and layout). See `anterpolat
 the ``\\alpha``/``\\beta`` accumulate form.
 """
 function anterpolate(grid::Grid3D{T}, points::PointSet, quantities::AbstractPointValues,
-                     scheme::AbstractSplineScheme = CatmullRom; traversal = nothing) where {T<:AbstractFloat}
+                     scheme::AbstractSplineScheme; traversal = nothing) where {T<:AbstractFloat}
   R = point_value_tensor_order(quantities)
   data = similar(point_values(quantities), T, field_physical_shape(grid, Val(R)))
   return anterpolate!(_wrap_field(data, grid, Val(R)), points, quantities, scheme; traversal)

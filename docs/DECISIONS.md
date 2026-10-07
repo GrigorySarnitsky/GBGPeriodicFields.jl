@@ -3965,3 +3965,30 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       which nothing in the suite would see break. The gain is a few percent of a solver step at most.
       It is reconsidered only if a vendor library offers a public way to declare the input expendable.
 
+97. **The transfer scheme is required, and stays positional** (2026-10-06, owner-ruled). The four
+    transfer verbs `interpolate`, `interpolate!`, `anterpolate` and `anterpolate!` defaulted their
+    spline scheme to `CatmullRom` positionally. GBGCodingTools rc.63 reworded `RULE.API.POSITIONAL`:
+    an argument whose type selects the method is positional, and every argument with a default is a
+    keyword. The scheme satisfied the first clause and broke the second.
+
+    - **Positional, because it dispatches.** The scheme's type selects the method: the splines act on
+      a field in physical representation, `DirectDFT` and `NUFFT` on one in spectral representation,
+      and a mismatched pair is refused by dispatch. Julia does not dispatch on keyword arguments, so a
+      keyword would fold every scheme into one method and the representation check into hand-written
+      branches. The pattern is SciML's and Optim's algorithm argument (`solve(prob, Tsit5())`), and
+      Interpolations.jl's `interpolate(A, BSpline(Linear()))`.
+
+    - **Required, because it is a choice.** Of those, Interpolations.jl, the closest relative, takes
+      the method with no default, and a defaulted argument would have to be a keyword under the rule.
+      Every call now names its scheme; `CatmullRom` stays the usual choice and is named as such.
+
+    - **Unchanged:** the callable field `f(x; scheme = CatmullRom)` keeps its keyword default, the
+      scheme there selecting no method, since only the splines evaluate at one position. The α/β
+      weights of `anterpolate!` stay positional with defaults, following `LinearAlgebra.mul!`, and
+      `lpnorm(f, p = 2)` follows the standard library's `norm`: where PF mirrors a standard interface,
+      it does as that interface does.
+
+    - **Breaking.** A call that relied on the default now throws a `MethodError`; the consumer
+      `GBGHomogeneousTurbulence` must add `CatmullRom` to its calls. The method count of
+      `Interpolation` falls 155 → 151, the four generated shorter methods.
+

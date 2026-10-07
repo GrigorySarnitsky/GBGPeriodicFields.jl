@@ -559,12 +559,12 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
         device_field = on_device(host_field)
         device_quantities = on_device_pv(host_quantities)
         # gather
-        @test matches(interpolate(device_field, device_points), interpolate(host_field, host_points))
+        @test matches(interpolate(device_field, device_points, CatmullRom), interpolate(host_field, host_points, CatmullRom))
         # scatter (allocating)
-        @test matches(anterpolate(grid, device_points, device_quantities), anterpolate(grid, host_points, host_quantities))
+        @test matches(anterpolate(grid, device_points, device_quantities, CatmullRom), anterpolate(grid, host_points, host_quantities, CatmullRom))
         # scatter accumulate (β = 1) exercises the atomic add on top of existing data
-        device_accumulated = anterpolate(grid, device_points, device_quantities)
-        host_accumulated = anterpolate(grid, host_points, host_quantities)
+        device_accumulated = anterpolate(grid, device_points, device_quantities, CatmullRom)
+        host_accumulated = anterpolate(grid, host_points, host_quantities, CatmullRom)
         anterpolate!(device_accumulated, device_points, device_quantities, CatmullRom, T(1), T(1))
         anterpolate!(host_accumulated, host_points, host_quantities, CatmullRom, T(1), T(1))
         @test matches(device_accumulated, host_accumulated)
@@ -584,8 +584,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # atomics take many concurrent adds to a few nodes — a race would make this differ from CPU.
       crowded = PointSet(T(0.3) .* rand(T, 3000, 3))
       crowded_quantities = ScalarPointValues(rand(T, 3000))
-      @test matches(anterpolate(grid, on_device_ps(crowded), on_device_pv(crowded_quantities)),
-                    anterpolate(grid, crowded, crowded_quantities))
+      @test matches(anterpolate(grid, on_device_ps(crowded), on_device_pv(crowded_quantities), CatmullRom),
+                    anterpolate(grid, crowded, crowded_quantities, CatmullRom))
 
       # The traversal order (decision 78), built and applied ON DEVICE. Its counting sort is three device
       # kernels over an atomically-built histogram, so the ordering it produces is not the host's —
@@ -615,7 +615,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test sort(Array(rebuilt.indices)) == collect(Int32(1):Int32(number_of_points))
       # A rebuilt order drives the same transfer as any other order of the same points, which is the
       # same property the built order is asserted on above.
-      let field = first(cases)[1], probe = interpolate(on_device(field), device_points)
+      let field = first(cases)[1], probe = interpolate(on_device(field), device_points, CatmullRom)
         reference = copy(point_values(probe))
         interpolate!(probe, on_device(field), device_points, CatmullRom; traversal = rebuilt)
         @test point_values(probe) == reference
@@ -628,19 +628,19 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       for (host_field, host_quantities) in cases
         device_field = on_device(host_field)
         device_quantities = on_device_pv(host_quantities)
-        ordered = interpolate(device_field, device_points)
+        ordered = interpolate(device_field, device_points, CatmullRom)
         unordered_values = copy(point_values(ordered))
         interpolate!(ordered, device_field, device_points, CatmullRom; traversal = device_order)
         @test point_values(ordered) == unordered_values
         # The scatter reorders its atomic summation, so it is compared to the CPU like every other
         # atomic result here, not bitwise against itself.
-        scattered = anterpolate(grid, device_points, device_quantities)
+        scattered = anterpolate(grid, device_points, device_quantities, CatmullRom)
         anterpolate!(scattered, device_points, device_quantities, CatmullRom, T(1), T(0); traversal = device_order)
-        @test matches(scattered, anterpolate(grid, host_points, host_quantities))
+        @test matches(scattered, anterpolate(grid, host_points, host_quantities, CatmullRom))
       end
       # A host order cannot drive a device transfer: invariant 14 binds every argument, and this one
       # is not a section, so nothing else would have caught it.
-      @test_throws ArgumentError interpolate!(interpolate(on_device(cases[1][1]), device_points),
+      @test_throws ArgumentError interpolate!(interpolate(on_device(cases[1][1]), device_points, CatmullRom),
                                               on_device(cases[1][1]), device_points, CatmullRom;
                                               traversal = PointTraversalOrder(Array(device_order.indices)))
     end

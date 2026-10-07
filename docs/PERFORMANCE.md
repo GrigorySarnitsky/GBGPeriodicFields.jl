@@ -44,10 +44,10 @@ that matters.
 - **Measure before you optimize, and measure on the production platform.** No optimization is kept
   without a same-session side-by-side comparison showing it helps the GPU. This session's record is instructive: of the
   candidates that *looked* like wins, polynomial-eval tuning was already free, the periodic-wrap
-  hoist made the default scheme *slower*, and point sorting — the textbook locality optimization —
+  hoist made `CatmullRom` *slower*, and point sorting — the textbook locality optimization —
   *regressed* the GPU gather. Only the one the measurement pointed at (loop order) survived (§4). The
   lesson is the method, not those verdicts: **both negative results were re-measured on current
-  hardware in 2026-08-07 and reversed sign for the default scheme** — which is the same principle
+  hardware in 2026-08-07 and reversed sign for `CatmullRom`** — which is the same principle
   applied twice, since a verdict is only ever about the platform it was taken on (§4(c)).
 
 - **A benchmark run owns the machine, and a number is not a result until it is explained.** Two
@@ -114,7 +114,7 @@ What bounds each public operation class — the mental model a benchmark either 
   in §4 (loop order, sorting) and is the most important thing to internalize before touching the
   transfer. Hold it as a mechanism rather than a verdict: it explains why sorting *can* fail to pay
   on a GPU, and on the card that recorded that result it did. On the RX 7900 XTX the same experiment
-  reversed for the default scheme (§4(c)), so the balance between the two pulls is a property of the
+  reversed for `CatmullRom` (§4(c)), so the balance between the two pulls is a property of the
   card, not a constant.
 - **Deliberately unbenchmarked, so the absence reads as a decision rather than a gap.** Two public
   surfaces carry no row on purpose. The **allocating constructors** (decision 74) have none because
@@ -228,7 +228,7 @@ is the recorded choice for both platforms.
 - **Wrap-hoist** (precompute the ``3(2n{+}2)`` periodic node offsets to kill inner-loop `mod`s):
   bit-identical, but **regressed the default Catmull–Rom by 10–14%** — the extra registers cut
   occupancy. Proof the kernels are memory/occupancy-bound, not ALU-bound. **RE-MEASURED 2026-08-07 and
-  REOPENED: the sign is reversed for the default scheme, and the CPU was never tested.** Two kernels
+  REOPENED: the sign is reversed for `CatmullRom`, and the CPU was never tested.** Two kernels
   differing only in where the wrap is computed, verified bitwise equal, ratios hoisted-over-base:
 
 (a table cannot render inside a list item, so the ratios are listed by scheme, in grid order
@@ -244,8 +244,8 @@ is the recorded choice for both platforms.
   Three things follow. **The recorded occupancy mechanism is right**, and ``R = 3`` on the GPU is where
   it shows: 24 registers per thread turns a ``2\times`` win at ``64^3`` into a ``2\times`` loss at
   ``256^3`` as the working set grows and occupancy becomes the binding constraint. **But it does not
-  bite the default scheme on RDNA3** — `CatmullRom` hoisted is 10–30% *faster* at every grid, where the
-  the retired AMD card recorded 10–14% slower. **And the CPU, never measured for this, wins hugely and
+  bite `CatmullRom` on RDNA3** — hoisted, it is 10–30% *faster* at every grid, where the
+  retired AMD card recorded 10–14% slower. **And the CPU, never measured for this, wins hugely and
   everywhere** — up to ``3.6\times`` — which is what the mechanism predicts: a CPU thread has no
   occupancy to lose, and `mod` by a *runtime* grid size is a genuine integer division rather than a
   compiler-strength-reduced constant. That matters because the CPU path carries the beyond-VRAM grids
@@ -262,7 +262,7 @@ is the recorded choice for both platforms.
   the RX 7900 XTX (re-measured 2026-08-07), and the question is reopened.** Identical points, reordered
   only, at the same 1-per-27 density: Morton reaches **1.43×** (`Float32` ``128^3`` `CatmullRom`,
   105.7 → 73.6 µs) and **1.40×** (`Float32` ``256^3`` trilinear, 116.8 → 83.4 µs), and helps in three of
-  four cells for `CatmullRom` — **the default scheme**. One cell clearly loses, `Float64` ``256^3``
+  four cells for `CatmullRom` — **the usual scheme**. One cell clearly loses, `Float64` ``256^3``
   trilinear at ``0.74\times``. The original was measured on a since-retired card, so this is plausibly
   an RDNA2-versus-RDNA3 difference rather than a bad measurement; either way the recorded range no longer
   describes the hardware the project runs on. **It is reopened, not overturned**, and three things must
@@ -1189,7 +1189,7 @@ inflation's per-row variance, and none can be re-checked from this box:
     casualty was probably wrong twice over: the record describes a "same-session A/B", i.e. an ad-hoc
     comparison that `BenchmarkTools` would have run with `gcsample = false` anyway, so the defect likely
     never touched it. What it *was* at risk from is the same thing as Morton — retired RDNA2 hardware.
-    Re-measured on RDNA3 the sign reverses for the default scheme (`CatmullRom` hoisted 10–30% *faster*,
+    Re-measured on RDNA3 the sign reverses for `CatmullRom` (hoisted 10–30% *faster*,
     against a recorded 10–14% slower) and the CPU, never tested for this, wins by up to ``3.6\times``.
   - **Decision 42's GPU figure — RE-CHECKED on the RX 7900 XTX, and it is a tie.** The recorded
     "in-register ties in `Float32`, ``\approx 6\%`` slower in `Float64`" was measured on the RTX 5070 Ti,
@@ -1611,9 +1611,9 @@ trilinear ``R = 1`` did not reproduce and was noise.
 leaving `mod` on the innermost — recovers width 8 but gives back the width-6 win (291.9 → 453.5 ms at
 ``R = 1``, independently reproduced at 344.5 → 543.4). It is not *strictly* worse, as first recorded:
 against the pre-walk kernel it was never behind in 60 measured cells. It is worse against the shipped
-walk where the walk wins, which is the common case and the default scheme. Making the choice conditional on scheme,
+walk where the walk wins, which is the common case and the usual scheme, `CatmullRom`. Making the choice conditional on scheme,
 rank and backend would mean a second kernel body, which is exactly what decision 47 records going
-silently dead. The default scheme is width 4, where the walk wins on both backends, and the affected
+silently dead. `CatmullRom` is width 4, where the walk wins on both backends, and the affected
 corner is a wide stencil on a vector field on CPU.
 
 *Points arrived in an order unrelated to the grid.* A solver seeds points in its own order, so

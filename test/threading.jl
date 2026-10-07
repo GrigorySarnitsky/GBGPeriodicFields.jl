@@ -64,7 +64,7 @@ using GBGPeriodicFields, Random
 $(KA_DIGEST_SOURCE)
 $(KA_SETUP_SOURCE)
 println(ka_digest(field_data(helmholtz_projection(ka_us, ka_m))))
-println(ka_digest(point_values(interpolate(ka_field, ka_points))))
+println(ka_digest(point_values(interpolate(ka_field, ka_points, CatmullRom))))
 println(ka_digest(field_data(embed_modes!(ka_embedded, ka_coarse))))
 """
 
@@ -343,11 +343,11 @@ println(ka_digest(field_data(embed_modes!(ka_embedded, ka_coarse))))
     # disjoint writes, no atomics → bitwise-reproducible repeat to repeat
     projections = [field_data(helmholtz_projection(ka_us, ka_m)) for _ in 1:4]
     @test all(==(projections[1]), projections)
-    gathers = [point_values(interpolate(ka_field, ka_points)) for _ in 1:4]
+    gathers = [point_values(interpolate(ka_field, ka_points, CatmullRom)) for _ in 1:4]
     @test all(==(gathers[1]), gathers)
 
     # Atomix accumulate → equal to tolerance, not bitwise
-    scatters = [field_data(anterpolate(ka_grid, ka_points, ka_values)) for _ in 1:4]
+    scatters = [field_data(anterpolate(ka_grid, ka_points, ka_values, CatmullRom)) for _ in 1:4]
     @test all(s -> isapprox(s, scatters[1], rtol = 1e-10), scatters)
     spectra = [radial_spectrum(ka_us, ka_m)[2] for _ in 1:4]
     @test all(s -> isapprox(s, spectra[1], rtol = 1e-10), spectra)

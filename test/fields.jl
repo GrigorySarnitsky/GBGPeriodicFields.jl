@@ -519,9 +519,15 @@ end
       @test mean(transformed) == zero(mean(transformed))
       # Every other coefficient keeps its bits.
       @test all(idx -> Tuple(idx)[1:3] == (1, 1, 1) || data[idx] === before[idx], CartesianIndices(data))
-      # The independent oracle, in physical space: the values less their arithmetic average.
-      averaged = values .- sum(values; dims = (1, 2, 3)) ./ prod(sizes)
-      @test field_data(to_physical(transformed, plans)) ≈ averaged rtol = 64 * eps(T)
+      # The independent oracle, in physical space: the values less their arithmetic average. It is
+      # computed in Float64 so the comparison measures the package's rounding and not the oracle's,
+      # and the bound scales with the INPUT, which is what a transform's rounding scales with: the
+      # mean (about 2.5) is large beside the mean-free result (about ±0.5), and a bound relative to
+      # the result failed on rare Float32 draws while the package's worst error measured 2.6 of
+      # these units (3600 trials, 2026-10-06). Any real defect leaves an error of the mean's order.
+      averaged = Float64.(values) .- sum(Float64.(values); dims = (1, 2, 3)) ./ prod(sizes)
+      @test maximum(abs.(Float64.(field_data(to_physical(transformed, plans))) .- averaged)) <=
+            16 * eps(T) * maximum(abs, values)
       # Exactly idempotent.
       once = copy(data)
       mean_free_projection!(transformed)

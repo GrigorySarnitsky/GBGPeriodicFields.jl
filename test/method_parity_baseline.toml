@@ -545,7 +545,10 @@ Points = 242
   # 170 → 155: GBGCodingTools rc.38 (2026-09-29) stops counting compiler-generated names (`#809#val`
   # and the like), which own methods in the module but are never the package's own. No method
   # changed; the old count included them, and on Julia 1.13 many more appear, which is how it surfaced.
-Interpolation = 155
+  # 155 → 151: decision 97 (2026-10-06) removes the positional default of the spline scheme from
+  # `interpolate`, `interpolate!`, `anterpolate` and `anterpolate!`; the four shorter methods Julia
+  # generated to supply it are gone. No behaviour changed for a call that names its scheme.
+Interpolation = 151
   # 177 → 179: the threaded running total (decision 81). `_scan_offsets!` has two methods — the
   # generic one, which is `cumsum!` and stays the device path since GPUArrays already scans in
   # parallel, and the host one that threads. On a CPU this was the only stage of the traversal build

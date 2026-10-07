@@ -94,8 +94,8 @@ const CANARIES = [
   ("tree-reduction inner",       true,  () -> inner(physical_u, physical_v)),
   ("mapped mean(norm,u)",        true,  () -> mean(norm, physical_u)),
   ("fft to_physical!",           false, () -> to_physical!(physical_out, spectral_s, plans)),
-  ("transfer gather",            false, () -> interpolate!(point_out, physical_scalar, points)),
-  ("transfer scatter",           false, () -> anterpolate!(physical_out, points, point_q)),
+  ("transfer gather",            false, () -> interpolate!(point_out, physical_scalar, points, CatmullRom)),
+  ("transfer scatter",           false, () -> anterpolate!(physical_out, points, point_q, CatmullRom)),
   ("binning radial_spectrum",    false, () -> radial_spectrum(spectral_u, multipliers)),
 ]
 
