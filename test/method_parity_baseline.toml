@@ -550,7 +550,10 @@ Points = 242
   # generated to supply it are gone. No behaviour changed for a call that names its scheme.
   # 151 → 152: decision 98 (2026-10-07) adds `_stencil_neighbours`, the one check of an even stencil
   # width both spline constructors share.
-Interpolation = 152
+  # 152 → 149: `anterpolate!`'s α and β come as a pair or not at all (2026-10-07, the rulebook's
+  # mirror clause): the three α-only forms the positional defaults generated, one per scheme family,
+  # are gone, `LinearAlgebra.mul!` having none.
+Interpolation = 149
   # 177 → 179: the threaded running total (decision 81). `_scan_offsets!` has two methods — the
   # generic one, which is `cumsum!` and stays the device path since GPUArrays already scans in
   # parallel, and the host one that threads. On a CPU this was the only stage of the traversal build

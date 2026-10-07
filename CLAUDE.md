@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.64 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.66 — rewritten by `gbg sync`; do not edit -->
 @.gbg/policy/00-index.md
 
 The rulebook above is the whole of it: the rules, the terms they use, and what GBGPeriodicFields has
@@ -2198,7 +2198,7 @@ that would have caught this class, so it earns its place ahead of work that repa
   construction and zero per call), not the old union being slow.)
   **(5)** *(CLOSED 2026-09-02 (user): `Grid3D`'s two-argument constructor keeps `origin` as a
   KEYWORD — leave it as is, do nothing.* The finding is correct: the four-argument form takes it
-  positionally, and the policy makes a result-affecting argument positional, `origin` shifting every
+  positionally, and the policy then made a result-affecting argument positional, `origin` shifting every
   node. It was a **recorded exception to that policy** until GBGCodingTools rc.63 (2026-10-06)
   reworded the rule so that every argument with a default is a keyword; the keyword now complies and
   its switch is gone. A re-raise closes against this note. Facts in front of the decision: `Grid3D` is the only

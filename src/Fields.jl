@@ -3365,7 +3365,8 @@ is the coarse field's size. Use [`extract_modes!`](@ref) for the other direction
   family, domain size, origin and Fourier layout, and its grid must be no larger on any axis and
   smaller on at least one; every one of those is refused rather than converted.
 
-- `α` — scales the source, `1` by default.
+- `α` — scales the source, `1` by default; with `β` it mirrors the trailing weights of
+  `LinearAlgebra.mul!(C, A, B, α, β)`.
 
 - `β` — scales the destination on the shared modes before the source is added, `0` by default, which
   overwrites them. Modes outside the shared set are never read or written, whatever `β` is.
@@ -3408,7 +3409,8 @@ computes on. The cost is the coarse field's size, so the fine field is never tra
 - `destination` — the **coarser** field, written on the shared modes only. Passing the finer field
   here is refused.
 - `source` — the **finer** field, matched to `destination` exactly as `embed_modes!` requires.
-- `α` — scales the source, `1` by default.
+- `α` — scales the source, `1` by default; with `β` it mirrors the trailing weights of
+  `LinearAlgebra.mul!(C, A, B, α, β)`.
 - `β` — scales the destination on the shared modes before the source is added, `0` by default.
 
 Amplitudes are physical, as for `embed_modes!`. The result is the coarse field's own modes, not a

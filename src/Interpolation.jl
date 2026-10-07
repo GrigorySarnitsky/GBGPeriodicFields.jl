@@ -1243,14 +1243,14 @@ end
 """
     anterpolate!(field::AbstractFieldPhysical, points::PointSet,
                  quantities::AbstractPointValues,
-                 scheme::AbstractSplineScheme,
-                 α::Real = true, β::Real = false; traversal = nothing)
+                 scheme::AbstractSplineScheme[, α::Real, β::Real];
+                 traversal = nothing)
     anterpolate!(field::AbstractFieldSpectral, points::PointSet,
-                 quantities::AbstractPointValues, scheme::DirectDFT,
-                 α::Real = true, β::Real = false)
+                 quantities::AbstractPointValues, scheme::DirectDFT[,
+                 α::Real, β::Real])
     anterpolate!(field::AbstractFieldSpectral, points::PointSet,
-                 quantities::AbstractPointValues, scheme::NUFFT,
-                 α::Real = true, β::Real = false; traversal = nothing)
+                 quantities::AbstractPointValues, scheme::NUFFT[,
+                 α::Real, β::Real]; traversal = nothing)
 
 Deposit (scatter) the per-point `quantities` onto `field` in place — the transpose of
 [`interpolate!`](@ref) under the same `scheme`, conjugated for a spectral one — computing
@@ -1296,8 +1296,14 @@ this operation *spreading* (immersed-boundary methods), *deposition* or *charge 
     equations*](https://doi.org/10.1016/0021-9991%2890%2990171-V), J. Comput. Phys. **90**(2) (1990) 348–370
     (an early use of "anterpolation" for the adjoint of interpolation).
 """
+# α and β come as a pair or not at all, as in `LinearAlgebra.mul!(C, A, B, α, β)`, which they mirror:
+# without them the deposit overwrites.
+anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities::AbstractPointValues,
+             scheme::AbstractSplineScheme; traversal = nothing) =
+  anterpolate!(field, points, quantities, scheme, true, false; traversal)
+
 function anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities::AbstractPointValues,
-                      scheme::AbstractSplineScheme, α::Real = true, β::Real = false;
+                      scheme::AbstractSplineScheme, α::Real, β::Real;
                       traversal = nothing)
   field_tensor_order(field) == point_value_tensor_order(quantities) ||
     throw(ArgumentError("field tensor order $(field_tensor_order(field)) must equal quantities tensor order $(point_value_tensor_order(quantities))"))
@@ -1568,8 +1574,11 @@ function interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::Dir
 end
 
 
+anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
+             scheme::DirectDFT) = anterpolate!(field, points, quantities, scheme, true, false)
+
 function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
-                      scheme::DirectDFT, α::Real = true, β::Real = false)
+                      scheme::DirectDFT, α::Real, β::Real)
   field_tensor_order(field) == point_value_tensor_order(quantities) ||
     throw(ArgumentError("field tensor order $(field_tensor_order(field)) must equal quantities tensor order $(point_value_tensor_order(quantities))"))
   _check_npoints_match(points, quantities)
@@ -1970,8 +1979,12 @@ function interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::NUF
 end
 
 
+anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
+             scheme::NUFFT; traversal = nothing) =
+  anterpolate!(field, points, quantities, scheme, true, false; traversal)
+
 function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
-                      scheme::NUFFT, α::Real = true, β::Real = false; traversal = nothing)
+                      scheme::NUFFT, α::Real, β::Real; traversal = nothing)
   _check_point_traversal_order(traversal, npoints(quantities), field_data(field))
   # Decision 52 checked the plan's tensor order here, because a lower-order plan let the extract read
   # uninitialized scratch. That was one component of the plan's context; all of it is checked now.

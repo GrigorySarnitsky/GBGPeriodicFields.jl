@@ -3622,7 +3622,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       cubic grid and on an anisotropic grid with an odd axis. The two builders now share one formula.
 
     - **The name and the argument.** It is not `box_window`, because "the box" means the domain
-      throughout this package. The width is positional, since it changes the result: one number is a
+      throughout this package. The width is positional, since it changes the result (the criterion of the
+      time; under the positional rule as reworded on 2026-10-06 the reason is that it is required, with
+      the same outcome): one number is a
       cube, which is the consumer's case, and a triple a rectangular box, as `assignment_window` uses
       one spacing per axis. A negative or non-finite edge is refused, a zero edge leaves its axis
       unfiltered, and an edge as long as the domain is allowed: on a periodic domain it cancels every

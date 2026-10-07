@@ -983,7 +983,8 @@ returns a fresh result instead.
   to rounding instead.
 - `destination` — the field written with the result; it may alias `field` or `kernel`, since the
   product is coefficientwise.
-- `α`, `β` — real accumulation weights, converted to the field's scalar type; the three-argument form
+- `α`, `β` — real accumulation weights, mirroring `LinearAlgebra.mul!(C, A, B, α, β)` and converted to
+  the field's scalar type; the three-argument form
   overwrites (``\\alpha = 1``, ``\\beta = 0``), the five-argument form computes
   ``\\alpha (f \\star g) + \\beta \\texttt{destination}``.
 
@@ -1637,8 +1638,8 @@ to zero, so both are unaffected; where the band matters, use `Float64` or a mild
 - `destination` — the field written with the result; it may alias `field` (or `a`, `b`, `offset`),
   since the product is coefficientwise.
 - `field` — the field to filter, in spectral representation.
-- `α`, `β` — in the single-operand forms, where they trail the argument list, the usual accumulation
-  weights: the result is written as ``\\alpha (\\text{filtered } f) + \\beta \\texttt{destination}``.
+- `α`, `β` — in the single-operand forms, where they trail the argument list, the accumulation
+  weights of `LinearAlgebra.mul!(C, A, B, α, β)`, which they mirror: the result is written as ``\\alpha (\\text{filtered } f) + \\beta \\texttt{destination}``.
 - `α`, `a`, `β`, `b` — in the two-operand forms, where they lead it, the real weights and fields of
   the combination ``\\alpha a + \\beta b`` the kernel is applied to, exactly as [`combine!`](@ref)
   takes them; with `b === destination` the filtered accumulate runs in place. The two roles never

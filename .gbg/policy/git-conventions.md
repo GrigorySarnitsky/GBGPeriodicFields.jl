@@ -1,7 +1,7 @@
-<!-- gbg:managed begin v2.0.0-rc.64 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.66 — rewritten by `gbg sync`; do not edit -->
 # Git conventions — `RULE.GIT.*`
 
-What a commit carries, where it goes, and what is never committed. 10 rules, written from the rule values themselves,
+What a commit carries, where it goes, and what is never committed. 11 rules, written from the rule values themselves,
 so a rule reworded here was reworded in the program that checks it.
 
 ### RULE.GIT.BRANCH
@@ -16,6 +16,13 @@ This package may set `branch`; unset, it is `master`.
 CI is manual-only, `workflow_dispatch` and release tags; the matrix runs locally before a commit; docs deploy on push.
 
 Before committing a code change, run the gate locally; a documentation-only change needs a load and the docs build. The docs build is therefore the per-push enforcement point, and the rules that read the built site run inside it.
+
+Covered by a program.
+
+### RULE.GIT.LICENSE
+A package carries the MIT licence in one file at its root, `LICENSE` or `LICENSE.md`: a copyright line naming the year and the holder, then the licence's text word for word.
+
+A repository published without a licence can be read but not legally reused. MIT is what Julia, its standard libraries and nearly every package of the General registry carry, and what each package of the fleet depends on, so it adds nothing a user must check (the owner's ruling, 2026-10-07). The text is compared word for word because an edited licence is a different licence.
 
 Covered by a program.
 

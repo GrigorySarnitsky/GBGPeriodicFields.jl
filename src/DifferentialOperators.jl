@@ -929,7 +929,8 @@ arguments are:
   exactly as [`convolve!`](@ref GBGPeriodicFields.Convolution.convolve!) takes it — including its reality condition, that ``\\hat g`` be Hermitian,
   ``\\hat g(-k) = \\overline{\\hat g(k)}``, without which the result is the spectrum of no real field; it may
   alias `destination`, since the product is coefficientwise.
-- `α`, `β` — real accumulation weights as in `convolve!`: the four-argument form overwrites
+- `α`, `β` — real accumulation weights as in `convolve!`, mirroring `LinearAlgebra.mul!(C, A, B, α, β)`:
+  the four-argument form overwrites
   (``\\alpha = 1``, ``\\beta = 0``), and the six-argument form computes
 
 ```math
@@ -1553,7 +1554,8 @@ projection symbol. The additional arguments are:
   exactly as [`convolve!`](@ref GBGPeriodicFields.Convolution.convolve!) takes it — including its reality condition, that ``\\hat g`` be Hermitian,
   ``\\hat g(-k) = \\overline{\\hat g(k)}``, without which the result is the spectrum of no real field; one
   scalar kernel weights all three components.
-- `α`, `β` — real accumulation weights as in `convolve!`: the four-argument form overwrites
+- `α`, `β` — real accumulation weights as in `convolve!`, mirroring `LinearAlgebra.mul!(C, A, B, α, β)`:
+  the four-argument form overwrites
   (``\\alpha = 1``, ``\\beta = 0``), and the six-argument form computes
 
 ```math
