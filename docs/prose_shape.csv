@@ -61,9 +61,9 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: _kernel_storage(kernel)",93,79,0
 "Convolution.jl :: _show_kernel(io, kernel)",59,45,0
 "Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",368,107,0
-"Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",648,165,2
+"Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",655,165,2
 "Convolution.jl :: convolve(field, kernel::SpectralKernel)",78,72,0
-"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",920,223,1
+"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",928,231,1
 "Convolution.jl :: exponential_convolve(field, multipliers, coefficient::Real)",54,46,0
 "Convolution.jl :: field ⋆ kernel",60,51,0
 "Convolution.jl :: inv(kernel::ProductKernel)",62,33,1
@@ -172,7 +172,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 84",471,87,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 85",891,116,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 86",187,93,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 87",499,98,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 87",523,122,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 88",1068,107,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 89",264,65,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 9",32,32,0
@@ -200,11 +200,11 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.jl :: _vector_gradient_modes!(backend, destinations::NTuple{9}, so",45,38,0
 "DifferentialOperators.jl :: curl!(",215,69,0
 "DifferentialOperators.jl :: curl(field, multipliers::FieldSpectralMultipliers)",29,27,0
-"DifferentialOperators.jl :: divergence!(",438,96,0
+"DifferentialOperators.jl :: divergence!(",444,102,0
 "DifferentialOperators.jl :: divergence(field, multipliers::FieldSpectralMultipliers)",63,58,0
 "DifferentialOperators.jl :: gradient!(",161,50,0
 "DifferentialOperators.jl :: gradient(field, multipliers::FieldSpectralMultipliers)",42,40,0
-"DifferentialOperators.jl :: helmholtz_projection!(",486,94,1
+"DifferentialOperators.jl :: helmholtz_projection!(",492,100,1
 "DifferentialOperators.jl :: helmholtz_projection(field::VectorFieldSpectral,",62,57,0
 "DifferentialOperators.jl :: inverse_curl!(destination::VectorFieldSpectral, field::Vecto",293,75,1
 "DifferentialOperators.jl :: inverse_curl(field, multipliers::FieldSpectralMultipliers)",37,35,0
@@ -400,8 +400,8 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _write_shared_mode!(destination, source, destination_index, ",30,24,0
 "Fields.jl :: adapt!(destination, source)",321,156,0
 "Fields.jl :: adapt(storage, object)",509,140,2
-"Fields.jl :: embed_modes!(destination::AbstractFieldSpectral, source::Abs",355,80,1
-"Fields.jl :: extract_modes!(destination::AbstractFieldSpectral, source::A",235,54,1
+"Fields.jl :: embed_modes!(destination::AbstractFieldSpectral, source::Abs",368,80,1
+"Fields.jl :: extract_modes!(destination::AbstractFieldSpectral, source::A",248,64,1
 "Fields.jl :: field_data(field::AbstractField)",36,28,0
 "Fields.jl :: field_grid(field::AbstractField)",8,7,0
 "Fields.jl :: field_layout(field::AbstractField)",8,7,0
@@ -448,7 +448,6 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: _scan_offsets!(offsets, counts)",96,82,0
 "Interpolation.jl :: _scan_offsets!(offsets::Vector, counts::Vector)",173,86,0
 "Interpolation.jl :: _show_spline_eltype(io, scheme)",83,59,0
-"Interpolation.jl :: anterpolate!(field::AbstractFieldPhysical, points::PointSet,",406,209,0
 "Interpolation.jl :: anterpolate(grid::Grid3D, points, quantities, scheme::Abstra",81,63,0
 "Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",307,194,0
 "Interpolation.jl :: interpolate(field::AbstractFieldPhysical, points, scheme::Ab",41,26,0
