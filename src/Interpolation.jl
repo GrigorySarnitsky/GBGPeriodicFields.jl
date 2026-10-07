@@ -1296,12 +1296,6 @@ this operation *spreading* (immersed-boundary methods), *deposition* or *charge 
     equations*](https://doi.org/10.1016/0021-9991%2890%2990171-V), J. Comput. Phys. **90**(2) (1990) 348–370
     (an early use of "anterpolation" for the adjoint of interpolation).
 """
-# α and β come as a pair or not at all, as in `LinearAlgebra.mul!(C, A, B, α, β)`, which they mirror:
-# without them the deposit overwrites.
-anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities::AbstractPointValues,
-             scheme::AbstractSplineScheme; traversal = nothing) =
-  anterpolate!(field, points, quantities, scheme, true, false; traversal)
-
 function anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities::AbstractPointValues,
                       scheme::AbstractSplineScheme, α::Real, β::Real;
                       traversal = nothing)
@@ -1327,6 +1321,12 @@ function anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities
   synchronize(backend)
   return field
 end
+
+# α and β come as a pair or not at all, as in `LinearAlgebra.mul!(C, A, B, α, β)`, which they mirror:
+# without them the deposit overwrites.
+anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities::AbstractPointValues,
+             scheme::AbstractSplineScheme; traversal = nothing) =
+  anterpolate!(field, points, quantities, scheme, true, false; traversal)
 
 
 """
