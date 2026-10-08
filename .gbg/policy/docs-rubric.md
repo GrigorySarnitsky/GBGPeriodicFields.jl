@@ -1,7 +1,7 @@
-<!-- gbg:managed begin v2.0.0-rc.66 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.67 — rewritten by `gbg sync`; do not edit -->
 # Documentation and API — `RULE.DOC.*`, `RULE.API.*`
 
-What a docstring and an API page contain, in what order and in what shape. 47 rules, written from the rule values themselves,
+What a docstring and an API page contain, in what order and in what shape. 48 rules, written from the rule values themselves,
 so a rule reworded here was reworded in the program that checks it.
 
 ### RULE.API.POSITIONAL
@@ -90,6 +90,13 @@ Component notation for a genuine fiber algebra is fine; the rule targets flatten
 
 Covered by a differential_geometry reader given other documents, because this needs meaning.
 This package may set `formalization`; unset, it is ``.
+
+### RULE.DOC.COST_STRUCTURAL
+Where a docstring states an operation's cost, it states it by its structure — its complexity, the number of passes, the memory it needs, or a comparison with a named operation — and, where the faster of two choices depends on the case, says which way in words. A measured figure of its speed — a timing, a ratio of times or a throughput — is not stated in a docstring, nor the hardware it was measured on: it goes, dated, to the package's performance document, which the docstring may link.
+
+A measured figure goes stale with every benchmark sweep, and nothing checks a docstring against the next one. In GBGPeriodicFields, a feature commit put that day's ratios into `exponential_convolve!`; later sessions, asked whether a cost note still held, re-derived the figures and wrote more precise ones back, until three docstrings carried paragraphs of ratios by grid size, thread count, element type and GPU model in the middle of the description — and the newer figures existed nowhere else (its request, 2026-10-08). Structure stays true until the code changes, and the reader learns from it which way to choose. A program cannot tell a measured ratio from one derived from the structure (two passes against one), nor a timing from a simulated time (`50 s at dt = 0.05`), so a reader judges it (the owner, 2026-10-08).
+
+Covered by a reader given other documents, because this needs meaning.
 
 ### RULE.DOC.COVERAGE_BASES
 An operation that reduces a field over a measure documents every base the code supports for it — the reduction over a grid and the same reduction over a point set are both stated where the operation is documented.
