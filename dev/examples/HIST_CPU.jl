@@ -38,8 +38,10 @@
 #
 # This page is generated from the runnable script
 # [`HIST_CPU.jl`](./HIST_CPU.jl) with [Literate.jl](https://github.com/fredrikekre/Literate.jl) (it is
-# *not* executed during the docs build); the figures are from the GPU twin `gpu/rocm/HIST_ROCm.jl`
-# (``320^{3}`` `Float32`, ``\mathrm{Re}_\lambda \approx 130`` on a 24 GB RX 7900 XTX). The run is split into **simulate**, **dump** and **plot** stages — every plotted curve is
+# *not* executed during the docs build); the figures are from the GPU twin `gpu/cuda/HIST_CUDA.jl`
+# (``320^{3}`` `Float32`, ``\mathrm{Re}_\lambda \approx 130`` on a 16 GB RTX 5070 Ti), and the HDF5 file they
+# were drawn from is [`HIST_CUDA_giant.h5`](HIST_CUDA_giant.h5), also in the repository's `examples/figures`.
+# The run is split into **simulate**, **dump** and **plot** stages — every plotted curve is
 # written to an HDF5 file, so the figures can be re-styled without re-running the DNS:
 #
 # ```sh
@@ -48,8 +50,11 @@
 # julia --project=examples examples/HIST_CPU.jl --fast     # 64³, nicer statistics
 # julia --project=examples examples/HIST_CPU.jl --huge     # 192³, Re_λ≈93 (heavy)
 # julia --project=examples examples/HIST_CPU.jl --mega     # 256³, Re_λ≈109 (very heavy)
-# julia --project=examples examples/plot_hist.jl examples/output/HIST_CPU.h5  # re-plot only
+# julia --project=examples examples/plot_hist.jl examples/output/HIST_CPU_default.h5  # re-plot only
 # ```
+#
+# Each configuration writes its own file, `output/HIST_CPU_<preset>.h5` (`HIST_CPU_default.h5` with no
+# flag), so a quick run never overwrites a long one.
 #
 # The analysis, the HDF5 dump, and the plotting live in the shared `hist_postprocess.jl`; this script
 # stays focused on the package. Let's build it.
@@ -112,9 +117,9 @@ huge() = Params(N = 192, ν = 3.2e-3, cfl = 0.3, n_spinup = 3300, n_stats = 4700
 # ``\nu`` would raise ``\mathrm{Re}_\lambda`` but drop ``\kappa_{\max}\eta`` below ``1.1``, where the
 # marginally-resolved flow blows up over a long run). Same recipe as `--huge`, one grid level up. On the CPU
 # it is reproducible but **very heavy** — hours of wall-clock and ``\gtrsim`` 12 GB of RAM (`Float64` doubles
-# the GPU twin's footprint). The **documented figures go one level further still** — the GPU twin's `--giant`
-# at ``320^{3}`` (``\mathrm{Re}_\lambda \approx 130``), which a 24 GB card's headroom unlocks; ``256^{3}`` was
-# the ceiling of the 12 GB card this scheme was first characterized on.
+# the GPU twin's footprint). The **documented figures go one level further still** — the GPU twins' `--giant`
+# at ``320^{3}`` (``\mathrm{Re}_\lambda \approx 130``), which peaks at about 10 GB on a 16 GB card; ``256^{3}``
+# was the ceiling of the 12 GB card this scheme was first characterized on.
 mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500,
                 n_particles = 8000, rec_stride = 4, snap_stride = 100)
 
@@ -185,18 +190,27 @@ end
 # Hold the kinetic energy in the shells from ``\lvert\mathbf{k}\rvert = 1`` up to `k_force` at `E_force`, built
 # entirely from package ops: `band` is a `spectral_band` mask kernel; the band energy is
 # ``\tfrac{1}{2}\langle\lvert u_{\mathrm{band}}\rvert^{2}\rangle``, computed as `0.5 * inner(ws.tmp, ws.tmp)` on the workspace's scratch field `ws.tmp`
-# (Parseval; the same-argument `inner(f, f)` is allocation-free); rescaling the in-band modes is one more
-# `convolve` (scaling preserves ``\nabla\cdot u = 0``). Applying `convolve!` into the scratch `ws.tmp` keeps it
-# allocation-free, no scalar indexing.
+# (Parseval; the same-argument `inner(f, f)` is allocation-free). Applying `convolve!` into the scratch
+# `ws.tmp` keeps it allocation-free, no scalar indexing.
+#
+# The rescale multiplies the band by the same factor at every step, so it would also multiply whatever
+# rounding error the band carries, and two kinds of that error grow without bound over a long run. A
+# compressible part, which the projected nonlinearity never removes, would make ``\nabla\cdot u`` grow
+# step after step; so the rescale goes through `helmholtz_projection!` with the band as its kernel, which
+# adds only the solenoidal part of the band, at the cost of the `convolve!` it replaces. And
+# coefficients no real field has, on the two planes the half spectrum stores twice, would take over
+# the band's energy while the physical velocity decays; `reality_projection!` removes them, at a cost
+# of two planes rather than the whole field.
 
-function force!(uh, band, ws, p)
+function force!(uh, band, ws, p, m)
   convolve!(ws.tmp, uh, band)  # band-pass copy into scratch (no allocation)
   ## ½⟨|u_band|²⟩ = ½ inner(u_band,u_band): f===f ⇒ allocation-free
   band_kinetic = 0.5 * inner(ws.tmp, ws.tmp)
   band_kinetic < 1e-12 && return uh                     # guard (the initial condition seeds the band)
   scale = sqrt(p.E_force / band_kinetic)
-  ## rescale in-band modes: one convolve (α/β, alloc-free)
-  convolve!(uh, uh, band, scale - 1, 1)
+  ## rescale the solenoidal part of the in-band modes, then drop what no real field has
+  helmholtz_projection!(uh, uh, m, band, scale - 1, 1)
+  reality_projection!(uh)
   return uh
 end
 
@@ -228,6 +242,7 @@ function rhs!(Nh, u, ω, ws, m, plans, dealias)
   ## Leray projection (alias-safe and allocation-free either way)
   helmholtz_projection!(Nh, ws.Nt, m)
   convolve!(Nh, Nh, dealias)          # 2/3 de-alias (coefficientwise multiply)
+  mean_free_projection!(Nh)           # the mean of u × ω is zero; drop its rounding error
   return Nh
 end
 
@@ -262,7 +277,7 @@ function step!(uh, ws, m, plans, dealias, band, p, dt)
   exponential_convolve!(ws.k1, ws.k1, m, -p.ν * dt)  # ℰ·k₁, the same lazy factor
   exponential_convolve!(uh, uh, m, -p.ν * dt)        # ℰ·ûₙ
   field_data(uh) .+= (dt / 2) .* (field_data(ws.k1) .+ field_data(ws.k2))   # ûₙ₊₁
-  force!(uh, band, ws, p)
+  force!(uh, band, ws, p, m)
   return uh
 end
 
@@ -290,11 +305,11 @@ end
 function random_solenoidal(grid, m, plans, ws, band, p; kp = 2.0)
   rng = MersenneTwister(p.seed)
   uh = to_spectral(VectorFieldPhysical(randn(rng, p.N, p.N, p.N, 3), grid), plans)
-  ## concentrate at large scales (a closure)
-  envelope = radial_kernel(k2 -> exp(-k2 / kp^2), m)
+  ## concentrate at large scales (a closure); zero at κ = 0, the spatial mean, so no uniform mean flow
+  envelope = radial_kernel(k2 -> k2 > 0 ? exp(-k2 / kp^2) : zero(k2), m)
   convolve!(uh, uh, envelope)       # apply it (alias-safe, coefficientwise)
   helmholtz_projection!(uh, uh, m)  # make solenoidal (alias-safe, one pass)
-  force!(uh, band, ws, p)           # set the forced-band energy
+  force!(uh, band, ws, p, m)        # set the forced-band energy
   return uh
 end
 
@@ -312,7 +327,7 @@ end
 # Setup, spin-up to stationarity, then the statistics window — advancing the field in place, advecting
 # the tracers, and accumulating the diagnostics — then dump everything to HDF5 and plot.
 
-function run_hist(p::Params)
+function run_hist(p::Params; run_name = "HIST_CPU_default")
   isdir(OUTDIR) || mkpath(OUTDIR)
   @printf("HIST_CPU: N=%d  ν=%.3g  forcing |k|≤%d @ E=%.2g  (%d spinup + %d stats steps)\n",
           p.N, p.ν, p.k_force, p.E_force, p.n_spinup, p.n_stats)
@@ -450,7 +465,6 @@ function run_hist(p::Params)
   # representation.
   @printf("  ½⟨|u|²⟩: physical=%.6g  spectral inner(û,û)=%.6g  |  Σ E(k)=%.4g  (Parseval)\n",
           K, 0.5 * inner(uh, uh), sum(ek_E))
-  @assert isfinite(K) && isfinite(ε) && divrel < 1e-6 "non-finite or non-solenoidal state"
 
   # Dump every plotted curve to HDF5, then plot (re-plot later via `plot_hist.jl`, no re-run).
   bundle = Dict{String, Any}(
@@ -466,30 +480,35 @@ function run_hist(p::Params)
     "tau" => τ_l, "S2_L" => S2l, "rho_L" => rho_L,
     "sep" => collect(sep), "rho_E" => rho_E,  # autocorrelation panel (includes r = 0)
   )
-  save_hist(joinpath(OUTDIR, "HIST_CPU.h5"), bundle)
-  make_hist_plots(bundle; outdir = OUTDIR, prefix = "HIST_CPU")
+  save_hist(joinpath(OUTDIR, run_name * ".h5"), bundle)
+  ## checked after the dump, so a failed check keeps the run's data for inspection
+  @assert isfinite(K) && isfinite(ε) && divrel < 1e-6 "non-finite or non-solenoidal state"
+  make_hist_plots(bundle; outdir = OUTDIR, prefix = run_name)
   return nothing
 end
 
 
 # ## Entry point
 #
-# Select a configuration from the command line, and run.
+# Select a configuration from the command line, and run. The configuration's name also names the
+# output files.
+
+const PRESETS = ("smoke" => smoke, "fast" => fast, "huge" => huge, "mega" => mega)
 
 function main()
-  p = ("--smoke" in ARGS) ? smoke() :
-      ("--fast"  in ARGS) ? fast()  :
-      ("--huge"  in ARGS) ? huge()  :
-      ("--mega"  in ARGS) ? mega()  : Params()
-  run_hist(p)
+  chosen = findfirst(preset -> "--" * first(preset) in ARGS, PRESETS)
+  name, configuration = chosen === nothing ? ("default", Params) : PRESETS[chosen]
+  run_hist(configuration(); run_name = "HIST_CPU_" * name)
 end
 
 main()
 
 #md # ## Results
 #md #
-#md # The figures below are from the GPU twin (``320^{3}`` `Float32`, ``\mathrm{Re}_\lambda \approx 130`` on a
-#md # 24 GB RX 7900 XTX, time-averaged over several forcing-oscillation periods). The
+#md # The figures below are from the GPU twin `gpu/cuda/HIST_CUDA.jl` (``320^{3}`` `Float32`,
+#md # ``\mathrm{Re}_\lambda \approx 130`` on a 16 GB RTX 5070 Ti, time-averaged over about two
+#md # forcing-oscillation periods); `examples/plot_hist.jl` redraws them from
+#md # [`HIST_CUDA_giant.h5`](HIST_CUDA_giant.h5). The
 #md # headline is the pair of compensated structure functions: the **per-component second-order velocity structure functions**
 #md # (one third of the trace ``\langle\lvert\delta u\rvert^{2}\rangle``), Eulerian and
 #md # Lagrangian, each normalized by its Kolmogorov (K41) inertial scaling — a true inertial range shows as
@@ -540,7 +559,7 @@ main()
 #md # (with the measured ``\varepsilon``) to be the full K41 prediction rather than a slope. Alongside it,
 #md # the turbulent kinetic energy ``k(t)`` and the dissipation ``\varepsilon(t)``: the band-rescaling
 #md # forcing makes the energy oscillate slowly about its mean rather than settle flat, so the statistics
-#md # are time-averaged over several oscillation periods (the autocorrelation accumulates over all
+#md # are time-averaged over the oscillation periods the window holds (the autocorrelation accumulates over all
 #md # snapshots) to keep the means representative.
 #md #
 #md # ![Energy spectrum](spectrum.png)
@@ -549,9 +568,10 @@ main()
 #md #
 #md # ## On the GPU
 #md #
-#md # The device twin `gpu/rocm/HIST_ROCm.jl` runs this identical solver on `ROCArray`s (`Float32`,
-#md # `allowscalar(false)`). Because the time loop is in-place and the package's differential operators are
-#md # allocation-free, it needs **no manual garbage collection** — the device memory pool stays flat and
-#md # it sustains ``\approx 96`` ms/step at ``320^{3}`` on a 24 GB RX 7900 XTX (peak ``\approx 13`` GB; the card
-#md # reaches ``384^{3}`` at its ``\approx 21`` GB ceiling). That hassle-free GPU behaviour is the whole point
-#md # of writing the solver preallocated and in-place.
+#md # The device twins `gpu/cuda/HIST_CUDA.jl` and `gpu/rocm/HIST_ROCm.jl` run this identical solver on
+#md # `CuArray`s and `ROCArray`s (`Float32`, `allowscalar(false)`). Because the time loop is in-place and the
+#md # package's differential operators are allocation-free, they need **no manual garbage collection** —
+#md # the device memory pool stays flat. At ``320^{3}`` the CUDA twin sustains ``\approx 51`` ms/step on a
+#md # 16 GB RTX 5070 Ti (peak ``\approx 10`` GB), and the ROCm twin ``\approx 96`` ms/step on a 24 GB
+#md # RX 7900 XTX (peak ``\approx 13`` GB; that card reaches ``384^{3}`` at its ``\approx 21`` GB ceiling).
+#md # That hassle-free GPU behaviour is the whole point of writing the solver preallocated and in-place.
