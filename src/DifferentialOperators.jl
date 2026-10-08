@@ -931,13 +931,11 @@ arguments are:
   alias `destination`, since the product is coefficientwise.
 - `α`, `β` — real accumulation weights as in `convolve!`, mirroring `LinearAlgebra.mul!(C, A, B, α, β)`:
   the four-argument form overwrites
-  (``\\alpha = 1``, ``\\beta = 0``), and the six-argument form computes
+  (``\\alpha = 1``, ``\\beta = 0``), and the six-argument form computes, with ``\\hat d`` the
+  coefficients of `destination`,
 
 ```math
-\\begin{aligned}
-\\widehat{\\texttt{destination}}(k) &= \\alpha  \\hat g(k)  \\widehat{\\nabla\\cdot u}(k) \\\\
-&\\quad + \\beta  \\widehat{\\texttt{destination}}(k),
-\\end{aligned}
+\\hat d(k) \\leftarrow \\alpha \\hat g(k) \\widehat{\\nabla\\cdot u}(k) + \\beta \\hat d(k),
 ```
 
 and likewise per component for a second-order tensor `field`. The composed form replaces a
@@ -1535,7 +1533,7 @@ vanishes):
 
 ```math
 \\begin{gathered}
-\\widehat{(\\mathbb P u)}_i(k) = \\Bigl(\\delta_{ij} - \\frac{a_i a_j}{a \\cdot a}\\Bigr)  \\hat u_j(k), \\\\
+\\widehat{\\mathbb P u}_i(k) = \\Bigl(\\delta_{ij} - \\frac{a_i a_j}{a \\cdot a}\\Bigr)  \\hat u_j(k), \\\\
 \\text{with } \\delta_{ij} \\text{ the Kronecker delta and } a \\ne 0.
 \\end{gathered}
 ```
@@ -1556,13 +1554,11 @@ projection symbol. The additional arguments are:
   scalar kernel weights all three components.
 - `α`, `β` — real accumulation weights as in `convolve!`, mirroring `LinearAlgebra.mul!(C, A, B, α, β)`:
   the four-argument form overwrites
-  (``\\alpha = 1``, ``\\beta = 0``), and the six-argument form computes
+  (``\\alpha = 1``, ``\\beta = 0``), and the six-argument form computes, with ``\\hat d`` the
+  coefficients of `destination`,
 
 ```math
-\\begin{aligned}
-\\widehat{\\texttt{destination}}_i(k) &= \\alpha  \\hat g(k)  \\widehat{(\\mathbb P u)}_i(k) \\\\
-&\\quad + \\beta  \\widehat{\\texttt{destination}}_i(k).
-\\end{aligned}
+\\hat d_i(k) \\leftarrow \\alpha \\hat g(k) \\widehat{\\mathbb P u}_i(k) + \\beta \\hat d_i(k).
 ```
 
 The composed form replaces a `helmholtz_projection!` followed by a `convolve!` — one fused pass

@@ -1003,10 +1003,10 @@ is the identity; a sharp cutoff is a projection); the continuum integral above i
 times it. By the convolution theorem (the forward transform unnormalized) the circular sum is exactly
 the coefficientwise product of the transforms, which this operation computes — ``\\hat g`` =
 `kernel`, broadcast over every fiber component of ``\\hat f``, with the ``\\alpha``/``\\beta``
-accumulate:
+accumulate, with ``\\hat d`` the coefficients of `destination`:
 
 ```math
-\\widehat{\\texttt{destination}}(k) = \\alpha  \\hat f(k)  \\hat g(k) + \\beta  \\widehat{\\texttt{destination}}(k).
+\\hat d(k) \\leftarrow \\alpha \\hat f(k) \\hat g(k) + \\beta \\hat d(k).
 ```
 
 
@@ -1655,13 +1655,10 @@ to zero, so both are unaffected; where the band matters, use `Float64` or a mild
   give bitwise the same result. The pair enters as scale times values so a changed scale costs
   nothing.
 
-The single-operand accumulate form computes
+The single-operand accumulate form computes, with ``\\hat d`` the coefficients of `destination`,
 
 ```math
-\\begin{aligned}
-\\widehat{\\texttt{destination}}(k) &= \\alpha  \\exp\\bigl(c |k|^2 + s \\hat w(k)\\bigr)  \\hat f(k) \\\\
-&\\quad + \\beta  \\widehat{\\texttt{destination}}(k),
-\\end{aligned}
+\\hat d(k) \\leftarrow \\alpha \\exp\\bigl(c |k|^2 + s \\hat w(k)\\bigr) \\hat f(k) + \\beta \\hat d(k),
 ```
 
 # The two-operand form

@@ -560,10 +560,11 @@ per mode or in a compressed class evaluated per mode, exactly as [`convolve!`](@
 combination with the kernel in the same pass. As there, ``\\hat g`` must be Hermitian between opposite modes ``k`` and ``-k``,
 ``\\hat g(-k) = \\overline{\\hat g(k)}``, or the result is the spectrum of no real field. Physically the
 result is the combination's periodic convolution with the physical kernel, ``g \\star (\\alpha a + \\beta b)``;
-in spectral representation it is one coefficientwise product,
+in spectral representation it is one coefficientwise product, with ``\\hat d`` the coefficients of
+`destination`,
 
 ```math
-\\widehat{\\texttt{destination}}(k) = \\hat g(k)  \\bigl(\\alpha \\hat a(k) + \\beta \\hat b(k)\\bigr),
+\\hat d(k) = \\hat g(k) \\bigl(\\alpha \\hat a(k) + \\beta \\hat b(k)\\bigr),
 ```
 
 replacing a `combine!` followed by a `convolve!` — one pass instead of two, saving a full read and a

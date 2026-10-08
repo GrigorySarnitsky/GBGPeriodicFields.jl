@@ -388,8 +388,8 @@ scalar commutes through both the matrix symbol and the contraction — per mode 
 
 so the composition "operator then convolve" is itself a single Fourier multiplier (the product of
 symbols), and `helmholtz_projection!(dest, f, m, kernel, α, β)` /
-`divergence!(dest, f, m, kernel, α, β)` compute ``\alpha \hat g  \hat L \hat u + \beta 
-\widehat{\texttt{dest}}`` in one pass. **Alias safety of the one-pass projection**: the kernel is a
+`divergence!(dest, f, m, kernel, α, β)` compute ``\hat d \leftarrow \alpha \hat g \hat L \hat u + \beta \hat d``, with ``\hat d`` the
+coefficients of `dest`, in one pass. **Alias safety of the one-pass projection**: the kernel is a
 mode-local map — the values written at mode ``k`` depend only on values read at mode ``k``, and every
 read of a mode precedes its writes — so `destination === field` computes the same function
 (bitwise-tested). The Nyquist split is inherited unchanged: the composed symbol is a product of
@@ -407,12 +407,12 @@ Design rationale: [Architecture](architecture.md) §11.
 
 By the convolution theorem, periodic convolution is the coefficientwise spectral product; `convolve`
 applies a scalar kernel ``\hat g`` (a `SpectralKernel`, broadcast over the fiber) with α/β accumulate
-(`src/Convolution.jl`):
+into a destination with coefficients ``\hat d`` (`src/Convolution.jl`):
 
 ```math
 \begin{gathered}
 \mathcal F(f \star g) = \hat f\cdot\hat g, \\
-\widehat{\texttt{dest}} = \alpha \hat f \hat g + \beta \widehat{\texttt{dest}}. \quad\checkmark
+\hat d \leftarrow \alpha \hat f \hat g + \beta \hat d. \quad\checkmark
 \end{gathered}
 ```
 
