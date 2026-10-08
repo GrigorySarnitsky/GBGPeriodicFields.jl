@@ -673,6 +673,18 @@ exception on a CPU**, where it does not vectorize and a hand-written twin is wor
 fused pass underperforms, **measure the launch shape and the traversal order before blaming the
 arithmetic** — both failed attempts here were layout problems wearing an arithmetic costume.
 
+*Re-derived 2026-09-03 from the 2026-08-31 archives, against a stored kernel on a vector field
+(``<1`` = the compressed class faster).* The table above is older. **Axis-factored:** threaded on a CPU
+it costs ``1.75``–``2.45\times`` a stored kernel at ``64^3``, is mixed at ``128^3`` (``0.83``–``2.11``,
+`Float32` still behind) and overtakes by ``256^3``–``512^3`` at ``0.72``–``0.95``; single-threaded it never
+overtakes in this range. On a device one card crosses (``1.37`` at ``64^3`` falling to ``0.88`` at
+``256^3`` in `Float64`) and the other does not, staying ``1.20``–``2.53\times`` at every size and element
+type measured. **Radial**, at ``R = 1``, where its symbol is evaluated once per component: ``1.1``–``2.1\times``
+at ``64^3`` across the CPU thread counts, ``0.70``–``0.97`` by ``256^3``–``512^3`` on most of them; on a
+device ``0.85``–``1.10`` in `Float64`, but in `Float32` slower at every size on one of the two GPUs, by as
+much as ``2.6\times`` at ``128^3``. So the two classes do not share a crossover. These figures lived in
+the `materialize_kernel` and `RadialKernel` docstrings until 2026-10-08.
+
 **(p) CPU FFT at the larger grids moved 20–50% between the 2026-07-30 and 2026-08-05 sweeps on
 `Enteropia`, and the 2026-08-07 `Aiporetne` control says the cause is specific to that host.** The full
 re-sweep of the 9800X3D lanes found a cluster confined to the `fft`

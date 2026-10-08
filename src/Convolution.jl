@@ -322,18 +322,13 @@ zeroed at that mode — so no case analysis is needed anywhere in the family.
 !!! note "Storing no coefficients is not the same as costing nothing"
     The symbol is evaluated per mode, and against a field of tensor order ``R \\ge 1`` it is
     broadcast over the field's components, so it is evaluated **once per component** rather than once
-    per mode; at ``R = 0`` there is no fiber to extrude over and nothing extra to pay. Whether that
+    per mode; a scalar field pays nothing extra. Whether that
     recompute or the kernel-array traffic it saves dominates depends on the base and on the element
     type.
 
-    At ``64^3`` and ``R = 1`` the radial route costs ``1.1``–``2.1\\times`` a materialized
-    [`StoredKernel`](@ref) across the CPU thread counts measured; by ``256^3``–``512^3`` the saved traffic has overtaken
-    the recompute on most of them, at ``0.70``–``0.97``. A device is **not** exempt: in `Float64` it
-    runs at ``0.85``–``1.10``, but in `Float32`, where halving the stored kernel's traffic leaves the
-    symbol's cost untouched, the radial route is slower at every size on one of the two GPUs, by as
-    much as ``2.6\\times`` at ``128^3``. Hoisting the evaluation was prototyped and measured, and was
-    declined because it lost at the sizes that matter; [`materialize_kernel`](@ref) is the escape
-    wherever the recompute wins.
+    On small grids, and in `Float32` on some GPUs, the recompute can make this class slower than a
+    [`StoredKernel`](@ref); on large grids the saved traffic usually wins. Where the recompute
+    dominates, [`materialize_kernel`](@ref) stores the coefficients instead.
 
 !!! note "Radial, not separable"
     ``|k|^2 = k_1^2 + k_2^2 + k_3^2`` is a function of the **sum**, so a *general* real symbol of it
@@ -647,17 +642,12 @@ real factors, gives bit-identical results — the two differ only in what they c
 agree bitwise on the host and to rounding on a device.
 
 Use this to trade memory back for speed on a **small grid**. Applying an axis-factored kernel moves two
-field-sized streams where a stored kernel moves three, but evaluates the product per mode; which wins
-depends on the grid. Measured against a stored kernel on a vector field:
-threaded on a CPU the axis-factored form costs ``1.75``–``2.45\\times`` a stored kernel at ``64^3``, is
-mixed at ``128^3`` (``0.83``–``2.11``, `Float32` still behind), and overtakes by
-``256^3``–``512^3`` at ``0.72``–``0.95``. Single-threaded it never overtakes in this range. On a device
-the answer depends on the card: of the two measured, one crosses (``1.37`` at ``64^3`` falling to ``0.88`` at
-``256^3`` in `Float64`) while the other does not, staying ``1.20``–``2.53\\times`` at every size and
-element type measured. So a run whose grids are small, or which applies one fixed kernel very many times
-with memory to spare, can materialize once and keep the field; a threaded run at production resolution
-should not, and pays a field of residency for nothing if it does (129 MiB at ``256^3``, against about
-10 KiB for the factors).
+field-sized streams where a stored kernel moves three, but evaluates the product per mode, so the
+stored kernel is usually faster on small grids and the axis-factored one on large grids with many
+threads; on a GPU the crossover depends on the card. A run whose grids are small, or which applies
+one fixed kernel very many times with memory to spare, can materialize once and keep the field; a
+threaded run at production resolution should not, and pays a field of residency for nothing if it
+does (129 MiB at ``256^3``, against about 10 KiB for the factors).
 
 !!! warning "This gives up the memory saving entirely"
     The returned field costs the full ``O(N^3)`` the axis-factored form exists to avoid. Materialize
