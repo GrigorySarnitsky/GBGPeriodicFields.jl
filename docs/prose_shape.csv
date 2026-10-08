@@ -46,7 +46,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § Why it emerged",98,98,0
 "Convolution.jl :: Convolution",617,194,0
 "Convolution.jl :: ProductKernel",228,116,0
-"Convolution.jl :: RadialKernel",644,130,2
+"Convolution.jl :: RadialKernel",567,130,2
 "Convolution.jl :: SeparableKernel",371,93,1
 "Convolution.jl :: StoredKernel(field::ScalarFieldSpectral)",200,109,0
 "Convolution.jl :: _RadialOffset(sigma)",52,36,0
@@ -73,7 +73,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: materialize_kernel!(destination::StoredKernel,",157,88,0
 "Convolution.jl :: materialize_kernel(kernel::ProductKernel)",54,53,0
 "Convolution.jl :: materialize_kernel(kernel::RadialKernel)",68,67,0
-"Convolution.jl :: materialize_kernel(kernel::SeparableKernel)",269,178,1
+"Convolution.jl :: materialize_kernel(kernel::SeparableKernel)",208,117,1
 "Convolution.jl :: materialize_kernel(kernel::StoredKernel)",15,14,0
 "Convolution.jl :: radial_kernel(sigma, multipliers::FieldSpectralMultipliers) ",242,115,0
 "Convolution.jl :: spectral_band(multipliers::FieldSpectralMultipliers,",190,88,0
@@ -498,7 +498,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § 4. What we have found / finding (l)",424,424,0
 "PERFORMANCE.md § 4. What we have found / finding (m)",202,202,0
 "PERFORMANCE.md § 4. What we have found / finding (n)",410,410,0
-"PERFORMANCE.md § 4. What we have found / finding (o)",964,217,0
+"PERFORMANCE.md § 4. What we have found / finding (o)",1125,217,0
 "PERFORMANCE.md § 4. What we have found / finding (p)",1274,231,0
 "PERFORMANCE.md § 4. What we have found / finding (q)",1502,161,0
 "PERFORMANCE.md § 4. What we have found / finding (r)",905,98,0
