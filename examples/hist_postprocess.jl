@@ -180,11 +180,13 @@ function lagrangian_panel(b)
   return plt
 end
 
-# Ticks and grid lines every half decade over `values`' range, labelled as powers of ten, so a slope
-# can be read off the grid rather than estimated between decades.
-function half_decade_ticks(values)
-  low, high = floor(2 * log10(minimum(values))) / 2, ceil(2 * log10(maximum(values))) / 2
-  exponents = low:0.5:high
+# Ticks and grid lines over `values`' range, labelled as powers of ten: every half decade over a
+# range of up to three decades, so a slope can be read off the grid, and every decade over a wider one,
+# where half decades would crowd the axis.
+function decade_ticks(values)
+  low, high = log10(minimum(values)), log10(maximum(values))
+  step = high - low <= 3 ? 0.5 : 1.0
+  exponents = (floor(low / step) * step):step:(ceil(high / step) * step)
   label(e) = isinteger(e) ? latexstring("10^{", Int(e), "}") : latexstring("10^{", e, "}")
   return (10 .^ exponents, label.(exponents))
 end
@@ -201,7 +203,7 @@ function spectrum_panel(b)
   C_K, ε = get(b, "CK", 1.6), b["epsilon"]                  # Kolmogorov constant (plot-time) and dissipation
   plt = plot(k, E; xscale = :log10, yscale = :log10, lw = 2, label = L"E(\kappa)",
              xlabel = L"\kappa", ylabel = L"E(\kappa)", title = "energy spectrum", legend = :bottomleft,
-             xticks = half_decade_ticks(k), yticks = half_decade_ticks(E))
+             xticks = decade_ticks(k), yticks = decade_ticks(E))
   plot!(plt, k, C_K .* ε^(2 / 3) .* k .^ (-5 / 3); ls = :dash, lw = 1.5,
         label = L"C_K \varepsilon^{2/3} \kappa^{-5/3}\ \mathrm{(K41)}")
   return plt
