@@ -89,7 +89,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields",109,44,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 1",11,11,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 10",109,109,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 100",277,122,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 100",530,122,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 11",159,159,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 12",113,113,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 13",189,189,0
@@ -217,6 +217,7 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.jl :: symmetric_gradient(field::VectorFieldSpectral,",41,39,0
 "DifferentialOperators.md § Internal API",55,55,0
 "FORMALIZATION.md § (preamble)",22,22,1
+"FORMALIZATION.md § Array families (`Fields`, `Points`, `Convolution`)",482,116,0
 "FORMALIZATION.md § Base-space motion: displacement and the canonical representa",455,100,0
 "FORMALIZATION.md § Convolution (`Convolution`)",1333,236,0
 "FORMALIZATION.md § Declarations",513,326,0
@@ -228,7 +229,6 @@ unit,words,longest_paragraph,admonitions
 "FORMALIZATION.md § Reductions (`Reductions`)",909,142,0
 "FORMALIZATION.md § Representations and transforms (`Fields`)",1020,152,0
 "FORMALIZATION.md § Spectral transfer: `DirectDFT` / `NUFFT` (`Interpolation`)",207,123,0
-"FORMALIZATION.md § Storage families (`Fields`, `Points`, `Convolution`)",482,116,0
 "FiberSections.jl :: @_assign!(destination .= rhs)",54,51,0
 "FiberSections.jl :: AbstractFiberSection{T, R}",91,58,0
 "FiberSections.jl :: FiberSections",282,173,0
@@ -334,26 +334,26 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: AbstractFieldSpectral{T, R}",130,67,1
 "Fields.jl :: FieldPhysicalBroadcastStyle{N}",38,37,0
 "Fields.jl :: FieldSpectralBroadcastStyle{N}",36,35,0
-"Fields.jl :: FieldSpectralMultipliers(",643,187,0
+"Fields.jl :: FieldSpectralMultipliers(",646,189,0
 "Fields.jl :: FieldTransformPlans(",537,170,1
 "Fields.jl :: Fields",494,443,0
 "Fields.jl :: Grid3D(",232,66,0
 "Fields.jl :: RealFourierLayout()",73,33,0
-"Fields.jl :: ScalarFieldPhysical(",317,115,0
-"Fields.jl :: ScalarFieldSpectral(",329,120,0
+"Fields.jl :: ScalarFieldPhysical(",316,114,0
+"Fields.jl :: ScalarFieldSpectral(",328,119,0
 "Fields.jl :: SpectralKernel{T}",206,106,0
-"Fields.jl :: TensorFieldPhysical{R}(",382,115,0
-"Fields.jl :: TensorFieldSpectral{R}(",369,120,0
-"Fields.jl :: VectorFieldPhysical(",330,115,0
-"Fields.jl :: VectorFieldSpectral(",334,120,0
-"Fields.jl :: _allocated_field_storage(family, ::Type{S}, shape)",51,48,0
+"Fields.jl :: TensorFieldPhysical{R}(",381,114,0
+"Fields.jl :: TensorFieldSpectral{R}(",368,119,0
+"Fields.jl :: VectorFieldPhysical(",329,114,0
+"Fields.jl :: VectorFieldSpectral(",333,119,0
+"Fields.jl :: _allocated_field_storage(array_family, ::Type{S}, shape)",50,47,0
 "Fields.jl :: _approx(x)",62,52,0
 "Fields.jl :: _axis_wavenumber_arrays(reference, number_of_points, domain_",34,30,0
 "Fields.jl :: _axis_wavenumber_values(number_of_points, domain_length, hal",65,62,0
 "Fields.jl :: _canonical_multipliers(reference, grid, fourier_layout)",40,37,0
 "Fields.jl :: _check_adapt_target(destination, source)",73,36,0
+"Fields.jl :: _check_array_family_element_type(array_family, grid)",65,63,0
 "Fields.jl :: _check_broadcast_field_compatibility(destination, argument)",37,35,0
-"Fields.jl :: _check_family_element_type(family, grid)",65,63,0
 "Fields.jl :: _check_field_compatibility(a::AbstractFieldPhysical, b::Abst",38,19,0
 "Fields.jl :: _check_field_domain_compatibility(a::AbstractFieldPhysical,",47,26,0
 "Fields.jl :: _check_field_matches_context(field::AbstractField, context)",36,20,0
@@ -423,8 +423,8 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: to_spectral(",90,59,0
 "Fields.jl :: write_field(parent::HDF5.H5DataStore, name::AbstractString, ",254,97,0
 "Fields.md § Internal API",32,32,0
+"Fields.md § Moving between array families",110,110,0
 "Fields.md § Moving between grid resolutions",111,111,0
-"Fields.md § Moving between storage families",110,110,0
 "Fields.md § Spectral kernel protocol",31,31,0
 "GBGPeriodicFields.jl :: GBGPeriodicFields",854,394,1
 "GBGPeriodicFields.md § Re-exported modules",18,10,0
@@ -630,8 +630,9 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § Testing — GBGPeriodicFields",78,78,0
 "api.md § API overview",52,35,0
 "gpu.md § (preamble)",22,22,1
-"gpu.md § A first run on CUDA",49,49,0
+"gpu.md § A first run on CUDA",32,32,0
 "gpu.md § A first run on ROCm",40,40,0
+"gpu.md § A turbulence simulation on CUDA",46,33,0
 "gpu.md § A turbulence simulation on ROCm",33,33,0
 "gpu.md § Fields larger than GPU memory",304,77,1
 "gpu.md § Fields on a device",117,78,0
