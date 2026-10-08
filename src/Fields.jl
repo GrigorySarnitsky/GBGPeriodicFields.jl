@@ -3046,10 +3046,8 @@ condition ``\\hat f(-k) = \\overline{\\hat f(k)}`` is a relation a caller — or
 — can break, and this replaces each stored pair by its projection,
 
 ```math
-\\begin{aligned}
-\\hat f(k), \\hat f(-k) \\leftarrow{} &\\tfrac{1}{2} \\bigl( \\hat f(k) + \\overline{\\hat f(-k)} \\bigr), \\\\
-&\\overline{\\tfrac{1}{2} \\bigl( \\hat f(k) + \\overline{\\hat f(-k)} \\bigr)},
-\\end{aligned}
+z = \\tfrac{1}{2} \\bigl( \\hat f(k) + \\overline{\\hat f(-k)} \\bigr), \\qquad
+\\hat f(k) \\leftarrow z, \\qquad \\hat f(-k) \\leftarrow \\overline{z},
 ```
 
 with a self-paired corner mode reduced to its real part by the same formula. Every other coefficient

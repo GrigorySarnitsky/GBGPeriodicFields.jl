@@ -141,10 +141,8 @@ half-spectra satisfying the condition on the self-conjugate planes. The operatio
 that, on every stored plane and for every pair ``k, -k`` within it, sets
 
 ```math
-\begin{aligned}
-\hat f(k), \hat f(-k) \leftarrow{} &\tfrac{1}{2} \bigl( \hat f(k) + \overline{\hat f(-k)} \bigr), \\
-&\overline{\tfrac{1}{2} \bigl( \hat f(k) + \overline{\hat f(-k)} \bigr)},
-\end{aligned}
+z = \tfrac{1}{2} \bigl( \hat f(k) + \overline{\hat f(-k)} \bigr), \qquad
+\hat f(k) \leftarrow z, \qquad \hat f(-k) \leftarrow \overline{z},
 ```
 
 a self-paired corner reducing to ``\operatorname{Re} \hat f(k)`` by the same formula, and leaves every
@@ -154,7 +152,7 @@ projection in the Euclidean inner product — which is the Parseval inner produc
 plane, each stored coefficient counted once — so ``P`` is ``\mathbb R``-linear, ``P^2 = P`` exactly in
 floating point (a projected pair is bit-identical under a second application), and
 ``\texttt{reality\_residual}(P \hat f) = 0`` exactly, since both members are written from one value
-``m`` as ``m`` and ``\bar m``. For a per-mode multiplier ``m`` with ``m(-k) = \overline{m(k)}`` —
+``z`` as ``z`` and ``\bar z``. For a per-mode multiplier ``m`` with ``m(-k) = \overline{m(k)}`` —
 every differential operator's symbol, the exponential and radial kernels, the translation phases —
 ``P(m \hat f) = m P \hat f``, because the multiplier maps ``\mathcal H`` to itself. The physical
 round trip ``\mathcal F \mathcal F^{-1}`` is the same projector up to the transform's round-off; the
