@@ -38,10 +38,15 @@ Exit code: `0` clean; `1` only quality findings (a cited aliasing case, a type-s
 method no assertion reaches); `2` a correctness finding, an uncited one, or a problem in the harness
 itself, such as a check that did not fire on its own defect.
 
-The `radial_spectrum` value cells disagree with their reference on `Float32` anisotropic grids. A mode
-whose `|k|/Δk` lands on a half-integer falls into one shell or the other depending on rounding; energy
-moves between adjacent shells while the total agrees exactly. This is a known property of the
-reference's comparison, not of the package, and it forces exit `2` until the comparison is changed.
+Two known causes keep the exit code at `2` today, so read the report rather than the status:
+
+- **The `radial_spectrum` value cells on `Float32` anisotropic grids.** A mode whose `|k|/Δk` lands on a
+  half-integer falls into one shell or the other depending on rounding, so energy moves between
+  adjacent shells while the total agrees exactly. This is a property of the reference's shell-by-shell
+  comparison, not of the package.
+- **The context-mismatch cells refused by dispatch.** Every mismatched argument is refused, but some
+  with a `MethodError` before the call reaches the package's own compatibility checks, and the lane
+  counts those as findings. One axis, `length`, has no builder and is reported `NOT REACHED`.
 
 ## The lanes
 
