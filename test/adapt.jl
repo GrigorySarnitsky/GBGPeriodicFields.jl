@@ -1,4 +1,4 @@
-# Moving sections, their companions and their plans between storage families.
+# Moving sections, their companions and their plans between array families.
 #
 # On the host `adapt(Array, x)` is deliberately the IDENTITY, so adapting to `Array` cannot exercise
 # the rebuild at all — it returns its argument. The rebuild is what carries the grid, the layout, the
@@ -15,7 +15,7 @@ import Adapt
 using FFTW: MEASURE
 
 
-# A stand-in storage family: same array type, different object. `adapt` on it must therefore rebuild.
+# A stand-in array family: same array type, different object. `adapt` on it must therefore rebuild.
 struct CopyStorage end
 Adapt.adapt_storage(::CopyStorage, x::Array) = copy(x)
 
@@ -176,7 +176,7 @@ end
 end
 
 
-# The flag `FieldSpectralMultipliers` carries in its type must survive a storage-family move IN THE
+# The flag `FieldSpectralMultipliers` carries in its type must survive an array-family move IN THE
 # TYPE, not merely in the value. Decision 61 put it there so `convolve` can collapse two radial kernels
 # statically; a rebuilt object whose last parameter inference cannot resolve turns that back into a
 # run-time decision, and `RadialKernel`/`ProductKernel` inherit the imprecision through the multipliers
@@ -227,7 +227,7 @@ end
     @test adapt!(source, source) === source                      # aliased: a no-op, not an error
   end
 
-  # Everything except the storage family must match. A representation mismatch has NO METHOD rather
+  # Everything except the array family must match. A representation mismatch has NO METHOD rather
   # than an error message, since a physical field and a spectral one are not the same section.
   source = ScalarFieldPhysical(rand(T, field_physical_shape(grid, Val(0))...), grid; layout)
   other_grid = Grid3D((8, 8, 8), T.((2pi, 2pi, 2pi)))

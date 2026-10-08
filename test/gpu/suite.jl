@@ -41,14 +41,14 @@ tensor_b(x, y, z) = [cos(x) 0.1 sin(y); sin(z) cos(y) 0.2; 0.7 sin(x) cos(z)]
 six_tensor_map(A, B, C, D, E, F) = A * B + 2C - D * E + transpose(F)   # six slots, none symmetric
 
 # Device twins, through the package's own interface. These three were hand-written rewraps until the
-# storage-family move became public: each reached into a section's storage, copied it, and rebuilt the
+# array-family move became public: each reached into a section's storage, copied it, and rebuilt the
 # section around the result — which is precisely what `adapt` now does, once, for every section, kernel
 # and plan. Using it here means the suite exercises the shipped interface rather than a private
 # imitation of it, so a defect in the real one cannot hide behind a parallel implementation.
-on_device(field)         = adapt(device_array_type(), field)
-on_device_pv(values)     = adapt(device_array_type(), values)
-on_device_ps(point_set)  = adapt(device_array_type(), point_set)
-on_device_raw(array)     = device_array_type()(array)   # a bare device array, not a section
+on_device(field)         = adapt(device_array_family(), field)
+on_device_pv(values)     = adapt(device_array_family(), values)
+on_device_ps(point_set)  = adapt(device_array_family(), point_set)
+on_device_raw(array)     = device_array_family()(array)   # a bare device array, not a section
 
 
 function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
@@ -91,8 +91,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # transform through a component buffer. Both paths must give the same answer.
       for dims in ((8, 7, 6), (7, 5, 3))
         odd_grid = Grid3D(dims, (T(2π), T(2π), T(2π)))
-        device_physical = VectorFieldPhysical(device_array_type(), odd_grid; layout)
-        device_spectral = VectorFieldSpectral(device_array_type(), odd_grid; layout)
+        device_physical = VectorFieldPhysical(device_array_family(), odd_grid; layout)
+        device_spectral = VectorFieldSpectral(device_array_family(), odd_grid; layout)
         sample = rand(T, size(field_data(device_physical)))
         copyto!(field_data(device_physical), sample)
         plans = FieldTransformPlans(device_physical, device_spectral)
@@ -104,10 +104,10 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       end
 
       # One plan pair serves every rank: built from a scalar field, applied to a vector one.
-      scalar_plans = FieldTransformPlans(ScalarFieldPhysical(device_array_type(), grid; layout),
-                                         ScalarFieldSpectral(device_array_type(), grid; layout))
-      vector_physical = VectorFieldPhysical(device_array_type(), grid; layout)
-      vector_spectral = VectorFieldSpectral(device_array_type(), grid; layout)
+      scalar_plans = FieldTransformPlans(ScalarFieldPhysical(device_array_family(), grid; layout),
+                                         ScalarFieldSpectral(device_array_family(), grid; layout))
+      vector_physical = VectorFieldPhysical(device_array_family(), grid; layout)
+      vector_spectral = VectorFieldSpectral(device_array_family(), grid; layout)
       vector_sample = rand(T, size(field_data(vector_physical)))
       copyto!(field_data(vector_physical), vector_sample)
       to_spectral!(vector_spectral, vector_physical, scalar_plans)
@@ -377,7 +377,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # The refusals are the package's, so they must fire on a device exactly as on a host.
       @test_throws ArgumentError embed_modes!(device_coarse, device_fine)
       @test_throws ArgumentError extract_modes!(device_fine, device_coarse)
-      # And a mixed storage family is refused rather than transferred (invariant 14).
+      # And a mixed array family is refused rather than transferred (invariant 14).
       @test_throws ArgumentError embed_modes!(device_fine, host_coarse)
     end
 
@@ -865,7 +865,7 @@ end
 # asserts zero device bytes. A backend entry point opts in by defining `device_bytes_allocated(f)`;
 # one that cannot count device bytes records a skip, never a pass.
 function aliased_device_allocations(::Type{T}) where {T<:AbstractFloat}
-  AT = device_array_type()
+  AT = device_array_family()
   n = (16, 12, 10)
   grid = Grid3D(n, T.((2π, 4π, 2π)))
   layout = RealFourierLayout()
@@ -1002,7 +1002,7 @@ const DEVICE_COST_BOUNDS = Dict(
       :exponential_convolve_vector => 1.13)))
 
 function device_cost_lane(::Type{T}) where {T<:AbstractFloat}
-  AT = device_array_type()
+  AT = device_array_family()
   n = (256, 256, 256)
   grid = Grid3D(n, T.((2π, 2π, 2π)))
   layout = RealFourierLayout()
@@ -1061,13 +1061,13 @@ end
 
     # ── mixing a device section with a host one must be REFUSED, deliberately ──────────────────
     #
-    # This needs two storage families in one process, so it can only live here. `dot`, `add!`,
+    # This needs two array families in one process, so it can only live here. `dot`, `add!`,
     # `cross!` and `multiply!` all refused through the package's own domain check with a clear
     # message, while `inner` refused only because the vendor BLAS has no method taking a device
     # pointer and a host pointer together — reported as `no method matching dot(::Int64,
     # ::CuPtr{Float64}, …)`. That was an accident of the library rather than a decision of the
     # package, and it would have gone quiet the moment any path accepted mixed pointers. The
-    # storage-family check now sits in `_check_contractible`, which every reduction routes through.
+    # array-family check now sits in `_check_contractible`, which every reduction routes through.
     @testset "a device section and a host section cannot be contracted" begin
       grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
       host = VectorFieldPhysical(rand(Float64, 8, 8, 8, 3), grid)
@@ -1110,7 +1110,7 @@ end
     # exercises the field methods everywhere; what needs its own case is the companion set, because a
     # moved field alone computes nothing — invariant 14 requires its multipliers to match, and its
     # plans cannot be transferred at all, only rebuilt.
-    @testset "moving a whole workspace between storage families" begin
+    @testset "moving a whole workspace between array families" begin
       grid, layout = Grid3D((8, 8, 8), (2pi, 4pi, 6pi)), RealFourierLayout()
       host_u = VectorFieldPhysical(rand(Float64, 8, 8, 8, 3), grid; layout)
       host_z = ScalarFieldSpectral(zeros(ComplexF64, field_spectral_shape(grid, layout, Val(0))...), grid; layout)
@@ -1118,7 +1118,7 @@ end
       host_multipliers = FieldSpectralMultipliers(similar_field(host_z, Val(1)))
       host_kernel = spectral_cutoff(host_multipliers, 3.0)
 
-      AT = device_array_type()
+      AT = device_array_family()
       device_u, device_plans = adapt(AT, host_u), adapt(AT, host_plans)
       device_multipliers, device_kernel = adapt(AT, host_multipliers), adapt(AT, host_kernel)
 
@@ -1143,13 +1143,13 @@ end
       @test Array(field_data(device_corrupt)) == field_data(host_projected)
       device_two = reality_projection!(adapt(AT, similar_field(host_corrupt, Val(0))), adapt(AT, host_corrupt))
       @test Array(field_data(device_two)) == field_data(host_projected)
-      # Plans built from the storage family alone (decision 93) transform on the device exactly as the
+      # Plans built from the array family alone (decision 93) transform on the device exactly as the
       # field-built ones do.
       family_plans = FieldTransformPlans(AT, grid; layout)
       @test Array(field_data(to_spectral(device_u, family_plans))) ==
             Array(field_data(to_spectral(device_u, device_plans)))
-      # A function-sampled field lands in the family it names (the `family` keyword, 2026-10-07).
-      sampled = ScalarFieldPhysical((x, y, z) -> sin(x), grid; layout, family = AT)
+      # A function-sampled field lands in the family it names (the `array_family` keyword, 2026-10-07).
+      sampled = ScalarFieldPhysical((x, y, z) -> sin(x), grid; layout, array_family = AT)
       @test field_data(sampled) isa AT
       @test Array(field_data(sampled)) == field_data(ScalarFieldPhysical((x, y, z) -> sin(x), grid; layout))
       # So are multipliers (decision 94): the same device arrays as the moved host multipliers, and
@@ -1193,7 +1193,7 @@ end
       @test isequal(device_u, adapt(AT, host_u))
       @test_throws ArgumentError device_u == host_u
 
-      # The IN-PLACE move (decision 69), which is the only place a second storage family exists to
+      # The IN-PLACE move (decision 69), which is the only place a second array family exists to
       # cross. The gate proves everything about `adapt!` except the crossing itself.
       into_device = similar_field(device_u, Val(1))
       fill!(field_data(into_device), 0)
@@ -1215,7 +1215,7 @@ end
       # Display (decision 82). Two properties, and only a device can check either. The first is that
       # every quantity is host-side metadata, so a display neither trips `allowscalar(false)` nor
       # forces a synchronisation — a future addition printing a norm, a range or a sample value would
-      # break exactly here. The second is that it names the DEVICE family: `_storage_family` is the
+      # break exactly here. The second is that it names the DEVICE family: `_array_family` is the
       # predicate invariant 14 refuses on, so a display that said `Array` for a device section would
       # contradict the refusal it exists to explain, on the one pair a host run cannot construct.
       device_points = adapt(AT, PointSet(2pi .* rand(Float64, 40, 3)))
@@ -1258,7 +1258,7 @@ end
     end
 
     @testset "allocating constructors produce device fields (decision 74)" begin
-      AT = device_array_type()
+      AT = device_array_family()
       grid = Grid3D((8, 6, 4), (2π, 2π, 2π))
       layout = RealFourierLayout()
       # Allocate directly on the device family — no host array, no reference field — and use it.

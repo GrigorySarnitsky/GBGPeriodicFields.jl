@@ -24,7 +24,7 @@ BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1.0
 # benchmarks.jl so the three device entry points cannot drift apart.
 BenchmarkTools.DEFAULT_PARAMETERS.gcsample = false
 
-suite = build_suite(; array_type = ROCArray)
+suite = build_suite(; array_family = ROCArray)
 kept, fixed, failed = apply_gcsample_policy!(suite; device_used = AMDGPU.used_memory, reclaim = AMDGPU.reclaim)
 println("per-sample GC kept for $(length(kept)) allocating row(s)", isempty(kept) ? "" : ": " * join(kept, ", "))
 println("Tuning on ROCm / AMDGPU: ", AMDGPU.device(), " ...")

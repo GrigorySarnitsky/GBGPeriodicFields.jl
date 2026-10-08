@@ -133,7 +133,7 @@ end
 end
 
 
-@testset "transfer colocation: one launch, one precision and one storage family" begin
+@testset "transfer colocation: one launch, one precision and one array family" begin
   # audit CODE-05: a transfer selects its backend from the field and hands the point and value arrays
   # to that one kernel, so a mixed pair used to fail inside the locator or the launch.
   grid = Grid3D((8, 8, 8), (2π, 2π, 2π))

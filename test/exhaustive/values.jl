@@ -271,7 +271,7 @@ function run_value_lane(configs)
     cutoff = T(3)
     spectral_comparisons = LEDGER_FIXTURES_ONLY ? () : (
       (:to_spectral,   field_data(sh),                       ref_dft_forward(ds, grid, layout)),
-      # Plans built from the storage family alone (2026-10-01), against the same literal DFT sum.
+      # Plans built from the array family alone (2026-10-01), against the same literal DFT sum.
       (:to_spectral,   field_data(to_spectral(s, FieldTransformPlans(Array, grid; layout))),
                                                              ref_dft_forward(ds, grid, layout)),
       (:to_physical,   field_data(to_physical(sh, plans)),   ref_dft_inverse(field_data(sh), grid, layout)),
@@ -425,7 +425,7 @@ function run_value_lane(configs)
                         ref_anterpolate_catmull_rom(point_values(q), grid, point_positions(outside), 0)),
       # ── the spectral operators and their in-place twins ───────────────────────────────────────
       (:gradient,       field_data(gradient(sh, multipliers)),  ref_gradient(field_data(sh), grid, layout)),
-      # Multipliers built from the storage family alone (decision 94), against the same oracle.
+      # Multipliers built from the array family alone (decision 94), against the same oracle.
       (:gradient,       field_data(gradient(sh, FieldSpectralMultipliers(Array, grid; layout))),
                         ref_gradient(field_data(sh), grid, layout)),
       # The JACOBIAN mode, with its index convention actually pinned. `gradient(vector)` was exercised
@@ -671,7 +671,7 @@ function run_value_lane(configs)
       (:isequal,    (isequal(points, PointSet(copy(raw_coordinates))), isequal(points, PointSet(raw_coordinates .+ one(T)))), (true, false)),
       (:isequal,    (isequal(qa, VectorPointValues(copy(raw_qa))), isequal(qa, VectorPointValues(raw_qa .+ one(T)))), (true, false)),
       (:hash,       hash(points) == hash(PointSet(copy(raw_coordinates))),                        true),
-      # Adapting to one's OWN storage family is the identity — the documented no-op that makes a
+      # Adapting to one's OWN array family is the identity — the documented no-op that makes a
       # consumer's unconditional `adapt(Array, x)` free on the host — so the values must come back
       # untouched. `adapt_structure` is the hook `adapt` dispatches through, checked at the same bar.
       (:adapt,            field_data(adapt(Array, u)),                             du),

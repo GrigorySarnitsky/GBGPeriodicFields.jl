@@ -129,9 +129,9 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   constants (`comp`, `plans_for`, `grid`, `T`) cannot collide. Every file is also
   runnable on its own (`julia --project=. test/<file>.jl`).
 - **Per-module behaviour files** — `fields.jl` (including the rank-free transform plans and their
-  component-offset alignment lane, decision 76; plans and multipliers built from a storage family,
+  component-offset alignment lane, decision 76; plans and multipliers built from an array family,
   decisions 93 and 94, bitwise against the field-built ones and canonical alike; the sampling
-  constructors' `family` keyword, refusing a mismatched precision or a complex family (decision 100);
+  constructors' `array_family` keyword, refusing a mismatched precision or a complex family (decision 100);
   the real-field **reality condition** of
   decision 71 — `reality_residual` against an elementwise oracle written from the definition, over
   both element types, tensor orders 0/1/2, permuted folds and an **odd** folded axis, which has one
@@ -364,7 +364,7 @@ For each public operation, a test must establish:
       metadata-carrying operations, and it is what `test/adapt.jl` asserts across three folds, a
       non-zero origin, both element types, both representations and all three tensor orders.
 
-**The storage-family axis, and a vendor limit on it.** Moving a section between storage families
+**The array-family axis, and a vendor limit on it.** Moving a section between array families
 (decision 63) is exercised on CPU with a **custom adaptor**, because adapting to the family a section
 already occupies is deliberately the identity and would test nothing. The device half is in the GPU
 suite, which now moves whole workspaces — field, multipliers, kernels and plans — through the shipped
@@ -419,7 +419,7 @@ operation's coverage is judged against the full axis list:
     made this a type parameter, so it selects dispatch: two canonical sets collapse under `convolve`
     while any custom set keeps both operands. It is an axis rather than a case because a kernel built on
     a custom set is admissible input to every kernel-taking entry point, not just to composition.
-17. storage family — `Array` on the host against a device array (`CuArray`, `ROCArray`). Decision 63
+17. array family — `Array` on the host against a device array (`CuArray`, `ROCArray`). Decision 63
     made crossing it an explicit operation, `adapt`, so a section, its multipliers, its kernels and its
     plans are all admissible in either family, and decision 69 added `adapt!` for a destination that
     already exists (sections only). The CPU lane drives `adapt` with a **custom adaptor**, since

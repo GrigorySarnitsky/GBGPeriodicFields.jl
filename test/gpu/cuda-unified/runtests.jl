@@ -34,7 +34,7 @@ CUDA.allowscalar(false)
 const GPU_BACKEND = "CUDA / NVIDIA, unified memory"
 device_functional() = CUDA.functional()
 to_device(host_array) = CUDA.CuArray(host_array)
-device_array_type() = CUDA.CuArray
+device_array_family() = CUDA.CuArray
 
 
 # Every allocating route through which the package creates CUDA storage, asserted unified. The package

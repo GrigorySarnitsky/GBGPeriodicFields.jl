@@ -83,7 +83,7 @@ using StaticArrays: SVector, SMatrix
 using LinearAlgebra: \, I
 using ..FiberSections: _assign!, @_assign!, _use_threads
 import ..Fields: _context_grid, _context_layout      # extended for the NUFFT plan below
-using ..Fields: _check_matching_context, _storage_family, _approx, _show_domain, _show_extent
+using ..Fields: _check_matching_context, _array_family, _approx, _show_domain, _show_extent
 using ..Fields: AbstractFieldPhysical, ScalarFieldPhysical, VectorFieldPhysical, TensorFieldPhysical,
                 AbstractFieldSpectral, ScalarFieldSpectral, VectorFieldSpectral, TensorFieldSpectral,
                 Grid3D, RealFourierLayout, field_data, field_grid, field_layout, field_scalar_type,
@@ -129,7 +129,7 @@ type too. Code
 polymorphic over the allocating form therefore has to branch; the in-place `anterpolate!` forms,
 where the caller owns the destination, are uniform.
 
-Schemes divide the same way over [**storage families**](@ref GBGPeriodicFields.GBGPeriodicFields). The splines and `DirectDFT` are
+Schemes divide the same way over [**array families**](@ref GBGPeriodicFields.GBGPeriodicFields). The splines and `DirectDFT` are
 plain values — weight coefficients in an `SMatrix`, or none at all — so a kernel captures them by
 value: one built on the host drives a transfer over device points with nothing copied, which is why
 `adapt` (documented with [`Fields`](@ref "Fields")) does not list them. `NUFFT` is the exception,
@@ -502,7 +502,7 @@ point-values indexed alongside it keep their own indexing, and every result land
 would have landed in anyway.
 
 The constructor throws an `ArgumentError` unless `indices` names every point in `1:M` exactly once.
-It accepts any integer vector, including a `UnitRange` such as `1:M`, and keeps the storage family it
+It accepts any integer vector, including a `UnitRange` such as `1:M`, and keeps the array family it
 is given, since a transfer will not mix families. Use `adapt` to move one between families.
 
 !!! warning "The guarantee is made once, at construction"
@@ -513,7 +513,7 @@ is given, since a transfer will not mix families. Use `adapt` to move one betwee
 
 # Fields
 
-- `indices` — the permutation itself, one point index per unit of work, in the storage family the
+- `indices` — the permutation itself, one point index per unit of work, in the array family the
   constructor was given.
 """
 struct PointTraversalOrder{V <: AbstractVector}
@@ -527,10 +527,10 @@ end
 
 PointTraversalOrder(indices::V) where {V <: AbstractVector} = PointTraversalOrder{V}(indices)
 # A range is a lawful spelling of an order (`1:M` is the identity, `M:-1:1` the reversal) but carries
-# no storage family a kernel can index, so it is materialized into an ordinary vector.
+# no array family a kernel can index, so it is materialized into an ordinary vector.
 PointTraversalOrder(indices::AbstractRange) = PointTraversalOrder(collect(Int32, indices))
 
-# A traversal order is a validated permutation of point indices; moving it between storage families
+# A traversal order is a validated permutation of point indices; moving it between array families
 # preserves that, so the moved order is marked validated rather than re-checked on the far side. This
 # method exists because `_check_point_traversal_order`'s refusal tells a caller to use `adapt`, and
 # without it that advice was Adapt's identity default — the same host order handed straight back.
@@ -602,7 +602,7 @@ function _check_point_traversal_order(traversal::PointTraversalOrder, number_of_
     throw(ArgumentError("the point traversal order has $(length(traversal)) entries but there are " *
                         "$(number_of_points) points; it must name every point exactly once"))
   get_backend(traversal.indices) === get_backend(reference) ||
-    throw(ArgumentError("the point traversal order is on a different storage family than the field; " *
+    throw(ArgumentError("the point traversal order is on a different array family than the field; " *
                         "build it from the same point set with `point_traversal_order`, or move it with `adapt`"))
   return nothing
 end
@@ -847,8 +847,8 @@ grid and point count can share one — though not at the same time, since a refi
 
 - `grid` — the [`Grid3D`](@ref) the order will be built against. It is stored, and a refill against a
   different grid is refused.
-- `points` — a [`PointSet`](@ref) of the size and storage family the refills will use. Only its point
-  count, element type and storage family are read.
+- `points` — a [`PointSet`](@ref) of the size and array family the refills will use. Only its point
+  count, element type and array family are read.
 - `tile_size` — the block edge in grid cells, which fixes how many blocks the grid divides into and
   therefore how large the counters below are. A refill uses this value rather than taking one of its
   own.
@@ -927,13 +927,13 @@ launch bookkeeping, measured unchanged from ``10^3`` points to ``10^6``.
 - `grid` — the grid whose cells the blocks are cut from, and whose origin the points are measured
   from, which must be the grid the `scratch` was built for. Points lying outside it are clamped into
   the edge blocks rather than refused, since an order is a hint and cannot change a result.
-- `points` — the point set whose current positions decide the order. Its storage family decides where
+- `points` — the point set whose current positions decide the order. Its array family decides where
   the order is built and used.
 - `scratch` — a [`PointTraversalOrderScratch`](@ref) built for this grid, point count and
   `tile_size`. The block edge comes from it rather than from a keyword here, so there is one source
   of truth for it.
 
-All four must agree in point count, element type and storage family, and a mismatch is refused rather
+All four must agree in point count, element type and array family, and a mismatch is refused rather
 than converted.
 
 The block edge `tile_size` (default `4`), fixed when the scratch is built or passed to the allocating
@@ -1115,7 +1115,7 @@ end
     _check_transfer_colocation(field, points, values)
 
 Check that the three operands of a grid↔point transfer carry the same scalar type and live in the same
-storage family, throwing otherwise.
+array family, throwing otherwise.
 
 A transfer selects its launch backend from the field and then hands the point and value arrays to that
 one kernel, so a host/device mixture reaches a launch that can only see one of them, and a mixed
@@ -1123,17 +1123,17 @@ precision reaches an internal locator that requires one scalar type. Both are pu
 without this check both surfaced from inside the implementation instead of at the call.
 """
 function _check_transfer_colocation(field, points, values)
-  family(a) = Base.typename(typeof(parent(a))).wrapper
+  array_family(a) = Base.typename(typeof(parent(a))).wrapper
   T = field_scalar_type(field)
   eltype(point_positions(points)) === T ||
     throw(ArgumentError("point coordinates are $(eltype(point_positions(points))) but the field is $T; " *
                         "a transfer does not convert between precisions"))
   eltype(field_data(values)) === T ||
     throw(ArgumentError("point values are $(eltype(field_data(values))) but the field is $T"))
-  families = (family(field_data(field)), family(point_positions(points)), family(field_data(values)))
-  allequal(families) ||
+  array_families = (array_family(field_data(field)), array_family(point_positions(points)), array_family(field_data(values)))
+  allequal(array_families) ||
     throw(ArgumentError("a transfer launches one kernel, so its field, points and values must live in " *
-                        "the same storage family; got $families"))
+                        "the same array family; got $array_families"))
   return nothing
 end
 
@@ -1171,7 +1171,7 @@ fresh result instead.
   saying which point each work item handles. It changes only the sequence in which points are
   visited — the gather is bitwise unchanged — and is worth several times the
   throughput when the points are in an order unrelated to the grid. It must name every point exactly
-  once and live in the same storage family as the field; `nothing`, the default, visits them in
+  once and live in the same array family as the field; `nothing`, the default, visits them in
   index order.
 
 The spline schemes are exact at grid nodes and for polynomials up to the scheme's reproduction degree
@@ -1287,7 +1287,7 @@ this operation *spreading* (immersed-boundary methods), *deposition* or *charge 
   saying which point each work item handles. It changes only the sequence in which points are
   deposited, and since the accumulation is atomic its summation order was never fixed,
   so the result moves by no more than it already does between runs. It must name every point exactly
-  once and live in the same storage family as the field; `nothing`, the default, visits them in
+  once and live in the same array family as the field; `nothing`, the default, visits them in
   index order.
 
 # References
@@ -1930,7 +1930,7 @@ function _check_nufft_compatibility(scheme::NUFFT{T}, field::AbstractFieldSpectr
                         "$(field_scalar_type(field))"))
   Base.typename(typeof(parent(field_data(scheme.oversampled_spectral)))).wrapper ===
       Base.typename(typeof(parent(field_data(field)))).wrapper ||
-    throw(ArgumentError("this NUFFT plan holds work buffers in a different storage family than the field"))
+    throw(ArgumentError("this NUFFT plan holds work buffers in a different array family than the field"))
   field_tensor_order(scheme.oversampled_physical) == field_tensor_order(field) ||
     throw(ArgumentError("this NUFFT plan was built at tensor order " *
                         "$(field_tensor_order(scheme.oversampled_physical)); it cannot transfer a " *
@@ -2087,7 +2087,7 @@ Provided by a package extension, so it is available only when [`HDF5.jl`](https:
     A [`NUFFT`](@ref) is not: it owns oversampled FFT plans and a deconvolution window built against
     a particular reference field, so a stored copy would be either a large duplicate of derived data
     or a set of parameters pretending to be the object. It is the same class as [`FieldTransformPlans`](@ref),
-    which is likewise rebuilt rather than moved when storage families change. Rebuild it from the
+    which is likewise rebuilt rather than moved when array families change. Rebuild it from the
     reference field the caller restores anyway — `NUFFT(reference; tol)` — and write the `tol` in
     the caller's own snapshot if it varies. Passing one here throws an `ArgumentError` naming this.
 """
@@ -2123,7 +2123,7 @@ function read_scheme end
 function Base.show(io::IO, traversal::PointTraversalOrder)
   print(io, "PointTraversalOrder{", eltype(traversal.indices), "}(")
   _show_count(io, length(traversal.indices))
-  print(io, ", ", nameof(_storage_family(traversal.indices)), ")")
+  print(io, ", ", nameof(_array_family(traversal.indices)), ")")
 end
 
 
@@ -2138,7 +2138,7 @@ function Base.show(io::IO, scratch::PointTraversalOrderScratch)
   _show_domain(io, scratch.grid)
   # `tiles` is derivable from the grid and `tile_size`, and naming only the parameter avoids the
   # ambiguity of "16×16×16 blocks", which reads equally as an arrangement or as a block size.
-  print(io, ", tile_size ", scratch.tile_size, ", ", nameof(_storage_family(scratch.keys)), ")")
+  print(io, ", tile_size ", scratch.tile_size, ", ", nameof(_array_family(scratch.keys)), ")")
 end
 
 
@@ -2190,7 +2190,7 @@ function Base.show(io::IO, scheme::NUFFT)
   print(io, " grid")
   _show_domain(io, scheme.reference_grid, scheme.reference_layout)
   print(io, ", width ", scheme.width, ", oversampling ", _approx(scheme.total_oversampling),
-        ", ", nameof(_storage_family(scheme.deconvolution)), ")")
+        ", ", nameof(_array_family(scheme.deconvolution)), ")")
 end
 
 

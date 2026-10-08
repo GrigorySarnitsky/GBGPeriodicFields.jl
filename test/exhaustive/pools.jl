@@ -324,7 +324,7 @@ A conditional cell reports NOT RUN rather than passing silently (the design's re
 axis that needs hardware this host lacks is named here instead of being dropped from the denominator.
 """
 const UNBUILDABLE_AXES = Dict{Symbol, String}(
-  :_storage_family => "needs a second storage backend (CuArray/ROCArray) — run the GPU suite for it",
+  :_array_family => "needs a second storage backend (CuArray/ROCArray) — run the GPU suite for it",
 )
 
 

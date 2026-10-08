@@ -88,7 +88,7 @@ true
 The `plans` built above for the *vector* field `u` transformed this *scalar* field `φ` too. A real
 Fourier transform is defined on the box, and a field of tensor order ``R`` is that transform applied per
 component, so a [`FieldTransformPlans`](@ref) carries no tensor order and one pair serves every order:
-build one per storage family and element type.
+build one per array family and element type.
 
 The same pattern works for `gradient`, `divergence`, `curl`, `symmetric_gradient`,
 `inverse_laplacian`, and `helmholtz_projection`.

@@ -65,7 +65,7 @@ using ..Fields: _spectral_zero_mode_data, _spectral_zero_mode_component_data,
   field_grid, field_layout, field_tensor_order, FieldSpectralMultipliers, FieldTransformPlans, to_physical,
   similar_field, _check_field_domain_compatibility, _check_multipliers_compatibility,
   _squared_wavenumber_broadcast, _vector_component_data, _tensor2_component_data,
-  _same_backend, _storage_family
+  _same_backend, _array_family
 using ..Points: AbstractPointValues, npoints
 # Every kernel class may serve as a weight: each one's `_kernel_data` is an instantiated broadcastable,
 # and the fused pass below never asks which class it holds. The former Union{StoredKernel, RadialKernel}
@@ -826,8 +826,8 @@ function _check_contractible(f::ReducibleSection, g::ReducibleSection)
   # accident of the vendor library rather than a decision of the package, while `dot`, `add!`, `cross!`
   # and `multiply!` all refused deliberately with a clear message.
   _same_backend(f, g) ||
-    throw(ArgumentError("sections must live in the same storage family; got " *
-                        "$(_storage_family(f)) and $(_storage_family(g))"))
+    throw(ArgumentError("sections must live in the same array family; got " *
+                        "$(_array_family(f)) and $(_array_family(g))"))
   return nothing
 end
 

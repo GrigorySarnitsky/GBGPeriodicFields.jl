@@ -35,7 +35,7 @@ The parts are:
     section to and from one self-describing HDF5 group, positions and values kept separate (methods
     load with the `HDF5` package, as a weak-dependency extension). They are the point-layer twins of
     [`write_field`](@ref GBGPeriodicFields.Fields.write_field)/[`read_field`](@ref GBGPeriodicFields.Fields.read_field).
-  * **Moving between storage families.** [`adapt`](@ref) moves a `PointSet` or any point values
+  * **Moving between array families.** [`adapt`](@ref) moves a `PointSet` or any point values
     between host and device arrays, exactly as it moves a field; the operation is documented once,
     with its field methods, in `Fields`.
 """
@@ -43,7 +43,7 @@ module Points
 
 using StaticArrays: SVector
 # Imported before extending, per invariant 7. The point layer mirrors the field surface here as it
-# does everywhere else: a `PointSet` and its values move between storage families the same way.
+# does everywhere else: a `PointSet` and its values move between array families the same way.
 import Adapt: adapt, adapt_structure
 using ..FiberSections:
   _check_owned_storage, AbstractFiberSection, _section_scalar_type, _assign!, @_assign!,
@@ -66,7 +66,7 @@ using KernelAbstractions: get_backend
 using ..FiberSections: fiber_shape, FiberVector, FiberTensor2   # the fiber is base-agnostic
 import Base: +, -, *, /, map, map!, ==, isequal, hash
 import LinearAlgebra: dot, cross, mul!, transpose, transpose!, norm, tr, det
-using ..Fields: _refuse_field_as_fiber_map, _storage_family   # the callable-field guard shared with `FieldAlgebra`
+using ..Fields: _refuse_field_as_fiber_map, _array_family   # the callable-field guard shared with `FieldAlgebra`
 import ..Fields: adapt!, field_data, _vector_component_data, _tensor2_component_data  # extended on PointValues
 import ..FieldAlgebra: add!, subtract!, multiply!, divide!, dot!, cross!,       # extended on PointValues
                        norm!, sym, sym!, skew, skew!, dev, dev!, tr!, det!
@@ -1272,7 +1272,7 @@ _axis_terms(axis::Int, term, rest::Vararg{Any, N}) where {N} =
 """
     _check_displacement_compatibility(destination, source, sections)
 
-Require the point count, scalar type and storage family of `source` and of every displacement
+Require the point count, scalar type and array family of `source` and of every displacement
 section to match `destination`'s, returning `nothing` or throwing an `ArgumentError` rather than
 promoting or transferring. The refusal is the package's decision, not the launch layer's: the
 torus path assembles per-axis views and so bypasses the broadcast machinery's own enforcement,
@@ -1280,22 +1280,22 @@ and a mixed host/device pair must fail alike on every path.
 """
 function _check_displacement_compatibility(destination::PointSet, source::PointSet, sections)
   _check_npoints_match(destination, source)
-  family = _storage_family(point_positions(destination))
+  array_family = _array_family(point_positions(destination))
   eltype(point_positions(source)) === eltype(point_positions(destination)) ||
     throw(ArgumentError("point-set scalar types differ: $(eltype(point_positions(destination))) and " *
                         "$(eltype(point_positions(source))); displacement does not convert between precisions"))
-  _storage_family(point_positions(source)) === family ||
-    throw(ArgumentError("point sets must live in the same storage family; got " *
-                        "$(family) and $(_storage_family(point_positions(source)))"))
+  _array_family(point_positions(source)) === array_family ||
+    throw(ArgumentError("point sets must live in the same array family; got " *
+                        "$(array_family) and $(_array_family(point_positions(source)))"))
   for section in sections
     _check_npoints_match(destination, section)
     eltype(field_data(section)) === eltype(point_positions(destination)) ||
       throw(ArgumentError("a displacement section's scalar type $(eltype(field_data(section))) does not " *
                           "match the point set's $(eltype(point_positions(destination))); displacement " *
                           "does not convert between precisions"))
-    _storage_family(field_data(section)) === family ||
-      throw(ArgumentError("a displacement section must live in the point set's storage family; got " *
-                          "$(_storage_family(field_data(section))) against $(family)"))
+    _array_family(field_data(section)) === array_family ||
+      throw(ArgumentError("a displacement section must live in the point set's array family; got " *
+                          "$(_array_family(field_data(section))) against $(array_family)"))
   end
   return nothing
 end
@@ -1372,7 +1372,7 @@ mean-square-displacement diagnostic needs the unwrapped trajectory).
 
 There is deliberately no allocating sibling: displacement is motion of an existing base, and a
 freshly allocated destination would have no user. Sections and point sets must agree in
-point count, scalar type and [storage family](@ref GBGPeriodicFields.GBGPeriodicFields); mixed pairs are refused.
+point count, scalar type and [array family](@ref GBGPeriodicFields.GBGPeriodicFields); mixed pairs are refused.
 """
 function displace! end
 
@@ -1486,7 +1486,7 @@ end
 
 
 ###################################################
-#   Moving between storage families (Adapt.jl)    #
+#   Moving between array families (Adapt.jl)    #
 ###################################################
 
 # The point twins of the field methods in `Fields`. `similar_point_values` carries whatever the
@@ -1536,13 +1536,13 @@ end
 
 # Equality: the point twins of the field methods, whose one docstring, on `==` in `Fields`, covers
 # them. Point values compare by tensor order, point count and values; point sets by point count and
-# positions. Precision and storage family are refused, as for fields.
+# positions. Precision and array family are refused, as for fields.
 function _point_section_equality(compare, a_values, b_values)
   eltype(a_values) == eltype(b_values) ||
     throw(ArgumentError("point sections of different element types are not compared: " *
                         "$(eltype(a_values)) against $(eltype(b_values))"))
-  _storage_family(a_values) === _storage_family(b_values) ||
-    throw(ArgumentError("point sections in different storage families are not compared: move one with `adapt` first"))
+  _array_family(a_values) === _array_family(b_values) ||
+    throw(ArgumentError("point sections in different array families are not compared: move one with `adapt` first"))
   size(a_values) == size(b_values) || return false
   return compare(a_values, b_values)
 end
@@ -1564,7 +1564,7 @@ hash(points::PointSet, h::UInt) = hash(npoints(points), hash(:GBGPeriodicFieldsP
 #
 # ONE form, not two. A field's `MIME"text/plain"` method exists because a field's stored shape and
 # element type differ from its grid in spectral representation, so there is something a longer form
-# can add. A point section has no such gap: the count, the element type and the storage family are
+# can add. A point section has no such gap: the count, the element type and the array family are
 # the whole of its metadata, and they already fit on the compact line. The things a reader might
 # want beyond them — a bounding box, whether the positions are wrapped — are functions of the
 # COORDINATES, and the no-element rule the field block states forbids reading those.
@@ -1582,7 +1582,7 @@ _show_count(io::IO, n) = print(io, n, n == 1 ? " point" : " points")
 function Base.show(io::IO, points::PointSet)
   print(io, "PointSet{", eltype(point_positions(points)), "}(")
   _show_count(io, npoints(points))
-  print(io, ", ", nameof(_storage_family(point_positions(points))), ")")
+  print(io, ", ", nameof(_array_family(point_positions(points))), ")")
 end
 
 
@@ -1592,7 +1592,7 @@ function Base.show(io::IO, values::AbstractPointValues)
   order ≥ 2 && print(io, order, ", ")
   print(io, eltype(point_values(values)), "}(")
   _show_count(io, npoints(values))
-  print(io, ", ", nameof(_storage_family(point_values(values))), ")")
+  print(io, ", ", nameof(_array_family(point_values(values))), ")")
 end
 
 

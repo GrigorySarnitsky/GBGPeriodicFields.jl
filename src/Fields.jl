@@ -39,8 +39,8 @@ The parts are:
     modes into a finer field over the same box and [`extract_modes!`](@ref) reads them back, each
     leaving the destination's other modes untouched and costing the coarse field rather than the fine
     one. Amplitudes are physical, so the pair are exact adjoints of each other.
-  * **Moving between storage families** — [`adapt`](@ref) moves a field, its multipliers, its kernels
-    or its transform plans between host and device arrays (or any other `Adapt.jl` storage family),
+  * **Moving between array families** — [`adapt`](@ref) moves a field, its multipliers, its kernels
+    or its transform plans between host and device arrays (or any other `Adapt.jl` array family),
     preserving the element type and everything else the object carries. Operations refuse a pair that
     disagrees rather than transferring one to meet the other, so that the cost of crossing the bus is
     always visible at the call site.
@@ -55,7 +55,7 @@ using AbstractFFTs
 using LinearAlgebra
 import FFTW
 # Imported before extending, per invariant 7. `adapt` is the ecosystem-standard way to move a struct
-# holding arrays between storage families, and extending `adapt_structure` is its sanctioned hook.
+# holding arrays between array families, and extending `adapt_structure` is its sanctioned hook.
 import Adapt: adapt, adapt_structure
 import Base: ==, isequal, hash
 using Base.ScopedValues: ScopedValue
@@ -431,11 +431,11 @@ function field_data end
       f,
       grid::Grid3D{T};
       layout::RealFourierLayout = RealFourierLayout(),
-      family = Array,
+      array_family = Array,
     ) where {T<:AbstractFloat}
 
     ScalarFieldPhysical(
-      family::Type{<:AbstractArray},
+      array_family::Type{<:AbstractArray},
       grid::Grid3D{T};
       layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat}
@@ -448,11 +448,11 @@ The function constructor constructs a scalar field in physical representation by
 - `f` — the sampled function, called as `f(x, y, z)` at each grid point.
 - `grid` — the `Grid3D` the values are sampled on.
 - `layout` — a keyword: the `RealFourierLayout` used when transforming the field.
-- `family` — a keyword: the storage family the sampled values are stored in (`Array` on the host,
+- `array_family` — a keyword: the array family the sampled values are stored in (`Array` on the host,
   `CuArray` or `ROCArray` to build the field on a GPU), checked as the allocating constructors check
   theirs.
 
-The allocating constructor takes a storage `family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes an `array_family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over scalar fields in physical representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `ScalarFieldPhysical`.
@@ -481,9 +481,9 @@ end
 
 
 function ScalarFieldPhysical(f, grid::Grid3D{T}; layout::RealFourierLayout = RealFourierLayout(),
-    family::Type{<:AbstractArray} = Array) where {T<:AbstractFloat}
+    array_family::Type{<:AbstractArray} = Array) where {T<:AbstractFloat}
   fourier_layout = layout
-  _check_family_element_type(family, grid)
+  _check_array_family_element_type(array_family, grid)
   values_at_grid = Array{T}(undef, field_physical_shape(grid, Val(0))...)
 
   Δx₁, Δx₂, Δx₃ = grid.grid_spacing
@@ -495,7 +495,7 @@ function ScalarFieldPhysical(f, grid::Grid3D{T}; layout::RealFourierLayout = Rea
 
   # The family is checked as the allocating constructors check theirs, and its parameters dropped:
   # the values are sampled at the grid's element type, so only the backend is taken from it.
-  wrapper = Base.typename(family).wrapper
+  wrapper = Base.typename(array_family).wrapper
   values_at_grid = wrapper === Array ? values_at_grid : wrapper(values_at_grid)
 
   return ScalarFieldPhysical(values_at_grid, grid; layout = fourier_layout)
@@ -511,7 +511,7 @@ end
 
 
     ScalarFieldSpectral(
-      family::Type{<:AbstractArray},
+      array_family::Type{<:AbstractArray},
       grid::Grid3D{T};
       layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat}
@@ -521,7 +521,7 @@ Scalar field in spectral representation, stored as its nonredundant real-to-comp
 The coefficient array has shape `field_spectral_shape(grid, fourier_layout, Val(0))`.
 The dimension `fourier_layout.fft_dims[1]` is the real-FFT half dimension.
 
-The allocating constructor takes a storage `family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes an `array_family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over scalar fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `ScalarFieldSpectral`.
@@ -534,7 +534,7 @@ The `layout` keyword defaults to the standard `RealFourierLayout()`.
 - `fourier_coefficients` — the complex coefficients in real-FFT storage, of shape
   `field_spectral_shape(grid, fourier_layout, Val(0))`; the field keeps this array rather than
   copying it, and a view is refused, a field owning its storage.
-- `family` — the allocating form only: the storage family (`Array`, `CuArray`, `ROCArray`) given in
+- `array_family` — the allocating form only: the array family (`Array`, `CuArray`, `ROCArray`) given in
   place of the array.
 - `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
 - `layout` — a keyword: the [`RealFourierLayout`](@ref), defaulting to the standard `RealFourierLayout()`.
@@ -582,12 +582,12 @@ field_data(field::ScalarFieldSpectral) = field.fourier_coefficients
       f,
       grid::Grid3D{T};
       layout::RealFourierLayout = RealFourierLayout(),
-      family = Array,
+      array_family = Array,
     ) where {T<:AbstractFloat}
 
 
     VectorFieldPhysical(
-      family::Type{<:AbstractArray},
+      array_family::Type{<:AbstractArray},
       grid::Grid3D{T};
       layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat}
@@ -601,11 +601,11 @@ The function constructor constructs a vector field in physical representation by
   indexable object.
 - `grid` — the `Grid3D` the values are sampled on.
 - `layout` — a keyword: the `RealFourierLayout` used when transforming the field.
-- `family` — a keyword: the storage family the sampled values are stored in (`Array` on the host,
+- `array_family` — a keyword: the array family the sampled values are stored in (`Array` on the host,
   `CuArray` or `ROCArray` to build the field on a GPU), checked as the allocating constructors check
   theirs.
 
-The allocating constructor takes a storage `family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes an `array_family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over vector fields in physical representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `VectorFieldPhysical`.
@@ -635,9 +635,9 @@ end
 
 
 function VectorFieldPhysical(f, grid::Grid3D{T}; layout::RealFourierLayout = RealFourierLayout(),
-    family::Type{<:AbstractArray} = Array) where {T<:AbstractFloat}
+    array_family::Type{<:AbstractArray} = Array) where {T<:AbstractFloat}
   fourier_layout = layout
-  _check_family_element_type(family, grid)
+  _check_array_family_element_type(array_family, grid)
   values_at_grid = Array{T}(undef, field_physical_shape(grid, Val(1))...)
 
   Δx₁, Δx₂, Δx₃ = grid.grid_spacing
@@ -652,7 +652,7 @@ function VectorFieldPhysical(f, grid::Grid3D{T}; layout::RealFourierLayout = Rea
 
   # The family is checked as the allocating constructors check theirs, and its parameters dropped:
   # the values are sampled at the grid's element type, so only the backend is taken from it.
-  wrapper = Base.typename(family).wrapper
+  wrapper = Base.typename(array_family).wrapper
   values_at_grid = wrapper === Array ? values_at_grid : wrapper(values_at_grid)
 
   return VectorFieldPhysical(values_at_grid, grid; layout = fourier_layout)
@@ -668,14 +668,14 @@ end
 
 
     VectorFieldSpectral(
-      family::Type{<:AbstractArray},
+      array_family::Type{<:AbstractArray},
       grid::Grid3D{T};
       layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat}
 
 Vector field in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
 
-The allocating constructor takes a storage `family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes an `array_family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over vector fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `VectorFieldSpectral`.
@@ -688,7 +688,7 @@ The `layout` keyword defaults to the standard `RealFourierLayout()`.
 - `fourier_coefficients` — the complex coefficients in real-FFT storage, of shape
   `field_spectral_shape(grid, fourier_layout, Val(1))`; the field keeps this array rather than
   copying it, and a view is refused, a field owning its storage.
-- `family` — the allocating form only: the storage family (`Array`, `CuArray`, `ROCArray`) given in
+- `array_family` — the allocating form only: the array family (`Array`, `CuArray`, `ROCArray`) given in
   place of the array.
 - `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
 - `layout` — a keyword: the [`RealFourierLayout`](@ref), defaulting to the standard `RealFourierLayout()`.
@@ -743,12 +743,12 @@ field_data(field::VectorFieldSpectral) = field.fourier_coefficients
       f,
       grid::Grid3D{T};
       layout::RealFourierLayout = RealFourierLayout(),
-      family = Array,
+      array_family = Array,
     ) where {R, T<:AbstractFloat}
 
 
     TensorFieldPhysical{R}(
-      family::Type{<:AbstractArray},
+      array_family::Type{<:AbstractArray},
       grid::Grid3D{T};
       layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat}
@@ -764,11 +764,11 @@ The function constructor constructs a tensor field of order ``R \\ge 2`` in phys
   tensor-fiber shape `fiber_shape(Val(R))`.
 - `grid` — the `Grid3D` the values are sampled on.
 - `layout` — a keyword: the `RealFourierLayout` used when transforming the field.
-- `family` — a keyword: the storage family the sampled values are stored in (`Array` on the host,
+- `array_family` — a keyword: the array family the sampled values are stored in (`Array` on the host,
   `CuArray` or `ROCArray` to build the field on a GPU), checked as the allocating constructors check
   theirs.
 
-The allocating constructor takes a storage `family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes an `array_family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over tensor fields in physical representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `TensorFieldPhysical`.
@@ -802,9 +802,9 @@ TensorFieldPhysical(values_at_grid::AbstractArray{T, N}, grid::Grid3D{T};
 
 
 function TensorFieldPhysical{R}(f, grid::Grid3D{T}; layout::RealFourierLayout = RealFourierLayout(),
-    family::Type{<:AbstractArray} = Array) where {R, T<:AbstractFloat}
+    array_family::Type{<:AbstractArray} = Array) where {R, T<:AbstractFloat}
   fourier_layout = layout
-  _check_family_element_type(family, grid)
+  _check_array_family_element_type(array_family, grid)
   (R isa Integer && R ≥ 2) || throw(ArgumentError("tensor order R must be an integer at least 2"))
 
   values_at_grid = Array{T}(undef, field_physical_shape(grid, Val(R))...)
@@ -821,7 +821,7 @@ function TensorFieldPhysical{R}(f, grid::Grid3D{T}; layout::RealFourierLayout = 
 
   # The family is checked as the allocating constructors check theirs, and its parameters dropped:
   # the values are sampled at the grid's element type, so only the backend is taken from it.
-  wrapper = Base.typename(family).wrapper
+  wrapper = Base.typename(array_family).wrapper
   values_at_grid = wrapper === Array ? values_at_grid : wrapper(values_at_grid)
 
   return TensorFieldPhysical{R}(values_at_grid, grid; layout = fourier_layout)
@@ -843,14 +843,14 @@ end
 
 
     TensorFieldSpectral{R}(
-      family::Type{<:AbstractArray},
+      array_family::Type{<:AbstractArray},
       grid::Grid3D{T};
       layout::RealFourierLayout = RealFourierLayout(),
     ) where {T<:AbstractFloat}
 
 Tensor field of order ``R \\ge 2`` in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
 
-The allocating constructor takes a storage `family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes an `array_family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over tensor fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `TensorFieldSpectral`.
@@ -863,7 +863,7 @@ The `layout` keyword defaults to the standard `RealFourierLayout()`.
 - `fourier_coefficients` — the complex coefficients in real-FFT storage, of shape
   `field_spectral_shape(grid, fourier_layout, Val(R))`; the field keeps this array rather than
   copying it, and a view is refused, a field owning its storage.
-- `family` — the allocating form only: the storage family (`Array`, `CuArray`, `ROCArray`) given in
+- `array_family` — the allocating form only: the array family (`Array`, `CuArray`, `ROCArray`) given in
   place of the array.
 - `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
 - `layout` — a keyword: the [`RealFourierLayout`](@ref), defaulting to the standard `RealFourierLayout()`.
@@ -911,91 +911,91 @@ TensorFieldSpectral(fourier_coefficients::AbstractArray{Complex{T}, N}, grid::Gr
 # either).
 
 """
-    _allocated_field_storage(family, ::Type{S}, shape)
+    _allocated_field_storage(array_family, ::Type{S}, shape)
 
-Produce an uninitialized array of element type `S` and shape `shape` in the storage `family` —
-the storage-producing step of the allocating `(family, grid[, layout])` constructors. The family
+Produce an uninitialized array of element type `S` and shape `shape` in the `array_family` —
+the storage-producing step of the allocating `(array_family, grid[, layout])` constructors. The family
 is reduced to its unparameterized wrapper first, so `Array` and `Array{Float64}` allocate
-identically once [`_check_family_element_type`](@ref) has vetted the declared element type.
+identically once [`_check_array_family_element_type`](@ref) has vetted the declared element type.
 """
-function _allocated_field_storage(family::Type{<:AbstractArray}, ::Type{S}, shape::Dims) where {S}
-  wrapper = Base.typename(family).wrapper
+function _allocated_field_storage(array_family::Type{<:AbstractArray}, ::Type{S}, shape::Dims) where {S}
+  wrapper = Base.typename(array_family).wrapper
   return wrapper{S}(undef, shape)
 end
 
 
 """
-    _check_family_element_type(family, grid)
+    _check_array_family_element_type(array_family, grid)
 
-Refuse a storage family whose declared element type disagrees with the grid's — a mixed pair is
+Refuse an array family whose declared element type disagrees with the grid's — a mixed pair is
 refused, never converted — or is complex, because a field's element type is its
 real scalar type and complex storage is representation detail the spectral constructors allocate
 themselves. A bare family (`Array`, `ROCArray`) declares nothing and passes, the
 element type coming from the grid. Returns `nothing` or throws.
 """
-function _check_family_element_type(family::Type{<:AbstractArray}, ::Grid3D{T}) where {T<:AbstractFloat}
-  declared = eltype(family)
+function _check_array_family_element_type(array_family::Type{<:AbstractArray}, ::Grid3D{T}) where {T<:AbstractFloat}
+  declared = eltype(array_family)
   declared === Any && return nothing               # bare family: the grid supplies the element type
   declared <: Complex &&
-    throw(ArgumentError("the storage family declares the complex element type $(declared); a field's " *
+    throw(ArgumentError("the array family declares the complex element type $(declared); a field's " *
                         "element type is its real scalar type $(T) — spectral storage is allocated as " *
                         "Complex{$(T)} internally"))
   declared === T ||
-    throw(ArgumentError("the storage family declares element type $(declared), but the grid carries " *
+    throw(ArgumentError("the array family declares element type $(declared), but the grid carries " *
                         "$(T); allocation does not convert between precisions"))
   return nothing
 end
 
 
-function ScalarFieldPhysical(family::Type{<:AbstractArray}, grid::Grid3D{T};
+function ScalarFieldPhysical(array_family::Type{<:AbstractArray}, grid::Grid3D{T};
     layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
   fourier_layout = layout
-  _check_family_element_type(family, grid)
-  return ScalarFieldPhysical(_allocated_field_storage(family, T, field_physical_shape(grid, Val(0))), grid; layout = fourier_layout)
+  _check_array_family_element_type(array_family, grid)
+  return ScalarFieldPhysical(_allocated_field_storage(array_family, T, field_physical_shape(grid, Val(0))), grid; layout = fourier_layout)
 end
 
-function VectorFieldPhysical(family::Type{<:AbstractArray}, grid::Grid3D{T};
+function VectorFieldPhysical(array_family::Type{<:AbstractArray}, grid::Grid3D{T};
     layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
   fourier_layout = layout
-  _check_family_element_type(family, grid)
-  return VectorFieldPhysical(_allocated_field_storage(family, T, field_physical_shape(grid, Val(1))), grid; layout = fourier_layout)
+  _check_array_family_element_type(array_family, grid)
+  return VectorFieldPhysical(_allocated_field_storage(array_family, T, field_physical_shape(grid, Val(1))), grid; layout = fourier_layout)
 end
 
-function TensorFieldPhysical{R}(family::Type{<:AbstractArray}, grid::Grid3D{T};
+function TensorFieldPhysical{R}(array_family::Type{<:AbstractArray}, grid::Grid3D{T};
     layout::RealFourierLayout = RealFourierLayout()) where {R, T<:AbstractFloat}
   fourier_layout = layout
-  _check_family_element_type(family, grid)
-  return TensorFieldPhysical{R}(_allocated_field_storage(family, T, field_physical_shape(grid, Val(R))), grid; layout = fourier_layout)
+  _check_array_family_element_type(array_family, grid)
+  return TensorFieldPhysical{R}(_allocated_field_storage(array_family, T, field_physical_shape(grid, Val(R))), grid; layout = fourier_layout)
 end
 
-TensorFieldPhysical(family::Type{<:AbstractArray}, grid::Grid3D{T};
+TensorFieldPhysical(array_family::Type{<:AbstractArray}, grid::Grid3D{T};
     layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat} =
-  TensorFieldPhysical{2}(family, grid; layout)
+  TensorFieldPhysical{2}(array_family, grid; layout)
 
-function ScalarFieldSpectral(family::Type{<:AbstractArray}, grid::Grid3D{T};
+function ScalarFieldSpectral(array_family::Type{<:AbstractArray}, grid::Grid3D{T};
     layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
   fourier_layout = layout
-  _check_family_element_type(family, grid)
-  return ScalarFieldSpectral(_allocated_field_storage(family, Complex{T}, field_spectral_shape(grid, fourier_layout, Val(0))), grid; layout = fourier_layout)
+  _check_array_family_element_type(array_family, grid)
+  return ScalarFieldSpectral(_allocated_field_storage(array_family, Complex{T}, field_spectral_shape(grid, fourier_layout, Val(0))), grid; layout = fourier_layout)
 end
 
-function VectorFieldSpectral(family::Type{<:AbstractArray}, grid::Grid3D{T};
+function VectorFieldSpectral(array_family::Type{<:AbstractArray}, grid::Grid3D{T};
     layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
   fourier_layout = layout
-  _check_family_element_type(family, grid)
-  return VectorFieldSpectral(_allocated_field_storage(family, Complex{T}, field_spectral_shape(grid, fourier_layout, Val(1))), grid; layout = fourier_layout)
+  _check_array_family_element_type(array_family, grid)
+  return VectorFieldSpectral(_allocated_field_storage(array_family, Complex{T}, field_spectral_shape(grid, fourier_layout, Val(1))), grid; layout = fourier_layout)
 end
 
-function TensorFieldSpectral{R}(family::Type{<:AbstractArray}, grid::Grid3D{T};
+function TensorFieldSpectral{R}(array_family::Type{<:AbstractArray}, grid::Grid3D{T};
     layout::RealFourierLayout = RealFourierLayout()) where {R, T<:AbstractFloat}
   fourier_layout = layout
-  _check_family_element_type(family, grid)
-  return TensorFieldSpectral{R}(_allocated_field_storage(family, Complex{T}, field_spectral_shape(grid, fourier_layout, Val(R))), grid; layout = fourier_layout)
+  _check_array_family_element_type(array_family, grid)
+  return TensorFieldSpectral{R}(_allocated_field_storage(array_family, Complex{T}, field_spectral_shape(grid, fourier_layout, Val(R))), grid; layout = fourier_layout)
 end
 
-TensorFieldSpectral(family::Type{<:AbstractArray}, grid::Grid3D{T};
+TensorFieldSpectral(array_family::Type{<:AbstractArray}, grid::Grid3D{T};
     layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat} =
-  TensorFieldSpectral{2}(family, grid; layout)
+  TensorFieldSpectral{2}(array_family, grid; layout)
 
 
 field_data(field::TensorFieldPhysical) = field.values_at_grid
@@ -1019,7 +1019,7 @@ With storage array `data`, the field has the same representation and tensor orde
 
 This is used by out-of-place field broadcasting and by allocating algebraic operations. With no
 reference field in hand — only a grid, a layout and a backend — use the allocating type
-constructors instead, which take a storage family in place of the array
+constructors instead, which take an array family in place of the array
 ([`ScalarFieldPhysical`](@ref) and its five siblings).
 
 !!! note "Deliberately not an extension of `Base.similar`"
@@ -1168,40 +1168,40 @@ _same_tensor_order(a, b) = field_tensor_order(a) == field_tensor_order(b)
 _same_grid(a, b) = field_grid(a) == field_grid(b)
 _same_layout(a, b) = field_layout(a) == field_layout(b)
 
-# Storage family, compared by the array type's name rather than through KernelAbstractions: the
+# Array family, compared by the array type's name rather than through KernelAbstractions: the
 # comparison is then a compile-time property of the types, so it costs a checked operation nothing,
 # and `Fields` needs no launch-layer dependency to express it. `Array` and `CuArray` differ; a plain
-# array and a view of one do not, which is intended — a view shares the host's storage family and is
+# array and a view of one do not, which is intended — a view shares the host's array family and is
 # a legitimate operand.
 #
 # It RECURSES through `parent`, and the recursion is load-bearing rather than tidy. The constructors
 # reject only a `SubArray`, so a `reshape` of a `PermutedDimsArray` of a device array is
-# constructible; one `parent` call answers `ReshapedArray` for it, which is not a storage family at
+# constructible; one `parent` call answers `ReshapedArray` for it, which is not an array family at
 # all, and two sections wrapped to different depths around the same device array would then be
 # refused as if they lived in different memories.
-_storage_family(array::AbstractArray) =
-  parent(array) === array ? Base.typename(typeof(array)).wrapper : _storage_family(parent(array))
-_storage_family(section) = _storage_family(field_data(section))
-_same_backend(a, b) = _storage_family(a) === _storage_family(b)
+_array_family(array::AbstractArray) =
+  parent(array) === array ? Base.typename(typeof(array)).wrapper : _array_family(parent(array))
+_array_family(section) = _array_family(field_data(section))
+_same_backend(a, b) = _array_family(a) === _array_family(b)
 
 
 """
     _check_same_domain(a, b)
 
-Throw unless `a` and `b` share scalar type, grid, Fourier layout, and storage family (tensor order
+Throw unless `a` and `b` share scalar type, grid, Fourier layout, and array family (tensor order
 may differ). Shared body for the same-representation domain checks; the entry points that call it (`_check_field_domain_compatibility`, `_check_field_compatibility`) are each restricted to a single representation, so a physical/spectral pair has no matching method and is rejected.
 """
 function _check_same_domain(a, b)
   _same_scalar_type(a, b) || throw(ArgumentError("field scalar types must be equal"))
   _same_grid(a, b)        || throw(ArgumentError("field grids must be equal"))
   _same_layout(a, b)      || throw(ArgumentError("field Fourier layouts must be equal"))
-  # Storage family belongs in the domain check, not below it in the launch layer. Without it a
+  # Array family belongs in the domain check, not below it in the launch layer. Without it a
   # host/device pair passes every structural test and then fails inside a broadcast, a
   # KernelAbstractions launch, or an FFT multiplication — so the error a user sees depends on which
   # operation they happened to call, and on the backend.
   _same_backend(a, b) ||
-    throw(ArgumentError("fields must live in the same storage family; got " *
-                        "$(_storage_family(a)) and $(_storage_family(b))"))
+    throw(ArgumentError("fields must live in the same array family; got " *
+                        "$(_array_family(a)) and $(_array_family(b))"))
   return nothing
 end
 
@@ -1227,7 +1227,7 @@ _check_field_domain_compatibility(a::AbstractFieldSpectral, b::AbstractFieldSpec
     _check_field_compatibility(a::AbstractFieldSpectral, b::AbstractFieldSpectral)
 
 Check that two fields in the same representation share scalar type, tensor order, grid, Fourier
-layout, and storage family.
+layout, and array family.
 
 This is the check for operations that require fully matching operands. Returns `nothing` or throws.
 """
@@ -1315,7 +1315,7 @@ end
     ) where {T<:AbstractFloat, R}
 
     FieldTransformPlans(
-      family::Type{<:AbstractArray},
+      array_family::Type{<:AbstractArray},
       grid::Grid3D{T};
       layout::RealFourierLayout = RealFourierLayout(),
       fft_flags = nothing,
@@ -1330,7 +1330,7 @@ Forward and inverse FFT plans connecting compatible fields represented in physic
   family; its values are never read or written.
 - `spectral` — a field in spectral representation on the same grid and layout, likewise only a
   template.
-- `family`, `grid` — in place of the two fields: the storage family (`Array`, `CuArray`,
+- `array_family`, `grid` — in place of the two fields: the array family (`Array`, `CuArray`,
   `ROCArray`) and the [`Grid3D`](@ref).
 - `layout` — a keyword of that form: the [`RealFourierLayout`](@ref), defaulting to the standard one. This form needs no fields at all, the plans being built on one-component arrays of their own
   either way.
@@ -1368,7 +1368,7 @@ tensor order.
   component.
 - `fft_flags::Union{Nothing, UInt32}` — the planner flag these plans were built with, or `nothing` for
   the default. It is retained rather than merely used, so that rebuilding these plans in another
-  storage family can replay the intent they were created with — see [`adapt`](@ref).
+  array family can replay the intent they were created with — see [`adapt`](@ref).
 - `fft_timelimit::Float64` — the planner time limit paired with `fft_flags`, retained for the same
   reason.
 - `component_scratch::S` — a component-sized buffer, or `nothing`. It exists only where a device
@@ -1385,7 +1385,7 @@ struct FieldTransformPlans{T<:AbstractFloat, PF, PI, G<:Grid3D{T}, L<:RealFourie
   # the precedent for that hazard).
   plan_forward_fft::PF
   plan_inverse_fft::PI
-  # The planner request is retained so that moving these plans to another storage family can rebuild
+  # The planner request is retained so that moving these plans to another array family can rebuild
   # them with the intent they were created with. Without it a rebuild would silently fall back to
   # `ESTIMATE`, which finding (h) in docs/PERFORMANCE.md records as capable of mis-planning a
   # single-precision transform badly — a performance regression with no wrong answer, the kind that
@@ -1438,14 +1438,14 @@ function FieldTransformPlans(physical::AbstractFieldPhysical{T, R}, spectral::Ab
 end
 
 
-# From the storage family alone (2026-10-01, the decision-74 pattern): a consumer holding only the
+# From the array family alone (2026-10-01, the decision-74 pattern): a consumer holding only the
 # domain no longer allocates two fields to hand in as templates, the prototypes being one component
 # each and built here either way.
-function FieldTransformPlans(family::Type{<:AbstractArray}, grid::Grid3D{T};
+function FieldTransformPlans(array_family::Type{<:AbstractArray}, grid::Grid3D{T};
     layout::RealFourierLayout = RealFourierLayout(), fft_flags = nothing, fft_timelimit = Inf) where {T<:AbstractFloat}
-  _check_family_element_type(family, grid)
-  physical_prototype = _allocated_field_storage(family, T, field_physical_shape(grid, Val(0)))
-  spectral_prototype = _allocated_field_storage(family, Complex{T}, field_spectral_shape(grid, layout, Val(0)))
+  _check_array_family_element_type(array_family, grid)
+  physical_prototype = _allocated_field_storage(array_family, T, field_physical_shape(grid, Val(0)))
+  spectral_prototype = _allocated_field_storage(array_family, Complex{T}, field_spectral_shape(grid, layout, Val(0)))
   return _field_transform_plans(physical_prototype, spectral_prototype, grid, layout, fft_flags, fft_timelimit)
 end
 
@@ -1806,7 +1806,7 @@ function _check_kernel_compatibility end
 
     FieldSpectralMultipliers(field::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
 
-    FieldSpectralMultipliers(family::Type{<:AbstractArray}, grid::Grid3D{T};
+    FieldSpectralMultipliers(array_family::Type{<:AbstractArray}, grid::Grid3D{T};
                              layout::RealFourierLayout = RealFourierLayout())
 
 One-dimensional Fourier wavenumber arrays for the operators applied coefficientwise in spectral
@@ -1822,23 +1822,23 @@ representation — derivatives, the Laplacian, and the Helmholtz projection.
   ``\\mathrm{i} a``, and are zeroed at an even axis's Nyquist frequency.
 - `squared_wavenumber_1`, `squared_wavenumber_2`, `squared_wavenumber_3` — the per-axis squared
   wavenumbers, used for the Laplacian through multiplication by ``-k^2``. These keep the **true**
-  ``k^2`` at the Nyquist frequency, which is why the two families are stored rather than derived from
+  ``k^2`` at the Nyquist frequency, which is why the two wavenumber families are stored rather than derived from
   each other.
 - `field` — in the one-argument convenience form, the field whose grid and layout the multipliers are
-  built from; both families are then derived with the correct Nyquist treatment and allocated on that
-  field's storage backend.
-- `family` — in place of `field`: the storage family (`Array`, `CuArray`, `ROCArray`) the arrays are
+  built from; both wavenumber families are then derived with the correct Nyquist treatment and
+  allocated in that field's array family.
+- `array_family` — in place of `field`: the array family (`Array`, `CuArray`, `ROCArray`) the arrays are
   allocated in, with `grid` given directly. The arrays are derived exactly as from a field, so a caller
   holding no field needs none.
-- `layout` — a keyword of the `family` form: the `RealFourierLayout`, defaulting to the standard one.
+- `layout` — a keyword of the `array_family` form: the `RealFourierLayout`, defaulting to the standard one.
 
 Each array runs along one spatial axis in the FFT frequency ordering of `fourier_layout`; the half axis `fourier_layout.fft_dims[1]` stores only the nonnegative frequencies.
 The arrays must live on storage (CPU or GPU) matching the fields the multipliers are applied to.
 
-The two array families are stored independently rather than squaring one to obtain the other,
+The two wavenumber families are stored independently rather than squaring one to obtain the other,
 because on even grids they use different conventions for the Nyquist mode (the highest representable frequency).
-The two explicit constructors take both families from the caller and check only their lengths; the
-field and family constructors derive them, which is what makes them canonical (see the `Canonical`
+The two explicit constructors take both wavenumber families from the caller and check only their
+lengths; the field and array-family constructors derive them, which is what makes them canonical (see the `Canonical`
 parameter below).
 
 The wavenumbers it derives are the physical angular wavenumbers ``k = 2\\pi n / L``
@@ -1965,21 +1965,21 @@ FieldSpectralMultipliers(field::AbstractFieldSpectral{T}) where {T<:AbstractFloa
   _canonical_multipliers(field_data(field), field_grid(field), field_layout(field))
 
 
-# From a storage family (decision 94): the field form reads from its field only the grid, the layout
-# and the storage family the axis arrays are allocated in, so the three are taken directly and a
+# From an array family (decision 94): the field form reads from its field only the grid, the layout
+# and the array family the axis arrays are allocated in, so the three are taken directly and a
 # caller holding no field allocates none. The reference is an empty array of the family — `similar`
 # needs one to name the family, and an empty one costs a header.
-function FieldSpectralMultipliers(family::Type{<:AbstractArray}, grid::Grid3D{T};
+function FieldSpectralMultipliers(array_family::Type{<:AbstractArray}, grid::Grid3D{T};
     layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
-  _check_family_element_type(family, grid)
-  return _canonical_multipliers(_allocated_field_storage(family, T, (0,)), grid, layout)
+  _check_array_family_element_type(array_family, grid)
+  return _canonical_multipliers(_allocated_field_storage(array_family, T, (0,)), grid, layout)
 end
 
 
 """
     _canonical_multipliers(reference, grid, fourier_layout)
 
-Derive both wavenumber families from `grid` and `fourier_layout` on the storage family of
+Derive both wavenumber families from `grid` and `fourier_layout` on the array family of
 `reference`, and mark the result canonical — the shared body of the field and family constructors of
 [`FieldSpectralMultipliers`](@ref), so the two cannot derive different coordinates.
 """
@@ -2049,7 +2049,7 @@ _context_layout(multipliers::FieldSpectralMultipliers) = multipliers.fourier_lay
                                      multipliers::FieldSpectralMultipliers)
 
 Check that a spectral-space `field` and `multipliers` share scalar type, grid, Fourier layout, and
-storage family. Returns `nothing` or throws.
+array family. Returns `nothing` or throws.
 """
 function _check_multipliers_compatibility(field::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
   field_scalar_type(field) == _multipliers_scalar_type(multipliers) || throw(ArgumentError("field and spectral multipliers scalar types must be equal"))
@@ -2065,7 +2065,7 @@ function _check_multipliers_compatibility(field::AbstractFieldSpectral, multipli
   # doing its job. Any of the six wavenumber vectors names the family the multipliers were built on.
   Base.typename(typeof(parent(field_data(field)))).wrapper ===
       Base.typename(typeof(parent(multipliers.wavenumber_1))).wrapper ||
-    throw(ArgumentError("field and spectral multipliers must live in the same storage family; got " *
+    throw(ArgumentError("field and spectral multipliers must live in the same array family; got " *
                         "$(Base.typename(typeof(parent(field_data(field)))).wrapper) and " *
                         "$(Base.typename(typeof(parent(multipliers.wavenumber_1))).wrapper)"))
   return nothing
@@ -2342,7 +2342,7 @@ at a time, so the extra memory is one component rather than the whole field.
 
 - `destination` — the field to fill. It must be of the stored type and match the stored
   [`Grid3D`](@ref), Fourier layout, tensor order and element type; a mismatch is refused with a
-  message naming what differs, and nothing is written. Its storage family is its own, host or device.
+  message naming what differs, and nothing is written. Its array family is its own, host or device.
 - `parent` — an open HDF5 `File` or `Group` holding the group.
 - `name` — the name (or path) of that field group under `parent`.
 
@@ -2373,7 +2373,7 @@ function read_field! end
 # display that omitted those printed two byte-identical strings for the two operands of the very
 # error it was meant to explain — measured on four mutually incompatible fields, which rendered as
 # one string. `_check_same_domain` refuses on six things, and the display shows all six: the scalar
-# type and the storage family, always; the grid, which decision 45 fixes as size and extent (the
+# type and the array family, always; the grid, which decision 45 fixes as size and extent (the
 # spacing being derived from them, so it cannot differ on its own) and the origin; and the Fourier
 # layout. Grid size, scalar type and family are shown unconditionally, and the other three only when
 # they leave the ordinary isotropic 2π box at the origin in axis order — which keeps the common line
@@ -2493,7 +2493,7 @@ function Base.show(io::IO, field::AbstractField)
   _show_extent(io, field_grid(field).grid_size)
   print(io, " grid")
   _show_domain(io, field_grid(field), field_layout(field))
-  print(io, ", ", nameof(_storage_family(field)), ")")
+  print(io, ", ", nameof(_array_family(field)), ")")
 end
 
 
@@ -2507,7 +2507,7 @@ function Base.show(io::IO, ::MIME"text/plain", field::AbstractField)
   # spectrum, in a complex element type — so it is printed rather than left to be inferred.
   print(io, "\n  stored:  ")
   _show_extent(io, size(field_data(field)))
-  print(io, " ", eltype(field_data(field)), " in ", nameof(_storage_family(field)))
+  print(io, " ", eltype(field_data(field)), " in ", nameof(_array_family(field)))
   print(io, "\n  layout:  fft_dims ", field_layout(field).fft_dims,
         ", folded on axis ", field_layout(field).fft_dims[1])
 end
@@ -2518,7 +2518,7 @@ function Base.show(io::IO, multipliers::FieldSpectralMultipliers)
   _show_extent(io, multipliers.grid.grid_size)
   print(io, " grid")
   _show_domain(io, multipliers.grid, multipliers.fourier_layout)
-  print(io, ", ", nameof(_storage_family(multipliers.wavenumber_1)), ")")
+  print(io, ", ", nameof(_array_family(multipliers.wavenumber_1)), ")")
 end
 
 
@@ -2533,17 +2533,17 @@ end
 
 
 ###################################################
-#   Moving between storage families (Adapt.jl)    #
+#   Moving between array families (Adapt.jl)    #
 ###################################################
 
 """
     adapt(storage, object)
 
 Move a section — a field or point-values — or its multipliers, its kernels, its point set or its
-transform plans to another **storage family**, host to device or device to host, returning an object
+transform plans to another **array family**, host to device or device to host, returning an object
 of the same kind whose arrays live in the requested family. The element type is preserved exactly.
 
-A **storage family** is the kind of array holding the values — `Array` on the host, or one vendor's device array. Use this
+A **array family** is the kind of array holding the values — `Array` on the host, or one vendor's device array. Use this
 when something built on one family has to be used on another. Two fields combine arithmetically only
 when they share a family and an element type, and a mixed pair is **refused** rather than promoted or
 transferred, because a copy across the bus is a cost that belongs at the call site; `adapt` is that
@@ -2576,7 +2576,7 @@ plans_device  = adapt(CuArray, plans)             # rebuilt on the device
     a distinct object is what is wanted.
 
 !!! warning "Transform plans are rebuilt, not moved, and that costs a planning pass"
-    An FFT plan is a compiled schedule tied to one storage family and cannot be transferred, so
+    An FFT plan is a compiled schedule tied to one array family and cannot be transferred, so
     adapting a `FieldTransformPlans` **constructs new plans** on the target. It needs nothing from the
     caller: the plans carry their own grid, layout and element type — and no tensor order — so the two arrays
     the planner needs as witnesses are allocated internally and released immediately. The planner
@@ -2591,7 +2591,7 @@ adapt
 """
     _storage_prototype(to, ::Type{S})
 
-Return an empty array of element type `S` in the storage family `to`, to be grown with `similar`.
+Return an empty array of element type `S` in the array family `to`, to be grown with `similar`.
 
 This is how [`adapt`](@ref) allocates a transform plan's witness arrays on the target without a host
 round trip: adapting a zero-length array costs nothing and yields a prototype of the right family,
@@ -2633,7 +2633,7 @@ destination already **is** the target family, so the two cannot disagree.
 
 Both arguments are sections of the same kind — two fields in the same representation,
 two point-value sections, or two point sets — agreeing in element type, tensor order, grid and Fourier
-layout, and differing at most in the storage family they live in. Everything except the family must
+layout, and differing at most in the array family they live in. Everything except the family must
 match, because this moves storage and nothing else: precision is not converted here, exactly as it is
 not by `adapt`. A mismatch is refused with an `ArgumentError` naming the property that differs and
 both values, so a caller need not check the pair itself. A pair that differs in representation has no method rather than an error message,
@@ -2658,7 +2658,7 @@ function adapt! end
     _check_adapt_target(destination, source)
 
 Check that two sections agree in everything a storage move must preserve — scalar type, tensor
-order, grid and Fourier layout — and deliberately **not** in storage family, which is the one thing the move exists to
+order, grid and Fourier layout — and deliberately **not** in array family, which is the one thing the move exists to
 change.
 
 This is [`_check_same_domain`](@ref) minus its backend clause. Reusing that check would refuse the pair
@@ -2730,7 +2730,7 @@ counts, and point sets of different point counts, compare `false` for the same r
 Some pairs are refused with an `ArgumentError` rather than answered, because either answer could
 mislead. A field in physical representation compared with one in spectral representation may be two
 representations of one field, so `false` would be wrong and `true` would need a transform; transform
-one of them first. Sections of different element types or different storage families (host against
+one of them first. Sections of different element types or different array families (host against
 device) are refused as every operation over two sections refuses them, rather than converted.
 
 The values compare as Julia's arrays compare. Under `==`, `0.0` equals `-0.0` and `NaN` equals nothing,
@@ -2761,7 +2761,7 @@ hash(field::AbstractField, h::UInt) =
     _section_equality(compare, a, b)
 
 Compare two fields of one representation with `compare` (`==` or `isequal`) applied to their
-storage, after refusing a pair of different element types or storage families and answering `false`
+storage, after refusing a pair of different element types or array families and answering `false`
 for a pair of different tensor orders, grids or layouts. Returns a `Bool` or throws.
 """
 function _section_equality(compare, a, b)
@@ -2769,7 +2769,7 @@ function _section_equality(compare, a, b)
     throw(ArgumentError("fields of different element types are not compared: " *
                         "$(field_scalar_type(a)) against $(field_scalar_type(b))"))
   _same_backend(a, b) ||
-    throw(ArgumentError("fields in different storage families are not compared: move one with `adapt` first"))
+    throw(ArgumentError("fields in different array families are not compared: move one with `adapt` first"))
   _same_tensor_order(a, b) && _same_grid(a, b) && _same_layout(a, b) || return false
   return compare(field_data(a), field_data(b))
 end
@@ -3068,7 +3068,7 @@ The `destination` may be the `source`, and the one-argument form projects in pla
 one or two planes, ``O(N^2)``, per-axis count squared. With a distinct `destination` the whole source is copied first, so
 that form costs a field copy, ``O(N^3)``, before the projection — the same shape as the two-argument
 `helmholtz_projection!`, kept so the twins read alike, but not the cheap one. The two fields must
-share a grid, layout, tensor order, element type and storage family, and a mismatch is refused
+share a grid, layout, tensor order, element type and array family, and a mismatch is refused
 rather than converted.
 """
 function reality_projection!(destination::AbstractFieldSpectral{T, R}, source::AbstractFieldSpectral{T, R}) where {T<:AbstractFloat, R}
@@ -3291,7 +3291,7 @@ Check that two fields in spectral representation name the same Fourier modes whe
 overlap, and that `coarse` is the coarser of the two. Returns `nothing` or throws.
 
 Every refusal reads metadata only, never a coefficient. The two fields must agree in scalar type,
-tensor order, storage family, domain size, origin and Fourier layout — a differing domain or origin
+tensor order, array family, domain size, origin and Fourier layout — a differing domain or origin
 means the two grids' modes are different physical waves whatever their counts, and a differing fold
 means the stored index of a mode is not the same function of its frequency.
 
@@ -3305,8 +3305,8 @@ function _check_shared_mode_compatibility(coarse::AbstractFieldSpectral, fine::A
   _same_scalar_type(coarse, fine) || throw(ArgumentError("field scalar types must be equal"))
   _same_tensor_order(coarse, fine) || throw(ArgumentError("field tensor orders must be equal"))
   _same_backend(coarse, fine) ||
-    throw(ArgumentError("fields must live in the same storage family; got " *
-                        "$(_storage_family(coarse)) and $(_storage_family(fine))"))
+    throw(ArgumentError("fields must live in the same array family; got " *
+                        "$(_array_family(coarse)) and $(_array_family(fine))"))
   coarse_grid, fine_grid = field_grid(coarse), field_grid(fine)
   coarse_grid.domain_size == fine_grid.domain_size && coarse_grid.origin == fine_grid.origin ||
     throw(ArgumentError("fields must cover the same box; got domain size $(coarse_grid.domain_size) " *

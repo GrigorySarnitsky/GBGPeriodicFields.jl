@@ -14,7 +14,7 @@
 # cost is of a different kind and is the reason it gets its own row rather than being folded in.
 
 function add_storage!(group, AT, ::Type{T}, grid, tag) where {T}
-  # No second storage family on a host lane, so nothing to measure. See the note above.
+  # No second array family on a host lane, so nothing to measure. See the note above.
   AT === Array && return
 
   host_scalar = ScalarFieldPhysical(rand(T, grid.grid_size...), grid)

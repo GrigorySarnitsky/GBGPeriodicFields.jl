@@ -40,13 +40,13 @@ if USECUDA
     "benchmark harness: CUDA arrays are being allocated in UNIFIED memory (CUDA.jl's `default_memory` " *
     "preference). The harness cannot measure that configuration honestly — run it from an environment " *
     "without the preference. See docs/PERFORMANCE.md finding (as) and §7 gap 9.")
-  ARRAY_TYPE = @eval CuArray
+  ARRAY_FAMILY = @eval CuArray
   # CUDA JIT-compiles each kernel through the driver and caches SASS in ~/.nv/ComputeCache; there is
   # no host-side comgr stall (the AMD trap below), so no explicit cache warm is needed.
 elseif USEGPU
   @eval using AMDGPU
   @eval AMDGPU.allowscalar(false)
-  ARRAY_TYPE = @eval ROCArray
+  ARRAY_FAMILY = @eval ROCArray
   # Warm the AMD code-object cache (~/.cache/comgr) with one trivial kernel. The FIRST GPU use after
   # a reboot compiles kernels host-side (0% GPU, 100% CPU) and can take minutes — indistinguishable
   # from a hang. Letting it complete here populates the on-disk cache; never kill a cold first run
@@ -59,7 +59,7 @@ elseif USEGPU
   println("GPU code-object cache warmed")
   flush(stdout)
 else
-  ARRAY_TYPE = Array
+  ARRAY_FAMILY = Array
 end
 
 include(joinpath(@__DIR__, "benchmarks.jl"))
@@ -154,7 +154,7 @@ for N in CHAR_SIZES, T in CHAR_TYPES, class in RUN_CLASSES
           "  tuning + running $(class) $(T) $(N)^3 ...")
   flush(stdout)
   others = filter(!=(class), collect(CLASSES))
-  suite = build_suite(; array_type = ARRAY_TYPE, types = (T,), sizes = (N,), skip = vcat(CHAR_SKIP, others))
+  suite = build_suite(; array_family = ARRAY_FAMILY, types = (T,), sizes = (N,), skip = vcat(CHAR_SKIP, others))
   if USEGPU
     kept, fixed, failed = _apply_gcsample_policy!(suite)
     println("  per-sample GC kept for $(length(kept)) allocating row(s)",

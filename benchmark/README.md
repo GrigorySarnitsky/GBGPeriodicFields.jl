@@ -6,7 +6,7 @@ practices, and the recorded per-platform results live in [`docs/PERFORMANCE.md`]
 
 ## Layout
 
-- `benchmarks.jl` — `build_suite(; array_type, types, sizes)` builds a `BenchmarkTools.BenchmarkGroup`
+- `benchmarks.jl` — `build_suite(; array_family, types, sizes)` builds a `BenchmarkTools.BenchmarkGroup`
   parameterised by the device array type (`Array` on CPU; `ROCArray`/`CuArray` on GPU), element type,
   and grid size. `print_results` prints a min-time/allocations table.
 - `harness.jl` — device-parameterised field/point builders + `bench_sync` (blocks the backend so

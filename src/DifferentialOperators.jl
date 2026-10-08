@@ -1189,7 +1189,7 @@ longitudinal part silently discarded rather than reported.
   source coefficients are read before any of its components are written.
 - `field` — the vector field to invert, in spectral representation.
 - `multipliers` — the [`FieldSpectralMultipliers`](@ref) supplying the derivative wavenumbers, which
-  must match the field's grid, layout, element type and [storage family](@ref GBGPeriodicFields.GBGPeriodicFields).
+  must match the field's grid, layout, element type and [array family](@ref GBGPeriodicFields.GBGPeriodicFields).
 
 Because ``\\nabla\\times(\\nabla\\times u) = \\nabla(\\nabla\\cdot u) - \\Delta u`` and the result is
 divergence-free, the operator is a Laplacian solve composed with a curl, and in spectral

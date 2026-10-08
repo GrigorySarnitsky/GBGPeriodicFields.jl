@@ -197,7 +197,7 @@ here rather than repeated:
 - **Measure / L²** ([`Reductions`](@ref GBGPeriodicFields.Reductions)) provides `integral`, `inner`, `weighted_inner`, `l2norm`, `mean`, the radial spectra ([§12](@ref "12. Reductions")).
 - **The grid↔point transfer** ([`Interpolation`](@ref GBGPeriodicFields.Interpolation)): interpolation ``W`` and its adjoint anterpolation
   ``W^{\top}`` ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")).
-- **Moving between storage families** ([`adapt`](@ref), decision 63): host and device are two families of
+- **Moving between array families** ([`adapt`](@ref), decision 63): host and device are two families of
   the same object, and crossing between them is an explicit operation rather than something arithmetic
   does implicitly — invariant 14 refuses a mixed pair, and this is its named complement.
 - **Support mechanics** — types & memory layout ([§3](@ref "3. Types and memory layout")), validation design ([§5](@ref "5. Validation design")), code generation ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")),
@@ -268,14 +268,14 @@ with a pointer to the section that develops it.
     load-bearing on a GPU: a per-call device temporary escapes Julia's garbage collector, which
     triggers on host pressure and cannot see the device buffer a dead array owns, so the pool grows
     every step until the run wedges ([§9](@ref "9. Performance model and CPU threading")).
-14. **Sections combine only within one precision and one storage family — never by conversion.** An
-    operation over two or more sections requires them to agree in element type and in storage family
+14. **Sections combine only within one precision and one array family — never by conversion.** An
+    operation over two or more sections requires them to agree in element type and in array family
     (`Array` with `Array`, `CuArray` with `CuArray`), and refuses anything else with a clear error
     rather than promoting, copying, or transferring. The refusal is a decision of the package, not an
     accident of a vendor library declining a mixed-pointer call or a kernel launcher declining mixed
     arrays. It binds every argument an operation takes, the destination and the non-section partners
     included — a spectral field and its multipliers must match too. Conversion is an explicitly-named
-    operation, never something an arithmetic operation does implicitly: crossing **storage families**
+    operation, never something an arithmetic operation does implicitly: crossing **array families**
     is [`adapt`](@ref) (decision 63), or [`adapt!`](@ref) into a destination that already exists
     (sections only; decision 69), and crossing **precisions** remains future work.
 
@@ -423,7 +423,7 @@ threading ([§9](@ref "9. Performance model and CPU threading")). Component acce
 splicing them into generated formulas costs nothing.
 
 Storage is any `AbstractArray`, and the package names no vendor type and no memory kind. A field's
-**storage family** is the kind of array holding its values — `Array`, `CuArray`, `ROCArray` — and on
+**array family** is the kind of array holding its values — `Array`, `CuArray`, `ROCArray` — and on
 CUDA the same `CuArray` may sit in device memory or in **unified memory** paged between the GPU and host
 RAM. Which of the two is CUDA.jl's configuration rather than the package's, and every allocating route
 follows it, so a CUDA run can hold fields larger than the card with no change to the code (decision 84,
@@ -432,7 +432,7 @@ follows it, so a CUDA run can hold fields larger than the card with no change to
 ## 4. Spectral machinery
 
 `FieldTransformPlans` owns the FFT plans (per backend). They are built from a pair of fields, or from
-a storage family with the grid and layout alone (decision 93): a transform is defined on the box, so the
+an array family with the grid and layout alone (decision 93): a transform is defined on the box, so the
 box is all a plan needs. Forward transforms are
 unnormalized; inverse transforms carry the normalization (AbstractFFTs
 convention) — this single convention choice propagates into the zero-mode constant
@@ -462,7 +462,7 @@ Two constructors by design:
 
 - An explicit constructor taking all six arrays (lengths validated), testable in
   isolation and letting callers control the backend.
-- A convenience constructor from a field, or from a storage family with the grid and layout
+- A convenience constructor from a field, or from an array family with the grid and layout
   (decision 94): wavenumbers ``2\pi n/L``, with ``n`` the integer mode index and ``L`` the box length,
   are built on the host and copied to that backend (no scalar GPU writes).
 
@@ -513,7 +513,7 @@ rule: an operation may be offered in a representation **iff** its square commute
 `Fields` owns compatibility checking, built from atomic Boolean predicates
 (`_same_scalar_type`, `_same_grid`, `_same_layout`, `_same_backend`) composed
 into `_check_same_domain`. The last of those is what realizes invariant 14: it throws when two
-sections live in different storage families (an `Array` against a `CuArray`), and it sits in the
+sections live in different array families (an `Array` against a `CuArray`), and it sits in the
 domain check rather than below it, so the error does not depend on which operation the user happened
 to call. Tensor order is deliberately **not** among them — `_same_tensor_order` is checked one level
 up, in `_check_field_compatibility` only, because the domain check must let order differ for the

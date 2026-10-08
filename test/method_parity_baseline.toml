@@ -367,7 +367,7 @@ FiberSections = 114   # + _section_tensor_order, cartesian _index_ranges, _check
   # 105 → 103: `_kernel_data(::ScalarFieldSpectral)` and `_check_kernel_compatibility(field,
   # ::ScalarFieldSpectral)` were deleted when a field in spectral representation stopped being a kernel
   # (decision 60). Refrozen deliberately, with the reason, per decision 53's protocol.
-  # 103 → 115: moving sections between storage families. Four are the `adapt_structure` methods
+  # 103 → 115: moving sections between array families. Four are the `adapt_structure` methods
   # themselves (physical fields, spectral fields, `FieldSpectralMultipliers`, `FieldTransformPlans`);
   # the other eight are the internals they need — `_storage_prototype`, the two three-method families
   # `_field_physical_of_order`/`_field_spectral_of_order` that construct a field of a given tensor
@@ -380,13 +380,13 @@ FiberSections = 114   # + _section_tensor_order, cartesian _index_ranges, _check
   # generic; the 3-arg form and the allocating forms are unchanged.
   # 116 → 119: the in-place storage move (decision 69). Two are `adapt!`'s own field methods, one per
   # representation; the third is `_check_adapt_target`, which is `_check_same_domain` without its
-  # storage-family clause — the one thing this operation exists to let differ. Refrozen deliberately,
+  # array-family clause — the one thing this operation exists to let differ. Refrozen deliberately,
   # with the reason, per decision 53's protocol.
   # 119 → 120: `reality_residual` (decision 71), the checkable half of the real-field layout's
   # conjugate-symmetry contract. One method, on the spectral representation only — a physical field
   # has no such constraint, so it has none. Refrozen deliberately, with the reason.
-  # 120 → 122 (decision 74): the two helpers behind the allocating `(family, grid[, layout])`
-  # constructors — `_allocated_field_storage` and `_check_family_element_type`. The sixteen
+  # 120 → 122 (decision 74): the two helpers behind the allocating `(array_family, grid[, layout])`
+  # constructors — `_allocated_field_storage` and `_check_array_family_element_type`. The sixteen
   # constructor methods themselves are Type methods, which this per-function count does not see;
   # they are covered by the constructor testset and the ambiguity check instead.
   # 122 → 126: the transform plans stopped carrying a tensor order (decision 76). The four are
@@ -400,7 +400,7 @@ FiberSections = 114   # + _section_tensor_order, cartesian _index_ranges, _check
   # `_show_field_head`, the two `_show_domain` arities (grid-and-layout, and grid alone for an object
   # such as a traversal scratch that has no Fourier structure), and a `show` each for `Grid3D`, a
   # field (compact), a field (`text/plain`), `FieldSpectralMultipliers` and `FieldTransformPlans`.
-  # The eleventh is a SPLIT rather than an addition: `_storage_family` had one untyped method taking
+  # The eleventh is a SPLIT rather than an addition: `_array_family` had one untyped method taking
   # a section and calling `parent` once; it is now the recursing array method plus a section method
   # delegating to it, because the constructors reject only a `SubArray` and a `reshape` of a
   # `PermutedDimsArray` of a device array therefore exists — one `parent` call answers
@@ -516,8 +516,8 @@ Convolution = 125
   # compatibility checks.
   # 226 → 228: the display layer adds three — `_show_count` (which is where the singular `1 point`
   # lives) and a `show` each for `PointSet` and `AbstractPointValues` — and the unification of the
-  # storage-family notion removes one. `_motion_storage_family` was a third spelling of `Fields`'
-  # `_storage_family`, with the same non-recursing body, used by `displace!`'s family refusal; with
+  # array-family notion removes one. `_motion_storage_family` was a third spelling of `Fields`'
+  # `_array_family`, with the same non-recursing body, used by `displace!`'s family refusal; with
   # the `Fields` version now taking an array it is the same function and the duplicate is gone.
   # 235 → 242: equality by value (decision 91) — `==`, `isequal` and `hash` on point values and on
   # point sets, two methods each, and the shared `_point_section_equality`. `adapt!` kept its two.

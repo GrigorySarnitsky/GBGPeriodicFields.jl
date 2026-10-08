@@ -151,7 +151,7 @@ const PEER_INVOCATIONS = Dict{Symbol, Function}(
 
 # ── Exemptions: every one CITES the assertion that carries its refusal, or states why none can ──
 const PEER_EXEMPT = Dict{Symbol, String}(
-  :(==)     => "a peer on another grid or layout is a different field, so equality answers false rather than refusing (decision 91); its refusals — representation, precision, storage family — are asserted in test/equality.jl",
+  :(==)     => "a peer on another grid or layout is a different field, so equality answers false rather than refusing (decision 91); its refusals — representation, precision, array family — are asserted in test/equality.jl",
   :isequal  => "as `==`: another grid or layout answers false; the refusals are asserted in test/equality.jl",
   # Unary at the public surface: no second operand whose context could disagree. Each allocating
   # form's peer check lives in the `!` sibling it delegates to, invoked above.
@@ -238,7 +238,7 @@ const POINT_COVERED = Set([:displace!, :wrap!, :point_traversal_order!])
 end
 
 
-# The point layer's peer axis is the POINT COUNT (and, cross-backend, the storage family — a CPU
+# The point layer's peer axis is the POINT COUNT (and, cross-backend, the array family — a CPU
 # process cannot build the mismatch, so the GPU suite carries that half).
 @testset "peer rejections: the point layer refuses a mismatched point count" begin
   points12 = PointSet(rand(12, 3) .* 2π)
@@ -253,7 +253,7 @@ end
   # `wrap!`'s one context check is PRECISION: the canonical representative is computed in the points'
   # own element type, and a grid of another precision must refuse rather than silently convert
   # (invariant 14's no-conversion rule, applied to the one pair `displace!`/`wrap!` can mismatch on
-  # a single backend — the storage-family half needs a device and lives in the GPU suite).
+  # a single backend — the array-family half needs a device and lives in the GPU suite).
   grid64 = Grid3D((8, 6, 4), (2π, 2π, 2π))
   points32 = PointSet(rand(Float32, 12, 3) .* 2.0f0)
   @test wrap!(PointSet(rand(12, 3) .* 2π), grid64) !== nothing

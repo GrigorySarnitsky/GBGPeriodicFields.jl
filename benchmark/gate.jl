@@ -24,13 +24,13 @@ const BACKEND = isempty(ARGS) ? "cpu" : ARGS[1]
 if BACKEND == "cuda"
   @eval using CUDA
   @eval CUDA.allowscalar(false)
-  ARRAY_TYPE = @eval CuArray
+  ARRAY_FAMILY = @eval CuArray
 elseif BACKEND in ("gpu", "rocm")
   @eval using AMDGPU
   @eval AMDGPU.allowscalar(false)
-  ARRAY_TYPE = @eval ROCArray
+  ARRAY_FAMILY = @eval ROCArray
 elseif BACKEND == "cpu"
-  ARRAY_TYPE = Array
+  ARRAY_FAMILY = Array
 else
   error("unknown backend $(repr(BACKEND)) (want cpu|cuda|rocm)")
 end
@@ -38,7 +38,7 @@ end
 include(joinpath(@__DIR__, "benchmarks.jl"))
 
 registry = Dict{String, Any}()
-suite = build_suite(; array_type = ARRAY_TYPE, types = (Float64, Float32), sizes = (16,), registry)
+suite = build_suite(; array_family = ARRAY_FAMILY, types = (Float64, Float32), sizes = (16,), registry)
 
 ran, failed = 0, String[]
 for (class, group) in suite, (key, benchmark) in group

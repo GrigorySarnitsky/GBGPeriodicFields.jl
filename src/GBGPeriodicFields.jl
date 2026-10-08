@@ -40,10 +40,10 @@ These words recur in every operation's documentation:
   two part company in spectral representation: physical storage holds `T`, spectral storage holds
   `Complex{T}` at the same scalar type. Precision is the scalar type; the complex storage is
   representation detail, so a field in spectral representation is no less a `Float64` field.
-- a section's **storage family** is the kind of array its data lives in — `Array` on the host,
+- a section's **array family** is the kind of array its data lives in — `Array` on the host,
   `CuArray` or `ROCArray` on a device — taken as the array's underlying type rather than its wrapping,
   so a `reshape` of an `Array` is still the `Array` family. Two sections combine only within one
-  storage family and one element type; a mixed pair is refused rather than converted, and
+  array family and one element type; a mixed pair is refused rather than converted, and
   [`adapt`](@ref) moves one explicitly — a field, the wavenumber multipliers and convolution kernels
   built for it, its transform plans, a point set or point values — into another family, never changing the
   element type.
@@ -60,7 +60,7 @@ docstring maps what it provides, so this list says what each is for rather than 
   [`FiberVector`](@ref) and [`FiberTensor2`](@ref)/[`FiberTensor3`](@ref)/[`FiberTensor4`](@ref), which name the value
   at one base point and so belong to neither base in particular.
 - [`Fields`](@ref) — the field and grid types, the two representations and the transforms between
-  them, allocation, broadcasting, HDF5 persistence, and the storage-family move `adapt`.
+  them, allocation, broadcasting, HDF5 persistence, and the array-family move `adapt`.
 - [`FieldAlgebra`](@ref) — the fiberwise algebra on fields, including [`map!`](@ref)/[`map`](@ref)
   for any fiber map it does not name.
 - [`DifferentialOperators`](@ref) — the differential operators, applied as spectral multipliers.
@@ -316,7 +316,7 @@ export FiberVector,
        embed_modes!,
        extract_modes!,
        # Re-exported from `Adapt`, not owned here: it is the ecosystem-standard verb for moving a
-       # struct between storage families, and the package extends it for every section, kernel and
+       # struct between array families, and the package extends it for every section, kernel and
        # plan. Re-exporting is what makes it reachable from `using GBGPeriodicFields` alone — without
        # it the interface exists but a user has to know to reach for `Adapt` themselves.
        adapt,

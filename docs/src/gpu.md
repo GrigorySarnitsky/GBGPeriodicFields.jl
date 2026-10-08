@@ -11,13 +11,13 @@ vendors; each vendor section then starts with a complete example you can run as 
 
 ### Fields on a device
 
-The kind of array holding a field's values is its **storage family**: `Array` on the host, `CuArray` on
+The kind of array holding a field's values is its **array family**: `Array` on the host, `CuArray` on
 an NVIDIA GPU, `ROCArray` on an AMD GPU. Every field constructor accepts a family in place of an array
 and allocates uninitialized storage in it. Fields, their [multipliers](@ref FieldSpectralMultipliers), [kernels](@ref SpectralKernel),
 point sets and transform [plans](@ref FieldTransformPlans) move to another family with [`adapt`](@ref), and [`adapt!`](@ref) copies into an existing field.
 Plans and multipliers built from device fields live there too.
 
-The fields, multipliers and kernels one operation combines must share a storage family and an element
+The fields, multipliers and kernels one operation combines must share an array family and an element
 type. Anything else throws an `ArgumentError` rather than being copied, so such an error usually means
 one object was left on the host.
 

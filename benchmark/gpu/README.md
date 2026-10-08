@@ -2,7 +2,7 @@
 
 Per-backend GPU benchmark environments, mirroring `test/gpu/`. Opt-in; run on a machine with a
 device. Each backend entry sets the device array type and includes the shared suite
-(`benchmark/benchmarks.jl`) via `build_suite(; array_type = <DeviceArray>)`, with scalar indexing
+(`benchmark/benchmarks.jl`) via `build_suite(; array_family = <DeviceArray>)`, with scalar indexing
 disabled so invariant 6 (no scalar GPU indexing) is a checked guarantee.
 
 - `rocm/` — AMD ROCm / AMDGPU (present).

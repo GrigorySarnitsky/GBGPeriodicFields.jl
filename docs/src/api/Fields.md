@@ -60,9 +60,9 @@ field_spectral_shape
 similar_field
 ```
 
-## Moving between storage families
+## Moving between array families
 
-Host and device are **storage families**, not representations: a field has both, and they vary
+Host and device are **array families**, not representations: a field has both, and they vary
 independently — the representation says whether its values are the field or its Fourier coefficients,
 the family says which kind of array holds them. Moving between families is
 [`Adapt.jl`](https://github.com/JuliaGPU/Adapt.jl)'s verb, extended here for every section, kernel and
@@ -82,7 +82,7 @@ Two spectral fields over the same box whose grids differ in size name the same F
 they overlap, because a grid of `N` points over a domain of length `L` resolves `2π/L` times the
 integers it stores. These two verbs move exactly those shared modes, leaving the rest of the
 destination untouched, at a cost set by the coarser field — the mode-space counterpart of the
-storage-family crossing above, and the route by which content computed on a small grid reaches a large
+array-family crossing above, and the route by which content computed on a small grid reaches a large
 one without a transform. Amplitudes are physical: the ratio of the two grids' point counts is applied
 inside, so the two are exact adjoints of each other.
 
@@ -136,7 +136,7 @@ read_field!
 
 ## Internal API
 
-These symbols are not part of the public interface; they are documented for contributors — field-allocation and compatibility helpers, the spectral-multiplier broadcast helpers, the broadcast machinery, and the storage-family helpers `adapt` rebuilds through.
+These symbols are not part of the public interface; they are documented for contributors — field-allocation and compatibility helpers, the spectral-multiplier broadcast helpers, the broadcast machinery, and the array-family helpers `adapt` rebuilds through.
 
 ### Types
 
@@ -158,7 +158,7 @@ Filter  = t -> !(t in (GBGPeriodicFields.Fields.AbstractField,
 Modules = [GBGPeriodicFields.Fields]
 Public  = false
 Order   = [:function]
-# `adapt` and `adapt!` are rendered by the "Moving between storage families" section above. They reach
+# `adapt` and `adapt!` are rendered by the "Moving between array families" section above. They reach
 # this block for two different reasons and need the same exclusion: `adapt` is an EXTERNAL generic the
 # module extends rather than one it owns, and `adapt!` is owned here but exported by the umbrella
 # rather than by `Fields`, which is the list Documenter reads. Either way `Public = false` does not

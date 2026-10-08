@@ -34,7 +34,7 @@ BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1.0
 # benchmarks.jl so the three device entry points cannot drift apart.
 BenchmarkTools.DEFAULT_PARAMETERS.gcsample = false
 
-suite = build_suite(; array_type = CuArray)
+suite = build_suite(; array_family = CuArray)
 kept, fixed, failed = apply_gcsample_policy!(suite; device_used = CUDA.used_memory, reclaim = CUDA.reclaim)
 println("per-sample GC kept for $(length(kept)) allocating row(s)", isempty(kept) ? "" : ": " * join(kept, ", "))
 println("Tuning on CUDA / NVIDIA: ", CUDA.device(), " ...")

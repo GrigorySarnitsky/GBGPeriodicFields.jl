@@ -121,14 +121,14 @@ const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
   (op => (:structural, "HDF5 persistence, covered by round-trip equality in hdf5.jl") for op in
    (:read_field, :read_points, :write_field, :write_points, :read_scheme, :write_scheme))...,
 
-  # Moving between storage families. `adapt` is the identity on the mathematical object — it changes
+  # Moving between array families. `adapt` is the identity on the mathematical object — it changes
   # where the storage lives and nothing else — so its oracle is a preservation property rather than a
   # computed value: the array compares equal elementwise, the element type is unchanged, and the grid,
   # layout, origin and tensor order all survive. Those are asserted directly against the original's
   # raw arrays and raw metadata, not through another package operation. `adapt_structure` is the
   # extension hook `adapt` dispatches to and shares the classification; it is listed rather than
   # filtered because it is reachable by a user writing their own adaptor.
-  (op => (:property, "adapt.jl — storage family changes, everything else is preserved; driven on CPU " *
+  (op => (:property, "adapt.jl — array family changes, everything else is preserved; driven on CPU " *
                      "by a custom adaptor, since adapting to the family one is already in is the identity")
      for op in (:adapt, :adapt_structure))...,
 

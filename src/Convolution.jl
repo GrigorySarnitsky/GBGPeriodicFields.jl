@@ -67,7 +67,7 @@ Kernel builders:
 """
 module Convolution
 
-# Imported before extending, per invariant 7. All four kernel classes move between storage families;
+# Imported before extending, per invariant 7. All four kernel classes move between array families;
 # the family's documentation lives on `adapt` in `Fields`.
 import Adapt: adapt, adapt_structure
 import ..Fields: _kernel_data, _check_kernel_compatibility,   # extended for the kernels below
@@ -76,7 +76,7 @@ using ..Fields:
   _check_matching_context,
   _show_domain,
   _show_extent,
-  _storage_family,
+  _array_family,
   field_spectral_shape,
   SpectralKernel,
   AbstractFieldSpectral,
@@ -264,7 +264,7 @@ overwritten with the kernel's value ``\\hat g(k)`` at that mode, and `destinatio
 
 Use this in-place form when `destination` is already allocated; the allocating
 [`materialize_kernel`](@ref) returns a fresh result instead. The `destination` is a
-[`StoredKernel`](@ref) sharing the grid, Fourier layout, element type and storage family of `kernel`,
+[`StoredKernel`](@ref) sharing the grid, Fourier layout, element type and array family of `kernel`,
 which may be of any of the four storage classes of a [`SpectralKernel`](@ref); a mismatch is refused.
 The evaluation allocates nothing, so a field-sized kernel is written without a second field-sized
 temporary. A caller holding a field it means to fill wraps it once as `StoredKernel(field)`, which
@@ -381,7 +381,7 @@ holding a `Type` is not a bitstype and a device rejects it at launch, and it may
 and do no scalar indexing of device arrays. Anything it does capture by value, such as a viscosity or a
 substep, is free to vary per call, because building a kernel allocates nothing of field size. The
 `multipliers` are the [`FieldSpectralMultipliers`](@ref) supplying ``|k|^2``, and whose grid, Fourier
-layout, element type and storage family the kernel takes as its own.
+layout, element type and array family the kernel takes as its own.
 
 The physics stays with the caller: an integrating factor is
 `radial_kernel(k2 -> exp(-ν * k2 * Δt), …)`, a smooth filter its own envelope. Because the function is
@@ -1814,7 +1814,7 @@ end
 Build an isotropic sharp spectral band-pass kernel, returned as a [`RadialKernel`](@ref) — the function
 itself rather than its coefficients, so it costs no field of storage. The evaluation is per mode, so on a CPU at a small grid an ``R \\ge 1`` field pays it once per fiber component — see `RadialKernel` for the measured trade-off against a materialized kernel. Use
 [`materialize_kernel`](@ref) to expand it into a `StoredKernel`. It is built on
-the multipliers' grid and storage family: the transfer function is ``1`` on the wavenumber shell and
+the multipliers' grid and array family: the transfer function is ``1`` on the wavenumber shell and
 ``0`` outside it.
 
 Convolve a field with it to keep an isotropic shell of wavenumbers — a de-aliasing band, a forcing
@@ -1825,7 +1825,7 @@ the annular generalization of [`spectral_cutoff`](@ref), which is the low-pass c
 # Arguments
 
 - `multipliers` — the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
-  and storage family the kernel takes as its own.
+  and array family the kernel takes as its own.
 - `wavenumber_low`, `wavenumber_high` — the inner and outer edges ``k_\\mathrm{lo}``,
   ``k_\\mathrm{hi}`` of the retained shell.
 
@@ -1864,7 +1864,7 @@ end
 Build an isotropic sharp low-pass kernel, returned as a [`RadialKernel`](@ref) — the function itself
 rather than its coefficients, so it costs no field of storage. The evaluation is per mode, so on a CPU at a small grid an ``R \\ge 1`` field pays it once per fiber component — see `RadialKernel` for the measured trade-off against a materialized kernel. Use [`materialize_kernel`](@ref) to
 expand it into a `StoredKernel`. It is built on
-the multipliers' grid and storage family: the transfer function is ``1`` for ``|k| \\le k_c`` and ``0``
+the multipliers' grid and array family: the transfer function is ``1`` for ``|k| \\le k_c`` and ``0``
 above it.
 
 Convolve a field with it for the ideal low-pass projection, the basis of spectral truncation and
@@ -1872,7 +1872,7 @@ de-aliasing. It is idempotent (``\\hat g^2 = \\hat g``), hence a projection, and
 special case of [`spectral_band`](@ref) with ``k_\\mathrm{lo} = 0``.
 
 Here `multipliers` is the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
-and storage family the kernel takes as its own, and `wavenumber_cutoff` is the cutoff wavenumber
+and array family the kernel takes as its own, and `wavenumber_cutoff` is the cutoff wavenumber
 ``k_c`` — a mode is kept when ``|k| \\le k_c``.
 
 ```math
@@ -1895,7 +1895,7 @@ end
                   width::NTuple{3, Real}) -> SeparableKernel
 
 Return the top-hat (box-average) window of a given width as a [`SeparableKernel`](@ref), its three
-per-axis factors on the multipliers' grid and storage family: convolving a field with it replaces the
+per-axis factors on the multipliers' grid and array family: convolving a field with it replaces the
 field at each point by its mean over the box of that width centred there.
 
 Use it to average a field over sub-boxes smaller than the domain — the scale-resolved statistics
@@ -1904,7 +1904,7 @@ filter of chosen width. The returned `w` is the window's transfer function ``\\h
 statistics need are its square, `convolve(w, w)`, which composes per axis at no extra cost.
 
 Here `multipliers` is the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
-and storage family the window takes as its own, and `width` is the edge of the box in the units of the
+and array family the window takes as its own, and `width` is the edge of the box in the units of the
 domain: one number for a cube, or one per axis for a rectangular box. Each edge must be finite and
 non-negative, and a zero edge leaves that axis unfiltered.
 
@@ -1959,7 +1959,7 @@ end
 Return the linear (cloud-in-cell) **mass**-assignment window — *assignment* in the particle-mesh sense
 of depositing a point's mass onto the grid cells around it, not the sense of writing a value into an
 array — as a [`SeparableKernel`](@ref) — its three
-per-axis factors rather than a field of coefficients — on the multipliers' grid and storage family, for
+per-axis factors rather than a field of coefficients — on the multipliers' grid and array family, for
 deconvolving a gridded point density.
 
 Use it when a pair correlation is estimated from points deposited on a grid rather than counted
@@ -1972,7 +1972,7 @@ mass over a tent, so the gridded density is the true density ``\\rho`` convolved
 (the pair density at separation ``r`` relative to an uncorrelated uniform gas).
 
 Here `multipliers` is the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
-and storage family the window takes as its own.
+and array family the window takes as its own.
 
 As a real physical object ``W`` is the linear B-spline ("tent") cloud, the tensor product of per-axis
 tents:
@@ -2020,7 +2020,7 @@ end
                        offset::NTuple{3, Real}) -> SeparableKernel
 
 Build the kernel that translates a field by the physical displacement ``h`` = `offset`, returned as a
-[`SeparableKernel`](@ref) on the multipliers' grid and storage family: convolving a field ``f``
+[`SeparableKernel`](@ref) on the multipliers' grid and array family: convolving a field ``f``
 with it gives the displaced field ``f(x - h)``, the position ``x`` reduced onto the periodic box.
 
 Use it to move a field onto a displaced grid without re-gridding — a shift-and-average filter, the
@@ -2038,7 +2038,7 @@ number ``\\cos(\\pi h_a / \\Delta x_a)``, which attenuates rather than translate
 half-cell shift — the reality condition demands it, and the warning below gives the detail.
 
 Here `multipliers` is the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
-and storage family the kernel takes as its own, and `offset` is the displacement
+and array family the kernel takes as its own, and `offset` is the displacement
 ``h = (h_1, h_2, h_3)`` — a physical length per axis in the units of the box rather than a count of
 cells, so a half-cell displacement is `0.5 .* grid.grid_spacing` on the [`Grid3D`](@ref GBGPeriodicFields.Fields.Grid3D) the field lives on.
 
@@ -2136,7 +2136,7 @@ end
 
 
 ###################################################
-#   Moving between storage families (Adapt.jl)    #
+#   Moving between array families (Adapt.jl)    #
 ###################################################
 
 # One method per storage class. The compressed classes carry a grid and layout that are pure bitstypes
@@ -2164,10 +2164,10 @@ adapt_structure(to, kernel::ProductKernel{T}) where {T} =
 # `ProductKernel` 58090, because both hold or wrap coefficient arrays; a `RadialKernel` holds none
 # and still printed 815, its symbol being an anonymous closure whose generated type name is most of
 # the line. There is one form and no `MIME"text/plain"` sibling, for the same reason as the point
-# sections: the class, element type, base and storage family are the whole of a kernel's metadata,
+# sections: the class, element type, base and array family are the whole of a kernel's metadata,
 # and they fit on the compact line.
 #
-# A kernel is shown as its class, element type, base and storage family. The base and family are what
+# A kernel is shown as its class, element type, base and array family. The base and family are what
 # `_check_kernel_compatibility` refuses on, by way of the same domain check the fields use; the class
 # and element type are what distinguishes two kernels the check would accept. The SYMBOL is
 # deliberately absent: a closure has no readable form, and printing
@@ -2184,7 +2184,7 @@ adapt_structure(to, kernel::ProductKernel{T}) where {T} =
 """
     _kernel_storage(kernel)
 
-Represent the kernel's storage family as an array, one method per storage class.
+Represent the kernel's array family as an array, one method per storage class.
 
 A kernel is not a section and has no [`field_data`](@ref), and the four classes hold their memory in four
 different shapes: a stored kernel wraps a field, a separable one holds three per-axis factors, a
@@ -2204,7 +2204,7 @@ _kernel_storage(kernel::ProductKernel) = _kernel_storage(kernel.first_kernel)
 """
     _show_kernel(io, kernel)
 
-Print a kernel as its class, element type, base and storage family.
+Print a kernel as its class, element type, base and array family.
 
 The base and the family are what `_check_kernel_compatibility` refuses on; the class and the element
 type are what separates two kernels it would accept. Shared by the three classes whose display is
@@ -2215,7 +2215,7 @@ function _show_kernel(io::IO, kernel::SpectralKernel{T}) where {T}
   _show_extent(io, _context_grid(kernel).grid_size)
   print(io, " grid")
   _show_domain(io, _context_grid(kernel), _context_layout(kernel))
-  print(io, ", ", nameof(_storage_family(_kernel_storage(kernel))), ")")
+  print(io, ", ", nameof(_array_family(_kernel_storage(kernel))), ")")
 end
 
 

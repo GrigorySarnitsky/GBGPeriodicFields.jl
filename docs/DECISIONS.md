@@ -4070,3 +4070,26 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
        the GPU suite, where none had covered the path before. Breaking for a caller passing
        `array_type`; none in this package or its consumer did.
 
+     - **Amended 2026-10-08 (owner-ruled): the argument is `array_family`, and the concept an "array
+       family".** The name and the prose term were chosen together, after a panel and a survey of how
+       other libraries name the choice between host and GPU arrays. The bare `family` has at least five
+       other meanings in this documentation (the derivative and squared wavenumber families, operation,
+       scheme and kernel families), three of them within ten lines of the `FieldSpectralMultipliers`
+       docstring.
+
+     - **Why "array" rather than "storage".** The ecosystem's usual word for this value is "array type"
+       (CUDA.jl's and Metal.jl's documentation, `array_type` in Molly.jl, PencilArrays.jl's `A`,
+       ClimaComms' `array_type(device)`), and "family" adds that its parameters are left open. "Storage"
+       and "memory" already name another axis in the GPU packages, Metal.jl's storage mode and CUDA.jl's
+       memory kind, which is the distinction the family ignores: a unified-memory and a device-memory
+       `CuArray` are one family (decision 84). Trixi.jl's `storage_type` was weighed as the one
+       precedent for "storage". Neither phrase names an argument in a registered package; "array family"
+       occurs with this meaning in the code comments of several independent Julia packages.
+
+     - **What changed.** The positional argument of the family-taking constructors, `FieldTransformPlans`
+       and `FieldSpectralMultipliers`, and the keyword of the function-sampling constructors are now
+       `array_family`; the internal `_storage_family` and `_check_family_element_type` are `_array_family`
+       and `_check_array_family_element_type`; "storage family" reads "array family" in the docs,
+       docstrings and error messages; the benchmark suite's `build_suite(; array_type)` is
+       `build_suite(; array_family)`. Breaking only for a caller passing the keyword, which nothing
+       outside this package's tests did. Entries above keep the words they were written with.

@@ -880,11 +880,11 @@ axis's stored self-conjugate plane maps onto its counterpart index for index, so
 a real field's spectrum to a real field's spectrum. Verified by `reality_residual` in
 `test/shared_modes.jl`'s analytic testset.
 
-## Storage families (`Fields`, `Points`, `Convolution`)
+## Array families (`Fields`, `Points`, `Convolution`)
 
 Design rationale: [the decision log](decisions.md), decision 63.
 
-A **storage family** is the kind of array holding a section's values — `Array` on the host, or one vendor's device array. It
+A **array family** is the kind of array holding a section's values — `Array` on the host, or one vendor's device array. It
 is not part of the mathematical object: a section is a map from the base to the fiber, and which
 allocator holds its samples is no more intrinsic than which page of RAM they occupy. Writing
 ``\mathcal{S}`` for a section and ``\mathcal{A}`` for a family, the move is therefore stated as an
@@ -920,7 +920,7 @@ field's own element type — it changes ``\mathcal{C}`` as well, so it is a diff
 weaker one.
 
 `FieldTransformPlans` is the one companion that is **rebuilt rather than moved**, because an FFT plan
-is not a section: it is a compiled schedule bound to one storage family. It is nonetheless determined by
+is not a section: it is a compiled schedule bound to one array family. It is nonetheless determined by
 data it already carries — the grid, the layout and its element type — so the rebuild
 needs no argument, and a plan is independent of the arrays it was planned against, which is what lets
 the witnesses be released immediately.

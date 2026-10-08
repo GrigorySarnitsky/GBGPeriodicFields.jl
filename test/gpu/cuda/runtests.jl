@@ -17,9 +17,9 @@ CUDA.allowscalar(false)
 const GPU_BACKEND = "CUDA / NVIDIA"
 device_functional() = CUDA.functional()
 to_device(host_array) = CUDA.CuArray(host_array)
-# The storage family itself, for `adapt`: the suite moves whole sections, kernels and plans with the
+# The array family itself, for `adapt`: the suite moves whole sections, kernels and plans with the
 # package's own interface rather than rewrapping arrays by hand.
-device_array_type() = CUDA.CuArray
+device_array_family() = CUDA.CuArray
 # Device bytes one call allocates, for the aliased-allocation lane. `CUDA.@allocated` counts the device
 # pool, which host-side `@allocated` cannot see.
 device_bytes_allocated(operation) = (CUDA.synchronize(); CUDA.@allocated operation())
