@@ -63,7 +63,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",368,107,0
 "Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",661,165,2
 "Convolution.jl :: convolve(field, kernel::SpectralKernel)",78,72,0
-"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",934,231,1
+"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",694,209,2
 "Convolution.jl :: exponential_convolve(field, multipliers, coefficient::Real)",54,46,0
 "Convolution.jl :: field ⋆ kernel",60,51,0
 "Convolution.jl :: inv(kernel::ProductKernel)",62,33,1
@@ -494,7 +494,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § 4. What we have found / finding (h)",730,309,0
 "PERFORMANCE.md § 4. What we have found / finding (i)",504,129,0
 "PERFORMANCE.md § 4. What we have found / finding (j)",259,145,0
-"PERFORMANCE.md § 4. What we have found / finding (k)",423,263,0
+"PERFORMANCE.md § 4. What we have found / finding (k)",596,263,0
 "PERFORMANCE.md § 4. What we have found / finding (l)",424,424,0
 "PERFORMANCE.md § 4. What we have found / finding (m)",202,202,0
 "PERFORMANCE.md § 4. What we have found / finding (n)",410,410,0
