@@ -130,7 +130,9 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   runnable on its own (`julia --project=. test/<file>.jl`).
 - **Per-module behaviour files** — `fields.jl` (including the rank-free transform plans and their
   component-offset alignment lane, decision 76; plans and multipliers built from a storage family,
-  decisions 93 and 94, bitwise against the field-built ones and canonical alike; the real-field **reality condition** of
+  decisions 93 and 94, bitwise against the field-built ones and canonical alike; the sampling
+  constructors' `family` keyword, refusing a mismatched precision or a complex family (decision 100);
+  the real-field **reality condition** of
   decision 71 — `reality_residual` against an elementwise oracle written from the definition, over
   both element types, tensor orders 0/1/2, permuted folds and an **odd** folded axis, which has one
   self-conjugate plane rather than two, plus the pair-consistency property, the self-paired corners
@@ -256,7 +258,9 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   families, and `read_field!` (decision 93) filling all six field types in place against the raw
   dataset, through the staged path a non-`Array` destination takes, refusing five mismatches with the
   destination left untouched, and reading and writing a host field at ``24^3`` in under an eighth of
-  its bytes — run with the `HDF5` weak dependency loaded).
+  its bytes; and transfer schemes written before decision 98, whose schema-version-1 groups stored the
+  half-width `neighbours`, read back as the same scheme — run with the `HDF5` weak dependency
+  loaded).
 - **`test/method_parity.jl`** — the spec-lock: per-generic method counts (the
   206-method field surface and the separate 122-method point-value surface) plus
   `detect_ambiguities` (from `Test`) over the whole package. The explicit `multiply!`
