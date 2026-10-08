@@ -25,8 +25,7 @@
 #   `spectral_band` kernel (band energy via `inner`, rescale via `convolve`) and the
 #   energy spectrum is `radial_spectrum` (on-device shell binning, no host copy) —
 #   the same source as `HIST_CPU.jl`, run on device arrays. The only remaining
-#   non-package bit (the `examples/README.md` gap list) is the random-solenoidal IC
-#   generator, which is representation-neutral.
+#   non-package bit is the random-solenoidal IC generator, which is representation-neutral.
 #
 # Like `HIST_CPU.jl`, the run is split into **simulate**, **dump** and **plot** stages: every
 # plotted curve is written to `output/HIST_ROCm_<preset>.h5` (`HIST_ROCm_giant.h5` for `--giant`,
@@ -158,7 +157,7 @@ giant() = Params(N = 320, ν = 1.85e-3, cfl = 0.3, n_spinup = 7000, n_stats = 16
 # Preallocated DEVICE scratch for the in-place hot loop, so a step allocates nothing — and therefore
 # the `AMDGPU` memory pool never grows (no wedge, no manual GC / `reclaim`). An allocating loop would
 # pile up device temporaries faster than Julia's host-triggered GC frees them; preallocation is the
-# fix (see `examples/README.md`). This is how a real GPU DNS is written: performance first.
+# fix. This is how a real GPU DNS is written: performance first.
 function make_workspace(physical_reference, spectral_reference)
   ## `similar_field` copies the reference's representation, grid AND storage backend, so on
   ## this device twin the scratch lands in GPU memory without a `dev(...)` in sight — the
@@ -235,7 +234,7 @@ end
 # `to_spectral!`, `helmholtz_projection!`, `convolve!`) write into them on-device,
 # and the linear combinations are in-place device broadcasts. Nothing allocates, so
 # the `AMDGPU` pool stays flat — no wedge, no manual `reclaim` (that was the
-# allocating style; see `examples/README.md`).
+# allocating style).
 ## =============================================================================
 
 # Physical velocity & vorticity of a field in spectral representation, into the given buffers. The `uh` buffer is preserved by
