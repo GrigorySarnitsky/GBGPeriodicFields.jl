@@ -356,9 +356,9 @@ task — the destination viewed to the slab, the `Broadcasted` tree rebuilt over
 SIMD-vectorized broadcast kernel the serial path uses, only over a sub-range: fusion is preserved
 (no temporaries), and the result is bitwise-identical to serial, since each element is written
 exactly once from the same fused expression and no value crosses a slab boundary. This replaced a
-per-element `CartesianIndex` loop over the whole `Broadcasted`, which does not vectorize — measured
-at ~4.7× slower per core than `materialize!`, so threading *inverted* at low thread counts
-(2026-07-21; the finding and the numbers live with the benchmarks). The method falls back to serial
+per-element `CartesianIndex` loop over the whole `Broadcasted`, which does not vectorize and so ran
+several times slower per core than `materialize!`, enough that threading was slower than serial at
+low thread counts. The method falls back to serial
 when the axes do not match or an argument type is not sliceable, which is defensive because the
 field kernels always match and only build sliceable trees.
 """
@@ -831,7 +831,8 @@ CPU and does not compile on a device (a radial kernel beside plain arrays in a k
 
 The generated body carries an inline marker, `@inline` not applying to a `@generated`
 function: without it the read stayed a call inside the executor's `@simd` loop, which blocked
-vectorization and made `mul!` 3.2 times slower on a CPU and 13.5 times slower on a device.
+vectorization and made `mul!` several times slower on a CPU and an order of magnitude slower on a
+device.
 """
 @generated function _element_values(arrays::Tuple, n)
   reads = [:(@inbounds arrays[$i][n]) for i in 1:fieldcount(arrays)]

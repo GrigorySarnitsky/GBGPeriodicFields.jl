@@ -1346,11 +1346,9 @@ tensor order.
 
 !!! warning "The default `ESTIMATE` planner can badly mis-plan single-precision CPU transforms"
     On the CPU the plans are `FFTW` plans, and with `fft_flags` unset `FFTW` picks the algorithm by its
-    built-in `ESTIMATE` heuristic — instant, but a guess. On some CPUs that guess is far off: measured
-    on a Zen 5 desktop, the `Float32` transforms ran 2.3–5.1× slower than a timed plan at ``256^3``
-    (the widest gap single-threaded, narrowing as threads are added),
-    and at ``512^3`` still slower than `Float64` serially and at two threads, the gap closing (and
-    reversing) only as more threads are added. For a
+    built-in `ESTIMATE` heuristic — instant, but a guess. On some CPUs that guess is far off, and a
+    `Float32` transform can run several times slower than a timed plan, most of all single-threaded,
+    even slower than the same transform in `Float64`. For a
     long CPU run, pass `fft_flags = FFTW.MEASURE` (or `FFTW.PATIENT`): the one-time timed plan search
     costs seconds and removes the guess. `MEASURE` overwrites the arrays it plans on, which are
     one-component arrays the constructor allocates itself, so the caller's fields are untouched. The
@@ -2642,9 +2640,8 @@ arguments is a no-op, and a `source` already in `destination`'s family is an ord
 an error, so generic code need not ask which side of the bus it is on.
 
 The reason to reach for it is the return trip. Allocating the destination is most of what a
-device-to-host move costs — measured on an RTX 5070 Ti at ``256^3``, `Float64`, an allocating move
-runs at ``5.1`` GiB/s against the ``19.0`` GiB/s the same transfer reaches into a destination that
-already exists.
+device-to-host move costs, so the same transfer into a destination that already exists is several
+times faster.
 
 Only sections take this form. The `adapt` verb also moves a [`FieldSpectralMultipliers`](@ref), a spectral
 kernel and a [`FieldTransformPlans`](@ref), and those have no in-place spelling on purpose: they are

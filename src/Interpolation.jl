@@ -725,7 +725,7 @@ float reduction would need a fixed summation tree for thread-count invariance; t
 
 Two details are load-bearing. The chunk accumulator is declared `local`, because a name already
 bound in the enclosing scope would be SHARED by every task rather than shadowed — a data race that
-produced wrong answers and ran 50× slower when this was first written. And the grand total is
+produced wrong answers, and ran far slower than the serial loop, when this was first written. And the grand total is
 accumulated wide and checked against `typemax`, because `cumsum!` into a narrow integer is
 overflow-checked while a plain accumulation wraps: a wrapped total becomes a negative offset, which
 the placement kernel would use as an index inside `@inbounds`.

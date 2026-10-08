@@ -1644,10 +1644,11 @@ computed in place.
 
 !!! warning "A deep `Float32` kernel is slow on a CPU"
     Where the exponent ``c |k|^2 + s \\hat w`` falls between about ``-103`` and ``-87``, the
-    `Float32` exponential is a subnormal number, which a CPU produces at roughly 16 times the usual
-    cost; a kernel deep enough to cover many modes in that band pays a multiple of its whole pass.
-    `Float64` has its band near ``-708``, beyond any physical kernel, and GPUs flush subnormals to
-    zero, so neither is affected. Where the band matters, use `Float64` or a milder exponent.
+    `Float32` exponential is a subnormal number, which a CPU produces through a slow hardware assist
+    at many times the usual cost; a kernel deep enough to cover many modes in that band pays a
+    multiple of its whole pass. `Float64` has its band near ``-708``, beyond any physical kernel, and
+    GPUs flush subnormals to zero, so neither is affected. Where the band matters, use `Float64` or a
+    milder exponent.
 """
 function exponential_convolve! end
 
