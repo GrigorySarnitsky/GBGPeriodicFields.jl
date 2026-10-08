@@ -180,6 +180,16 @@ function lagrangian_panel(b)
   return plt
 end
 
+# Ticks and grid lines every half decade over `values`' range, labelled as powers of ten, so a slope
+# can be read off the grid rather than estimated between decades.
+function half_decade_ticks(values)
+  low, high = floor(2 * log10(minimum(values))) / 2, ceil(2 * log10(maximum(values))) / 2
+  exponents = low:0.5:high
+  label(e) = isinteger(e) ? latexstring("10^{", Int(e), "}") : latexstring("10^{", e, "}")
+  return (10 .^ exponents, label.(exponents))
+end
+
+
 # Energy spectrum E(κ) with the K41 inertial-range form C_K ε^(2/3) κ⁻⁵ᐟ³ (C_K ≈ 1.6, the Kolmogorov
 # constant). This is the dimensionally-complete K41 prediction, not a bare κ⁻⁵ᐟ³ slope: E(κ) has the
 # dimensions of energy·length (velocity²·length), κ⁻⁵ᐟ³ has dimensions length^(5/3), and the prefactor
@@ -190,7 +200,8 @@ function spectrum_panel(b)
   k, E = b["ek_k"][populated], b["ek_E"][populated]
   C_K, ε = get(b, "CK", 1.6), b["epsilon"]                  # Kolmogorov constant (plot-time) and dissipation
   plt = plot(k, E; xscale = :log10, yscale = :log10, lw = 2, label = L"E(\kappa)",
-             xlabel = L"\kappa", ylabel = L"E(\kappa)", title = "energy spectrum", legend = :bottomleft)
+             xlabel = L"\kappa", ylabel = L"E(\kappa)", title = "energy spectrum", legend = :bottomleft,
+             xticks = half_decade_ticks(k), yticks = half_decade_ticks(E))
   plot!(plt, k, C_K .* ε^(2 / 3) .* k .^ (-5 / 3); ls = :dash, lw = 1.5,
         label = L"C_K \varepsilon^{2/3} \kappa^{-5/3}\ \mathrm{(K41)}")
   return plt
