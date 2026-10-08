@@ -71,8 +71,19 @@ to_spectral!(θ̂, θ, plans)                       # a transform on the GPU
 
 The package is tested on an RTX 5070 Ti. Transforms need the default [`RealFourierLayout`](@ref), which
 the constructors above use when no layout is passed: cuFFT cannot plan one with its axes reordered.
-The turbulence simulation in the ROCm section has no CUDA version; its CPU version is in
-[Examples](examples/hist_cpu.md).
+
+### A turbulence simulation on CUDA
+
+A forced isotropic-turbulence simulation runs on an NVIDIA GPU in `Float32`, writing its results and
+figures to `examples/gpu/cuda/output`; the figures need a LaTeX installation. From the root of a clone
+of the repository:
+
+```sh
+julia --project=examples/gpu/cuda -e 'using Pkg; Pkg.instantiate()'
+julia --project=examples/gpu/cuda examples/gpu/cuda/HIST_CUDA.jl --smoke
+```
+
+Its CPU version, with the figures of the ``320^3`` run, is in [Examples](examples/hist_cpu.md).
 
 ### Fields larger than GPU memory
 

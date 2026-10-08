@@ -37,15 +37,18 @@ julia --project=examples examples/HIST_CPU.jl --huge     # 192³, Re_λ≈93 (he
 julia --project=examples examples/HIST_CPU.jl --mega     # 256³, Re_λ≈109 (very heavy on CPU — hours; documented figures use the GPU twin at 320³)
 julia -t8 --project=examples examples/HIST_CPU.jl --fast  # 8 CPU threads (matters most at N ≥ 64)
 julia --project=examples examples/HIST_CPU.jl --smoke    # tiny, ~seconds, for a quick check
-julia --project=examples examples/plot_hist.jl examples/output/HIST_CPU.h5   # re-plot saved data, no re-run
+julia --project=examples examples/plot_hist.jl examples/output/HIST_CPU_default.h5   # re-plot saved data, no re-run
+julia --project=examples examples/plot_hist.jl examples/figures/HIST_CUDA_giant.h5 /tmp/figs  # redraw the documented figures
 ```
 
 Threading is **opt-in**: with no `-t` flag Julia (and the package's CPU threading, and FFTW) run on one
 thread. At 32³ multithreading buys little; pass `-t8` once you raise `N`.
 
-Output lands in `examples/output/`: the data dump `HIST_CPU.h5` (every plotted curve + the run scalars)
-and the PNGs `structure_functions` (the headline two-panel figure), `spectrum`, `stationarity`,
-`autocorrelation`, and a 2×2 `summary`.
+Output lands in `examples/output/`, named after the configuration so a quick run never overwrites a long
+one: the data dump `HIST_CPU_<preset>.h5` (`HIST_CPU_default.h5` with no flag; every plotted curve + the
+run scalars) and the PNGs `HIST_CPU_<preset>_structure_functions` (the headline two-panel figure),
+`_spectrum`, `_stationarity`, `_autocorrelation`, and a 2×2 `_summary`. The documented figures and the
+dump they were drawn from, `HIST_CUDA_giant.h5`, are committed in `examples/figures/`.
 
 ### Method
 
@@ -66,7 +69,12 @@ is the turbulent kinetic energy:
   and raw-array AXPYs write into preallocated buffers, so a step allocates no fields.
 - **De-aliasing:** 2/3 rule, the package's `spectral_cutoff` sharp low-pass kernel (`convolve!`).
 - **Forcing:** rescale the lowest shells ($1 \le \kappa \le 2$) to a fixed energy each step — deterministic,
-  unconditionally stationary (scaling preserves $\nabla\cdot u = 0$).
+  unconditionally stationary. Because the same factor multiplies the band every step, it would also
+  amplify the band's rounding error without bound: its compressible part, so the rescale adds only the
+  solenoidal part (`helmholtz_projection!` with the band as kernel), and the coefficients no real field
+  has, which `reality_projection!` removes after it. The nonlinear term is made mean-free
+  (`mean_free_projection!`) and the initial envelope is zero at $\kappa = 0$, so no uniform mean flow
+  is seeded or accumulates.
 - **Particles:** a few thousand tracers, RK2 advection on the start-of-step velocity via `interpolate`,
   positions wrapped periodically; per-tracer velocity recorded for the Lagrangian statistics. *(The
   time loop is the consumer's — the package has no concept of time, by design.)*
@@ -139,6 +147,21 @@ Forcing and time integration themselves stay a *consumer* concern (the package h
 
 ---
 
+## `gpu/cuda/HIST_CUDA.jl` — the same DNS on an NVIDIA GPU
+
+The ROCm twin below with its device package and array type swapped (`CUDA`, `CuArray`), in its own
+sub-environment. Its `--giant` run (320³ `Float32`, $\mathrm{Re}_\lambda \approx 130$, about 51 ms/step at a
+9.9 GB peak on a 16 GB RTX 5070 Ti, 2026-10-08) produced the documented figures; its dump is
+`examples/figures/HIST_CUDA_giant.h5`.
+
+```sh
+julia --project=examples/gpu/cuda -e 'using Pkg; Pkg.instantiate()'         # one-time (installs CUDA)
+julia --project=examples/gpu/cuda examples/gpu/cuda/HIST_CUDA.jl --giant    # 320³ Float32, Re_λ≈130 (the documented figures)
+julia --project=examples/gpu/cuda examples/gpu/cuda/HIST_CUDA.jl --smoke    # quick check
+```
+
+---
+
 ## `gpu/rocm/HIST_ROCm.jl` — the same DNS on an AMD GPU
 
 The device twin: the same physics, the same plots, but every array lives in GPU memory (`ROCArray`) and
@@ -148,7 +171,7 @@ index inside a package method *throws* — invariant 6 enforced, not trusted. De
 
 ```sh
 julia --project=examples/gpu/rocm -e 'using Pkg; Pkg.instantiate()'         # one-time (installs AMDGPU)
-julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --giant    # 320³ Float32, Re_λ≈130 (the documented figures)
+julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --giant    # 320³ Float32, Re_λ≈130 (24 GB card)
 julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --mega     # 256³ Float32, Re_λ≈109
 julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --huge     # 192³ Float32, Re_λ≈93
 julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --fast     # 64³

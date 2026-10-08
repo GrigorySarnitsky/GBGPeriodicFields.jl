@@ -18,7 +18,7 @@ end
 
 # Build the browsable example page from the runnable script with Literate.jl: the same
 # `examples/HIST_CPU.jl` a user downloads becomes the tutorial. Rendered with plain (non-executed)
-# code fences, the pre-generated GPU-produced figures (committed under examples/figures/) embedded — so
+# code fences, the pre-generated GPU-produced figures (committed under examples/figures/ with their dump) embedded — so
 # the page never runs the DNS in CI — and the script copied beside it for download. Output gitignored.
 #
 # `documenter = true` is load-bearing and was `false` until 2026-09-01: with it false, Literate rewrites
@@ -30,8 +30,9 @@ function build_examples()
   output = joinpath(@__DIR__, "src", "examples")
   figures = joinpath(@__DIR__, "..", "examples", "figures")
   mkpath(output)
-  for png in filter(name -> endswith(name, ".png"), readdir(figures))
-    cp(joinpath(figures, png), joinpath(output, png); force = true)
+  # The figures, and the HDF5 dump they were drawn from, which the page offers for download.
+  for file in filter(name -> endswith(name, ".png") || endswith(name, ".h5"), readdir(figures))
+    cp(joinpath(figures, file), joinpath(output, file); force = true)
   end
   cp(joinpath(@__DIR__, "..", "examples", "HIST_CPU.jl"), joinpath(output, "HIST_CPU.jl"); force = true)
   Literate.markdown(joinpath(@__DIR__, "..", "examples", "HIST_CPU.jl"), output;

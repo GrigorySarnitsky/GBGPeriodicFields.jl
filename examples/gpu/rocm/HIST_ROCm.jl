@@ -29,19 +29,20 @@
 #   generator, which is representation-neutral.
 #
 # Like `HIST_CPU.jl`, the run is split into **simulate**, **dump** and **plot** stages: every
-# plotted curve is written to `output/HIST_ROCm.h5` and the figures (the compensated
+# plotted curve is written to `output/HIST_ROCm_<preset>.h5` (`HIST_ROCm_giant.h5` for `--giant`,
+# `HIST_ROCm_default.h5` with no flag, so a quick run never overwrites a long one) and the figures (the compensated
 # structure-function layout, the spectrum, the stationarity history and the velocity
 # autocorrelations) are rendered by the shared `examples/hist_postprocess.jl` — the last
 # line below re-plots without re-running.
 #
 # ```sh
 # julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl            # full run (default 32³)
-# julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --giant    # 320³ Float32, Re_λ≈130 (the documented figures; 24 GB card)
+# julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --giant    # 320³ Float32, Re_λ≈130 (24 GB card)
 # julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --mega     # 256³ Float32, Re_λ≈109
 # julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --huge     # 192³ Float32, Re_λ≈93
 # julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --fast     # 64³, for nicer statistics
 # julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --smoke    # quick check
-# julia --project=examples examples/plot_hist.jl examples/gpu/rocm/output/HIST_ROCm.h5   # re-plot, no re-run
+# julia --project=examples examples/plot_hist.jl examples/gpu/rocm/output/HIST_ROCm_giant.h5   # re-plot, no re-run
 # ```
 ## =============================================================================
 
@@ -123,7 +124,8 @@ mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500
 # The `--giant` configuration — ``320^{3}`` at ``\nu = 1.85\times10^{-3}``
 # (``\kappa_{\max}\eta \approx 1.3``, `mega`'s resolution one grid level up): time-averaged
 # ``\mathrm{Re}_\lambda \approx 130``, ``\approx 96`` ms/step at an ``\approx 13`` GB peak on a 24 GB
-# RX 7900 XTX — the configuration behind the documented figures. The 24 GB card's headroom is what
+# RX 7900 XTX (June 2026, before the forcing fixes of October 2026; the documented figures now come from
+# the same configuration on CUDA, `gpu/cuda/HIST_CUDA.jl`). The 24 GB card's headroom is what
 # unlocks it (`mega`'s ``256^{3}`` was the 12 GB card's ceiling). The forcing oscillates (an
 # ``\approx 7``-turnover period; see the `mega` note), so the long `n_stats` window time-averages the
 # statistics over four to five full oscillation periods, and the ``k(t)/\varepsilon(t)`` history shows
@@ -207,17 +209,21 @@ end
 # `band` is a `spectral_band` mask kernel; the band energy is
 # ``\tfrac{1}{2}\langle\lvert u_{\mathrm{band}}\rvert^{2}\rangle``, computed as
 # `FT(0.5) * inner(ws.tmp, ws.tmp)` on the workspace's scratch field `ws.tmp` (Parseval; the same-argument `inner(f, f)` is
-# allocation-free); rescaling the in-band modes is one more `convolve` (scaling
-# preserves ``\nabla\cdot u = 0``). No precomputed mask / weight, no sum-reduction
-# by hand — all on-device.
+# allocation-free); rescaling the in-band modes goes through `helmholtz_projection!`
+# with the band as its kernel, so only the solenoidal part is amplified, and
+# `reality_projection!` then drops the coefficients no real field has; without
+# either, a long run's rounding error in the band grows step after step (see
+# `HIST_CPU.jl`). No precomputed mask / weight, no sum-reduction by hand — all
+# on-device.
 ## =============================================================================
 
-function force!(uh, band, ws, p)
+function force!(uh, band, ws, p, m)
   convolve!(ws.tmp, uh, band)                             # band-pass copy into scratch (no allocation)
   band_kinetic = FT(0.5) * inner(ws.tmp, ws.tmp)         # ½⟨|u_band|²⟩ = ½ inner(u_band,u_band): f===f ⇒ allocation-free
   band_kinetic < FT(1e-12) && return uh                   # guard (the initial condition seeds the band)
   scale = sqrt(FT(p.E_force) / band_kinetic)
-  convolve!(uh, uh, band, scale - 1, 1)                 # rescale in-band modes: one convolve (α/β, alloc-free)
+  helmholtz_projection!(uh, uh, m, band, scale - 1, 1)  # rescale the band's solenoidal part (α/β, alloc-free)
+  reality_projection!(uh)                                 # drop what no real field has (two planes)
   return uh
 end
 
@@ -249,6 +255,7 @@ function rhs!(Nh, u, ω, ws, m, plans, dealias)
   to_spectral!(ws.Nt, ws.uxω, plans)            # (u×ω)^ into scratch
   helmholtz_projection!(Nh, ws.Nt, m)           # Leray projection — DISTINCT dest ⇒ no-alias path (no allocation)
   convolve!(Nh, Nh, dealias)                    # 2/3 de-alias (coefficientwise multiply)
+  mean_free_projection!(Nh)                     # the mean of u × ω is zero; drop its rounding error
   return Nh
 end
 
@@ -281,7 +288,7 @@ function step!(uh, ws, m, plans, dealias, band, p, dt)
   exponential_convolve!(ws.k1, ws.k1, m, -p.ν * dt)                     # ℰ·k₁, the same lazy factor
   exponential_convolve!(uh, uh, m, -p.ν * dt)                           # ℰ·ûₙ
   field_data(uh) .+= (FT(dt) / 2) .* (field_data(ws.k1) .+ field_data(ws.k2))   # ûₙ₊₁
-  force!(uh, band, ws, p)
+  force!(uh, band, ws, p, m)
   return uh
 end
 
@@ -309,10 +316,10 @@ end
 function random_solenoidal(grid, m, plans, ws, band, p; kp = 2.0)
   rng = MersenneTwister(p.seed)
   uh = to_spectral(VectorFieldPhysical(dev(randn(rng, FT, p.N, p.N, p.N, 3)), grid), plans)
-  envelope = radial_kernel(k2 -> exp(-k2 / FT(kp)^2), m)         # concentrate at large scales (a closure)
+  envelope = radial_kernel(k2 -> k2 > 0 ? exp(-k2 / FT(kp)^2) : zero(k2), m)  # large scales; none at κ = 0 (no mean flow)
   convolve!(uh, uh, envelope)                                        # apply it (alias-safe, coefficientwise)
   helmholtz_projection!(uh, uh, m)                                   # make solenoidal (alias-safe, one pass)
-  force!(uh, band, ws, p)                                            # set the forced-band energy
+  force!(uh, band, ws, p, m)                                         # set the forced-band energy
   return uh
 end
 
@@ -332,7 +339,7 @@ end
 # Driver
 ## =============================================================================
 
-function run_hist(p::Params)
+function run_hist(p::Params; run_name = "HIST_ROCm_default")
   AMDGPU.functional() || error("no functional AMD GPU / ROCm — this is the GPU example (see HIST_CPU.jl for CPU)")
   isdir(OUTDIR) || mkpath(OUTDIR)
   @printf("HIST_ROCm: N=%d  %s  ν=%.3g  forcing |k|≤%d @ E=%.2g  (%d spinup + %d stats steps)\n",
@@ -451,7 +458,6 @@ function run_hist(p::Params)
   # representation, on-device.
   @printf("  ½⟨|u|²⟩: physical=%.6g  spectral inner(û,û)=%.6g  |  Σ E(k)=%.4g  (Parseval)\n",
           K, 0.5 * inner(uh, uh), sum(ek_E))
-  @assert isfinite(K) && isfinite(ε) && divrel < 1e-4 "non-finite or non-solenoidal state"
 
   # Dump every plotted curve to HDF5, then plot (re-plot later via `plot_hist.jl`, no re-run).
   bundle = Dict{String, Any}(
@@ -466,8 +472,10 @@ function run_hist(p::Params)
     "tau" => τ_l, "S2_L" => S2l, "rho_L" => rho_L,
     "sep" => collect(sep), "rho_E" => rho_E,           # autocorrelation panel (includes r = 0)
   )
-  save_hist(joinpath(OUTDIR, "HIST_ROCm.h5"), bundle)
-  make_hist_plots(bundle; outdir = OUTDIR, prefix = "HIST_ROCm")
+  save_hist(joinpath(OUTDIR, run_name * ".h5"), bundle)
+  ## checked after the dump, so a failed check keeps the run's data for inspection
+  @assert isfinite(K) && isfinite(ε) && divrel < 1e-4 "non-finite or non-solenoidal state"
+  make_hist_plots(bundle; outdir = OUTDIR, prefix = run_name)
   return nothing
 end
 
@@ -476,13 +484,13 @@ end
 # Entry point
 ## =============================================================================
 
+# The preset's name also names the output, so each configuration keeps its own dump.
+const PRESETS = ("smoke" => smoke, "fast" => fast, "huge" => huge, "giant" => giant, "mega" => mega)
+
 function main()
-  p = ("--smoke" in ARGS) ? smoke() :
-      ("--fast"  in ARGS) ? fast()  :
-      ("--huge"  in ARGS) ? huge()  :
-      ("--giant" in ARGS) ? giant() :
-      ("--mega"  in ARGS) ? mega()  : Params()
-  run_hist(p)
+  chosen = findfirst(preset -> "--" * first(preset) in ARGS, PRESETS)
+  name, configuration = chosen === nothing ? ("default", Params) : PRESETS[chosen]
+  run_hist(configuration(); run_name = "HIST_ROCm_" * name)
 end
 
 main()

@@ -5,7 +5,8 @@
 #   julia --project=examples examples/plot_hist.jl <run.h5> [outdir]
 #
 # Needs only HDF5 + Plots (no GBGPeriodicFields, no GPU): it reads the curves the solver
-# already computed. Works on either a CPU (HIST_CPU.h5) or GPU (HIST_ROCm.h5) dump.
+# already computed. Works on any dump (CPU, ROCm or CUDA); the figures take the dump's file name
+# as their prefix, e.g. HIST_CUDA_giant.h5 gives HIST_CUDA_giant_spectrum.png.
 # =============================================================================
 
 include(joinpath(@__DIR__, "hist_postprocess.jl"))
@@ -15,7 +16,7 @@ function main()
   path = ARGS[1]
   bundle = load_hist(path)
   outdir = length(ARGS) >= 2 ? ARGS[2] : dirname(abspath(path))
-  prefix = get(bundle, "backend", "") == "ROCm" ? "HIST_ROCm" : "HIST_CPU"
+  prefix = splitext(basename(path))[1]
   println("re-plotting ", path, "  (backend=", get(bundle, "backend", "?"), ", N=", get(bundle, "N", "?"), ")")
   make_hist_plots(bundle; outdir = outdir, prefix = prefix)
 end

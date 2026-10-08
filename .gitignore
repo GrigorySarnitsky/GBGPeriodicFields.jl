@@ -15,6 +15,7 @@ Manifest.toml
 benchmark/results/
 examples/output/
 examples/gpu/rocm/output/
+examples/gpu/cuda/output/
 docs/build/
 docs/site/
 docs/src/architecture.md
