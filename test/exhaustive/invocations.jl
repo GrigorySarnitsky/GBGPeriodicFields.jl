@@ -126,7 +126,7 @@ _concrete_subtypes(T) = isabstracttype(T) ?
 Concrete kernel and transfer-scheme classes with no representative in the pool.
 
 The pools cannot be derived — building a kernel needs constructor arguments — so they stay literal and
-this audits them against `subtypes`, which is what DESIGN.md claimed was happening and what a comment
+this audits them against `subtypes`, which is what the survey design claimed was happening and what a comment
 in this file claimed was "checked below". A new class is now reported, not silently unswept.
 """
 function _pool_class_gaps(entries)
@@ -238,7 +238,7 @@ function canonical_pool(config; device = identity)
     push("plans R=$R", FieldTransformPlans(physical[R + 1], spectral[R + 1]))
   end
   # Every kernel storage class, so a kernel-taking operation is swept over all of them rather than
-  # over whichever one someone reached for. The list is checked against `subtypes` below — DESIGN.md
+  # over whichever one someone reached for. The list is checked against `subtypes` below — the design
   # claimed these pools were derived by `subtypes(...)` and `subtypes(` appeared nowhere in the suite.
   # `StoredKernel` marks a FIELD as playing the kernel role, so it wraps the materialized coefficients
   # rather than the compressed closure the builder returns.
@@ -449,7 +449,7 @@ function invocations(operation::Function, pool; cap::Int = 400)
     if parameters[end] isa Core.TypeofVararg
       element = parameters[end].T
       base = parameters[1:end-1]
-      # ONE copy and TWO, as DESIGN.md says. Expanding to two alone never builds the single-source
+      # ONE copy and TWO, as the design asks. Expanding to two alone never builds the single-source
       # form for an operation whose only general method is the variadic one.
       #
       # And NINE and THIRTY-THREE (decision 88). The operations with a variadic tail work through their

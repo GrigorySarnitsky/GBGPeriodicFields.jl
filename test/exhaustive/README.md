@@ -1,62 +1,13 @@
-# The exhaustive suite
+# The exhaustive survey
 
-The full Cartesian product, run **occasionally** — not part of `Pkg.test()`.
-
-```
-julia -t4 --project=test test/exhaustive/runtests.jl
-```
-
-The design — the axes, how each is derived, the applicability guards, and the adversarial pass that
-shaped them — is in [`DESIGN.md`](DESIGN.md). Read that before adding a lane.
-
-## Why it is separate
-
-`Pkg.test()` is a gate and must stay fast; it runs about six minutes. This is a survey and must
-stay complete. Giving one job to both means the survey gets trimmed until it is no longer a survey, so
-they are separate lanes — the same split the GPU suite and the benchmarks already use.
-
-## What it is for
-
-Every other layer in `test/` checks combinations someone chose. This one enumerates them. The reason
-that matters is not thoroughness for its own sake: a defect that lives in a combination nobody thought
-to write down is invisible to every check that starts from a list, however careful the list is. The
-storage-aliasing lane found nine such defects the first time it ran, three of which had survived a
-deliberate hand-written probe of the same property an hour earlier.
-
-The context-mismatch lane did the same on its first run. Sweeping each operation against an argument
-differing in one derived quantity, it found that the **spectral** `inner` never checked tensor order:
-`inner(scalar, vector)` returned a plausible number and `inner(vector, tensor)` returned `NaN`, where
-both physical calls threw. The physical guard and its test had been added together and both stopped at
-one representation. Fixed in `src/Reductions.jl`, pinned in `test/reductions.jl`, and the fix
-mutation-verified in both places.
-
-## The lanes
-
-| lane | what it sweeps | oracle |
-|---|---|---|
-| surface coverage | every public operation | is it exercised by any lane at all? |
-| universal checks | **every operation × every buildable call × every configuration × every backend** | five properties every operation must have (below) |
-| reference cross-validation | the spectral operators, every configuration | independent implementations in `references.jl`, built from raw arrays |
-| storage aliasing | every in-place operation × every storage relation | the same call on fresh disjoint copies |
-| context mismatch | every entry point × every derived mismatch axis | a mismatched argument must be refused |
-| applicability ledger | every operation × every check type | each cell implemented, or inapplicable for a derived reason |
-
-The universal checks are the ones that sweep the whole surface, because their oracles do not depend on
-what an operation computes:
-
-- **preservation** — an allocating call leaves every argument unchanged; an in-place call changes only
-  its destination
-- **structural** — a finite input gives a finite result
-- **metadata** — an allocating result carries its input's grid, layout and element type
-- **determinism** — repeating a call reproduces it (bitwise on CPU, to a tolerance on a device)
-- **result-type** — the value matches what inference promised, so a caller specializing on it is not
-  specializing on a lie
-
-All but the ledger assert behaviour and drive the exit status. **The ledger is a coverage report**: a
-gap there says a question the design admits has not been asked of that operation, which is a work list
-rather than a failure, so its count can grow without turning the report red.
+The full Cartesian product of PF's operations, arguments and configurations, run occasionally rather
+than on every change. `Pkg.test()` is the gate: fast, run always, it pins what is known. This is the
+survey: slow, run before a release or after a large change, it looks for what nobody thought to test.
+A finding here becomes a gate test once it is fixed.
 
 ## Running it
+
+From the root of the repository, on an otherwise idle machine:
 
 ```
 julia -t4 --project=test          test/exhaustive/runtests.jl     # CPU, plus HDF5 persistence
@@ -64,76 +15,119 @@ julia -t4 --project=test/gpu/cuda test/exhaustive/runtests.jl     # CPU and CUDA
 julia -t4 --project=test/gpu/rocm test/exhaustive/runtests.jl     # CPU and ROCm
 ```
 
-The vendor packages are dependencies of neither the package nor `test/`, so the device pool exists only
-in a GPU environment. Run from one and the backend axis is crossed **for the universal-checks lane**;
-run from `test/` and that lane says **NOT RUN** rather than passing quietly. The other eight lanes build
-host fixtures and run CPU-only in every environment — `device` is threaded through the invocation engine
-alone, not through `Config`, so a GPU run does not carry the value, relation, property, sequence,
-aliasing or mismatch lanes onto the device.
+- **`-t4` is required.** The thread-invariance checks fire only when more than one thread exists; with
+  Julia's default of one, that axis is dead and half the configurations repeat the other half.
+- **The environment decides what is reached.** `test/` carries HDF5, so only it reaches the
+  persistence operations. A GPU environment adds its device to the universal-checks lane alone; every
+  other lane builds host fixtures and runs on the CPU in every environment.
+- **It takes about 1.5 hours** on an idle machine. Anything else running inflates it.
 
-## How to read the output
+## Reading the output
 
-**It is a report, not a gate that has been silenced.** It runs blind to what the package has decided
-and prints everything that does not work. Where a failure corresponds to a recorded decision or a
-documented contract, the citation is printed beside it — as an explanation of a known gap, never as a
-reason to call it green. Three things to look for:
+It is a report, not a silenced gate: it prints everything that does not work. Where a failure matches a
+recorded decision or contract, the citation is printed beside it, as an explanation, never as a pass.
 
-- **`NO CITATION`** — a new finding. Nothing in the package's record explains it.
-- **a cited failure** — a known gap. Still a failure, still printed, still counted.
-- **`NOT REACHED` / `NOT APPLICABLE`** — a combination the lane did not construct, and why. This is
-  the important one: a lane that cannot build a case must say so rather than let its silence read as a
-  pass. The two are different, and the distinction is the point — `NOT REACHED` is a hole in the lane
-  and is work to do; `NOT APPLICABLE` is a combination the package's model does not admit. The
-  aliasing lane reports the order-changing operations as the latter: two sections of different tensor
-  order can share storage only if a caller hand-builds a field over a view of another field's array,
-  and there is no verb for that. A component of a vector field is obtained by contracting with a basis
-  vector, which allocates its own storage.
+- **`NO CITATION`** — a new finding; nothing in the package's record explains it.
+- **A cited failure** — a known gap; still printed and counted.
+- **`NOT REACHED`** — a combination the lane could not build: a hole in the lane, and work to do.
+- **`NOT APPLICABLE`** — a combination the package's model does not admit, such as two sections of
+  different tensor order sharing storage.
+- **`NOT RUN`** — a conditional lane that could not run here, such as a device lane without a device.
 
-Exit code: `0` clean, `1` failures that are all cited, `2` at least one uncited finding.
+Exit code: `0` clean; `1` only quality findings (a cited aliasing case, a type-stability finding, a
+method no assertion reaches); `2` a correctness finding, an uncited one, or a problem in the harness
+itself, such as a check that did not fire on its own defect.
 
-## Scale
+The `radial_spectrum` value cells disagree with their reference on `Float32` anisotropic grids. A mode
+whose `|k|/Δk` lands on a half-integer falls into one shell or the other depending on rounding; energy
+moves between adjacent shells while the total agrees exactly. This is a known property of the
+reference's comparison, not of the package, and it forces exit `2` until the comparison is changed.
 
-96 configurations — element type × 4 grid shapes (one odd on every axis) × **3 layout folds** × thread
-setting × 2 seeds, including a shifted non-commensurate origin — in **75 minutes** with `-t4`, measured
-on an otherwise idle host. (The
-seed axis is the only one with no targeted defect class behind it, so it is where runtime is bought
-back rather than from an axis that exists because a bug lived there. **Measure it on an idle machine.**
-An earlier figure of 90 minutes was taken while other Julia processes ran alongside it, and the same
-suite — with 83% MORE cells, after the pool gained a second instance per tensor order — then measured
-75 on a quiet one. Contention inflates this by more than the changes being measured. Three seeds and 144 configurations
-took 125 minutes and found **exactly the same 11 distinct correctness findings and 50 distinct failures
-in the other lanes** as two seeds and 96 do — the third draw multiplied every finding's cell count and
-contributed no finding of its own, which is the evidence the axis was the right one to trim.) The axis table, and what each axis crosses versus samples,
-is in [`DESIGN.md`](DESIGN.md).
+## The lanes
 
-**Run it with `-t4`.** The thread-count axis is crossed by the configuration list, but a thread
-invariance check can only mean something when more than one thread exists — and Julia defaults to one,
-so every documented command here used to leave that axis dead: the `invariance` check type never fired,
-in any configuration, and half the configurations were byte-identical work presented as a crossed axis.
+In the order `runtests.jl` runs them:
 
-`Pkg.test()` runs about six minutes for a few thousand assertions, which is the difference between a
-gate and a survey: this one buys orders of magnitude more combinations because most of its checks are
-universal properties or consistency relations that need no per-operation oracle.
+| lane | file | what it sweeps | oracle |
+|---|---|---|---|
+| self-check | `selfcheck.jl` | every check below | an operation built to violate it: a check that does not fire is a failure |
+| surface coverage | `runtests.jl` | every public operation | is it named by any hand-written lane? |
+| universal checks | `invocations.jl`, `checks.jl` | every operation × every buildable call × every configuration × backend | preservation, structural (finite in, finite out), metadata, determinism, type stability |
+| properties | `properties.jl` | representation agreement, thread invariance, allocation, ordering, domain rejection | the property itself |
+| sequences | `sequences.jl` | plan reuse, repeated application, round-trip cycling, n-step allocation | the property itself, across calls |
+| reference cross-validation | `runtests.jl`, `references.jl` | the spectral operators | the independent references, checked before anything uses them |
+| relations | `properties.jl`, `ledger.jl` | the declared adjoint, identity and round-trip relations | the relation |
+| values | `values.jl`, `references.jl` | every public value-returning operation | an independent reference written from the documented definition |
+| storage aliasing | `aliasing.jl` | every in-place operation × every way its arguments can share storage | the same call on fresh, disjoint copies |
+| context mismatch | `pools.jl` | every entry point × every quantity its checks compare | a mismatched argument must be refused |
+| applicability ledger | `ledger.jl` | every operation × every check type | each cell asserted, or inapplicable by a derived rule |
+| per-method ledger | `method_ledger.jl`, `method_reasons.jl` | every (operation, method) pair | an assertion reached the method, or a recorded reason says why none can |
 
-## Lanes
+The configurations, crossed in full: element type × four grids (cubic, anisotropic with mixed parity,
+the same with a shifted origin, odd on every axis) × the three Fourier layouts × serial or threaded ×
+two seeds. They are defined in `configurations()` in `aliasing.jl`. Argument combinations per method
+are sampled at a cap of 400, and the number dropped is printed.
 
-- **`references.jl` + the reference-validation lane** — independent implementations of the operators,
-  computed from raw arrays by the plainest expression of the definition and sharing no code with the
-  package. They are the `correct` oracle the design calls for, and the lane checks them against the
-  package on ordinary input **before** anything uses them: a reference that shares a misconception with
-  the implementation makes every cell pass while both are wrong. Agreement is meaningful because the
-  wavenumbers are rebuilt from the grid rather than taken from `FieldSpectralMultipliers`, so a
-  convention error cannot hide by being copied. 112 pairs across 16 configurations; mutation-verified
-  by flipping a sign in the `curl` reference.
-- **`aliasing.jl`** — every in-place operation × every way its arguments can share storage. The slots
-  draw from one shared pool, which is what makes aliasing reachable at all: enumerating "what is each
-  argument" builds each separately, and two independently constructed arrays never share storage, so a
-  per-slot product reaches an aliasing pair with probability zero. The oracle is invariant 9 itself —
-  the result must equal the same call on fresh disjoint copies.
+## The rules for changing it
 
-  Since decision 59 the lane has two halves. Sections own their storage, so the only way two of them
-  share memory is by being the same array, and the arithmetic half enumerates that fully rather than
-  sampling it. The other half asserts the **refusal has not reopened**: the borrowed-storage
-  constructions that closed the class must still be rejected, checked per configuration and per tensor
-  order rather than assumed from the constructor's source. A refusal that quietly stops refusing is a
-  silent reopening, and it reports as an uncited finding — exit 2.
+Each rule came from a measured failure of an earlier version.
+
+- **Derive every axis from the code; never maintain a list.** The operations come from the method
+  table, the context axes from the equality tests in the `_check_*` predicates, the check types from
+  `classify_checks.jl`. A cell that claims a derivation must name its mechanism, a function call;
+  where a list is unavoidable (the kernel and scheme pools), it is audited against `subtypes`.
+- **A contract is declared, and a probe asserts against it.** Never ask the package whether a check
+  applies: a defect can make itself look inapplicable and skip the one cell that would expose it.
+- **Applicability is a rule read from the operation**: its name, its methods, its lowered IR. Each
+  exemption is itself checked; an operation with an in-place form may not be exempt from allocation,
+  one reaching an atomic may not be exempt from determinism.
+- **Prune by inapplicability, never by sampling.** Where an axis must be sampled, it says so in the
+  output.
+- **A reference is written from the operation's docstring, over raw arrays, sharing no code with the
+  package**, and spectral references rebuild their wavenumbers from the grid.
+- **A ledger reason closes exactly one method, keyed by its signature**, and cites the file and line
+  where that method's behaviour is asserted. A reason that cannot cite one is not admissible.
+- **Every check is tested against a case built to break it**: in `selfcheck.jl`, and for the per-method
+  ledger in `selfcheck_method_ledger` in `method_ledger.jl`. A check that cannot fail is
+  indistinguishable from one that passes.
+- **A predicate or comparison two lanes share is defined once**, in `shared.jl`.
+
+## When PF gains a feature
+
+A new public operation is picked up by the invocation engine automatically, from the method table, and
+gets the universal checks. The rest needs a hand:
+
+1. **A value oracle.** Write a `ref_…` function in `references.jl` from the operation's docstring, and
+   add a comparison row to the tuple in `run_value_lane` in `values.jl`. A new differential operator
+   also joins the cross-validation list in `run_reference_lane` in `runtests.jl`.
+2. **A method that returns no value**, such as a printer or a refusal, gets an entry in
+   `LEDGER_REASONS` in `method_reasons.jl` instead, keyed by its signature and citing its assertion.
+3. **A new kind of argument**, one the pool cannot supply, gets an entry in `canonical_pool` in
+   `invocations.jl`. A new kernel class or transfer scheme must be added to its pool; the `subtypes`
+   audit reports the omission.
+4. **A relation to another operation** (an adjoint, an identity, a round trip) is declared in
+   `RELATIONS` in `ledger.jl` and evaluated in `run_relations_lane` in `properties.jl`.
+5. **An entry point that validates a context argument** gets a row in the mismatch entries in `pools.jl`,
+   with its fiber contract declared, `:one` or `:many`.
+6. **An in-place operation** gets a row in `operations_for` in `runtests.jl`, so the aliasing lane
+   sweeps it.
+7. **New tests in `test/`**: run `julia --project=test test/exhaustive/classify_checks.jl`. An assertion
+   it cannot classify is a check type the survey does not cover.
+
+Then run the survey. The per-method ledger should read zero uncovered, and anything it reports
+`NOT REACHED` is the next item on this list.
+
+## What it does not catch
+
+- **A defect confined to a GPU kernel**, its CPU twin correct. Only the universal checks cross a
+  device, and they assert no value there; device values are checked by `test/gpu/suite.jl`.
+- **What a relation cannot see.** The adjoint and idempotence relations hold for any real symbol, so
+  they catch an inconsistency between two operations, not a wrong wavenumber; the value lane covers
+  that.
+- **Calls nobody meant.** The engine builds every call `applicable` allows, which can include a call
+  that means something else, such as a field read as `norm`'s exponent.
+- **A contract nobody validates.** The domain-rejection cells come from the validation code, so an
+  argument that is never validated contributes none.
+- **A check type nobody has written**, since the axis is derived from the existing assertions.
+- **The completeness invariants** (a banned method stays absent, no type piracy, the naming
+  discipline), which belong in the gate so they fail the moment a violation lands.
+- **Grid axes of length 1 or 2**, benchmarks, and concurrency between operations.

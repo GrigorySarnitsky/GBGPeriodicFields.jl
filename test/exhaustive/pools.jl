@@ -354,7 +354,7 @@ unreached_axes() =
 # rule, an axis that must be sampled is declared sampled and reported as a limitation — it is NOT
 # presented as derived, which is the mistake this file exists to correct.
 
-# CROSSED, not merely declared. These two constants sat here unreferenced while DESIGN.md listed them
+# CROSSED, not merely declared. These two constants sat here unreferenced while the design document listed them
 # as pool axes — the harness's own configuration described as coverage. `pointset_pool` is what the
 # lanes now draw from, so `M = 0`, `M = 1`, on-node, clustered and outside-the-box points reach a cell.
 const POINTSET_COUNT_VALUES = (0, 1, 32)                                          # derived

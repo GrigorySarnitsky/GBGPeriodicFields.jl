@@ -1362,7 +1362,7 @@ silently drop Enteropia's two columns and both retired cards from `RESULTS.md`.
 
 **The per-method coverage ledger is BUILT and reads ZERO uncovered (2026-08-28).** The resumption
 point recorded here since 2026-08-02 is closed; `test/exhaustive/method_ledger.jl` implements it and
-`test/exhaustive/DESIGN.md` carries the full account. **598 cells over 119 operations as of 2026-09-06: 579 covered by an assertion, 19 closed by a
+`test/exhaustive/README.md` says how to run, read and extend it. **598 cells over 119 operations as of 2026-09-06: 579 covered by an assertion, 19 closed by a
 recorded reason, 0 UNCOVERED** — the morning run had read 19 uncovered (the traversal order's
 methods, its `length` and `adapt_structure`, the fifteen `show` methods, and decision 83's
 one-argument form), all closed the same day: value rows and a block-key oracle for the traversal

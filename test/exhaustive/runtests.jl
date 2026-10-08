@@ -236,7 +236,7 @@ end
 
 # The suite's claim about ITSELF, checked. Axis 1 of the design says the operation axis is derived from
 # `public_surface.jl` — and no lane uses that derivation as its domain. Each one carries a hand-written
-# entry list, which is precisely the defect DESIGN.md's own rule names: a list where a derivation is
+# entry list, which is precisely the defect the survey's own rule names (README, "Derive every axis"): a list where a derivation is
 # claimed. It was shipped in the same commit that recorded the rule, three times over, and found by
 # running the rule against the design afterwards rather than by anyone noticing.
 #
