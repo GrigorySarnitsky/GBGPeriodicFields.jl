@@ -1,88 +1,48 @@
-# GPU tests (opt-in, per backend)
+# GPU tests
 
-The default test suite (`julia --project -e 'using Pkg; Pkg.test()'`) is **backend-free**:
-it runs on `Array` and installs no GPU stack, so it stays green on CI and on any machine.
-
-These GPU tests are **separate environments you opt into** on a machine that has a device.
-The package itself depends on no GPU backend — fields wrap a generic `AbstractArray`, FFT
-plans are built through the generic `AbstractFFTs` interface, and allocations inherit their
-backend via `similar`. So a GPU backend is only ever a *test* dependency, and it lives in a
-per-backend environment here, never in the package's `Project.toml`.
-
-## Why one environment per backend
-
-With AMD at home, NVIDIA at the office, and a no-GPU CI box, a single shared GPU test
-dependency would force one vendor's stack onto machines that can't use it. Instead each
-backend gets its own pinned environment; on a given machine you instantiate only the one
-matching its hardware. The actual test logic is shared and backend-agnostic
-([`suite.jl`](suite.jl)); each backend directory only provides a thin entry script that
-supplies `to_device`, `device_functional`, `GPU_BACKEND`, and calls `allowscalar(false)`.
-
-## Run on AMD / ROCm
+The GPU suite, separate from `Pkg.test()` and run only on a machine with a device. Each backend has
+its own environment, so a machine installs only its own vendor's stack; the tests themselves are shared
+in [`suite.jl`](suite.jl).
 
 ```sh
-# one-time: resolve and install the environment (downloads the ROCm/HIP artifacts).
-# AMDGPU is already a dependency here and Manifests are gitignored, so instantiate
-# resolves it fresh against the [compat] bound.
-julia --project=test/gpu/rocm -e 'using Pkg; Pkg.instantiate()'
+julia --project=test/gpu/cuda -e 'using Pkg; Pkg.instantiate()'   # NVIDIA, one-time
+julia --project=test/gpu/cuda test/gpu/cuda/runtests.jl
 
-# run the suite on the device
+julia --project=test/gpu/rocm -e 'using Pkg; Pkg.instantiate()'   # AMD, one-time
 julia --project=test/gpu/rocm test/gpu/rocm/runtests.jl
 ```
 
-If no functional device is present the suite warns and skips rather than failing.
+Without a working device the suite warns and skips rather than failing.
 
-## Run on NVIDIA / CUDA
+## What it checks
 
-```sh
-# one-time: resolve and install the environment (downloads the CUDA toolkit artifacts).
-# CUDA is already a dependency here and Manifests are gitignored, so instantiate
-# resolves it fresh against the [compat] bound.
-julia --project=test/gpu/cuda -e 'using Pkg; Pkg.instantiate()'
+Scalar indexing of device arrays is disabled, so a package method that indexes one element at a time
+throws (invariant 6). Within that:
 
-# run the suite on the device
-julia --project=test/gpu/cuda test/gpu/cuda/runtests.jl
-```
+- **Parity.** The public surface, run on device arrays in `Float64` and `Float32`, against the same
+  call on the CPU.
+- **Allocation.** Every in-place operation with its destination also an input allocates nothing on the
+  device. Only a backend that can count device bytes runs this check; today that is CUDA.
+- **Cost.** Ten operations at 256³, timed against the memory each must move, with bounds frozen per
+  backend and precision. A backend without frozen bounds reports without judging.
 
-As with ROCm, the suite warns and skips if no functional device is present. Verified on an
-RTX 5070 Ti (Blackwell, `sm_120`) and, earlier, a GTX 1070 (Pascal). (On an older Pascal card
-such as the GTX 1070, CUDA.jl may warn that the compute capability is "not fully supported" by
-the auto-selected toolkit — harmless, the suite passes regardless; Blackwell needs no such caveat.)
-
-## Run on NVIDIA / CUDA with unified memory
+## Unified memory (CUDA)
 
 ```sh
 julia --project=test/gpu/cuda-unified -e 'using Pkg; Pkg.instantiate()'   # one-time
 julia --project=test/gpu/cuda-unified test/gpu/cuda-unified/runtests.jl
 ```
 
-The same suite with every CUDA array allocated in unified memory, which the driver pages between GPU
-and host RAM. The lane is chosen by the tracked `LocalPreferences.toml` in that directory, not by code;
-`docs/src/gpu.md` explains the setting. Before the suite it refuses to run if the setting did not take
-effect, checks that every allocating route is unified, and runs a working set larger than the card
-(skipped, with a message, when host RAM cannot hold it). **Run it in addition to the device lane, never
-instead:** CUDA.jl does not honour `allowscalar(false)` for unified arrays, so this lane cannot catch
-scalar indexing. Never put that preference into `test/gpu/cuda/` itself.
+The same suite with every CUDA array in unified memory, which the driver pages between the GPU and
+host RAM; the tracked `LocalPreferences.toml` in that directory selects it, and `docs/src/gpu.md`
+explains the setting. The lane refuses to run if the setting did not take effect, and checks a working
+set larger than the card. Run it in addition to the device lane, never instead: CUDA.jl does not
+disable scalar indexing for unified arrays, so this lane cannot catch it.
 
-## Adding another backend
+## Adding a backend
 
-Mirror `rocm/` (or `cuda/`): a `Project.toml` with the same `[deps]` and `[sources]` path
-(swapping the GPU backend dependency), plus a thin `runtests.jl` that swaps the backend
-names — for CUDA, `AMDGPU` → `CUDA`, `AMDGPU.ROCArray` → `CUDA.CuArray`,
-`AMDGPU.functional` → `CUDA.functional`, `AMDGPU.allowscalar` → `CUDA.allowscalar`, and
-`GPU_BACKEND = "CUDA"`. The shared `suite.jl` needs no changes.
-
-## What the suite checks
-
-On the device, compared against the trusted CPU result (`Array(device) ≈ host`), with
-scalar indexing **disabled** so any stray scalar index into device memory inside a package
-method fails the test (invariant 6):
-
-- FFT round-trips (scalar / vector / tensor);
-- vector-space algebra and fused broadcast assignment;
-- the spectral zero-mode constant update (invariant 4);
-- contractions and products — `dot`, `cross`, tensor·vector, tensor·tensor, and `mul!` in
-  both its overwrite (β = 0) and accumulate (β ≠ 0) branches;
-- `transpose`, `sym`/`skew`/`dev`, and the pointwise norms;
-- the spectral differential operators (`gradient`, `divergence`, `curl`, `laplacian`,
-  `inverse_laplacian`, `helmholtz_projection`) and the spectral linear tensor ops.
+Copy `cuda/` or `rocm/`: a `Project.toml` with the backend's package in place of the other, and a
+`runtests.jl` that defines `GPU_BACKEND`, `device_functional`, `to_device`, `device_array_family`
+and `device_synchronize`, and `device_bytes_allocated` if the backend can count device bytes, calls
+`allowscalar(false)`, and includes `suite.jl`.
+`suite.jl` needs no change.

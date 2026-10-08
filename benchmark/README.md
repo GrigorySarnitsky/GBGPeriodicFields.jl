@@ -1,81 +1,75 @@
 # Benchmarks
 
-A standing benchmark suite (sibling of `test/`), **opt-in** — not part of `Pkg.test()`. It tracks
-performance of the public operation classes across platforms. Rationale, methodology, best
-practices, and the recorded per-platform results live in [`docs/PERFORMANCE.md`](../docs/PERFORMANCE.md).
+PF's benchmark suite, separate from `Pkg.test()` and run only on request. The performance model, the
+recorded findings and the per-platform results are in [`docs/PERFORMANCE.md`](../docs/PERFORMANCE.md);
+the full results table is [`RESULTS.md`](RESULTS.md).
+
+A benchmark run owns the machine: nothing else runs while it measures, and a GPU run needs an idle card.
+
+## Setup
+
+```sh
+julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'            # CPU
+julia --project=benchmark/gpu/cuda -e 'using Pkg; Pkg.instantiate()'   # NVIDIA
+julia --project=benchmark/gpu/rocm -e 'using Pkg; Pkg.instantiate()'   # AMD
+```
+
+## The four ways to run it
+
+- **Check that every row runs** (seconds; needs no idle machine). Builds every benchmark at a tiny
+  grid and runs it once:
+  ```sh
+  julia --project=benchmark benchmark/gate.jl
+  julia --project=benchmark/gpu/cuda benchmark/gate.jl cuda
+  julia --project=benchmark/gpu/rocm benchmark/gate.jl rocm
+  ```
+- **The canary** (minutes). One benchmark per execution mechanism, judged against this host's frozen
+  baseline in `baselines/`; it exits nonzero on a regression. `--freeze` writes a new baseline, which
+  is committed with its reason.
+  ```sh
+  julia --project=benchmark -t1 benchmark/regress.jl cpu
+  julia --project=benchmark -t8 benchmark/regress.jl cpu
+  julia --project=benchmark/gpu/cuda benchmark/regress.jl cuda
+  julia --project=benchmark/gpu/rocm benchmark/regress.jl gpu
+  ```
+- **A quick run** at small grids, with an optional saved baseline to judge a later run against:
+  ```sh
+  julia --project=benchmark -t4 benchmark/runbenchmarks.jl
+  julia --project=benchmark -t4 benchmark/runbenchmarks.jl save results/baseline.json
+  julia --project=benchmark -t4 benchmark/runbenchmarks.jl judge results/baseline.json
+  ```
+  The GPU equivalents are `benchmark/gpu/<backend>/runbenchmarks.jl`.
+- **The full sweep** behind `RESULTS.md` (hours). Every class over the CPU thread counts 1, 2, 4 and 8
+  and one GPU. `characterize.jl` measures one lane into an archive under `results/`, and `report.jl`
+  assembles all ten archives, both hosts', into `RESULTS.md`:
+  ```sh
+  julia --project=benchmark -t4 benchmark/characterize.jl cpu results/cpu-t4.json
+  julia --project=benchmark/gpu/cuda benchmark/characterize.jl cuda results/gpu.json
+  julia --project=benchmark benchmark/report.jl results/*.json
+  ```
+  `characterize.jl` overwrites the archive it is given, so measure into a new file and merge with
+  `merge_parts.jl`, or replace one class with `replace_class.jl`. `characterize.sh` runs a host's
+  lanes in one go, but hands `report.jl` only those lanes, so the other host's columns drop out of
+  `RESULTS.md`.
+
+After a sweep, compare it with the previous archive and explain every systematic change before
+naming a cause; `report.jl` adds the born-slow triage and the history scan to `RESULTS.md` to
+start from.
 
 ## Layout
 
-- `benchmarks.jl` — `build_suite(; array_family, types, sizes)` builds a `BenchmarkTools.BenchmarkGroup`
-  parameterised by the device array type (`Array` on CPU; `ROCArray`/`CuArray` on GPU), element type,
-  and grid size. `print_results` prints a min-time/allocations table.
-- `harness.jl` — device-parameterised field/point builders + `bench_sync` (blocks the backend so
-  BenchmarkTools times GPU work to completion).
-- `fft.jl`, `algebra.jl`, `operators.jl`, `transfer.jl`, `reductions.jl` — per-class benchmark builders.
-- `runbenchmarks.jl` — CPU entry (run, print, optional `save`/`judge`).
-- `threading.jl` — standalone serial-vs-threaded comparison (manual).
-- `gpu/<backend>/` — per-backend GPU entry (mirrors `test/gpu/`).
+- `benchmarks.jl` — `build_suite(; array_family, types, sizes)`, the suite every entry point builds.
+- `harness.jl` — device-aware builders and `bench_sync`, which waits for the device before a timer
+  stops.
+- One file per class: `fft.jl`, `algebra.jl`, `operators.jl`, `convolution.jl`, `transfer.jl`,
+  `reductions.jl`, `storage.jl` (device only), `resolution.jl`.
+- `gate.jl`, `regress.jl`, `runbenchmarks.jl`, `characterize.jl`/`characterize.sh`, `report.jl`,
+  `triage.jl`, `merge_parts.jl`, `replace_class.jl` — the runners above and their tools.
+- `history_regressions.py` — scans the committed history of `RESULTS.md` for cells slower than their
+  best.
+- `kernel_resources*.jl` — the compiled register and occupancy figures of the transfer kernels.
+- `threading.jl`, `study_*.jl` — standalone studies.
+- `gpu/<backend>/` — the per-backend environments and entry points.
 
-## Running
-
-One-time: `julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'`
-
-CPU (run both lanes, matching the CI matrix):
-```
-julia --project=benchmark -t1 benchmark/runbenchmarks.jl
-julia --project=benchmark -t4 benchmark/runbenchmarks.jl
-```
-
-Save a baseline, then judge a later run against it (manual regression check):
-```
-julia --project=benchmark benchmark/runbenchmarks.jl save results/cpu-baseline.json
-julia --project=benchmark benchmark/runbenchmarks.jl judge results/cpu-baseline.json
-```
-
-### A `-t8` CPU characterization lane segfaults on `Enteropia` — run it split by grid
-
-A single `characterize.jl` process at `-t8` dies with `signal 11` inside FFTW's threaded executor
-(`spawn_apply` ← FFTW.jl's `spawnloop`) partway through the `reductions` class. It has failed four of
-five attempts on that host and has never been seen on `Aiporetne`; the package itself is fine at eight
-threads (`Pkg.test()` passes in full there). Full account, including the four reproduction attempts
-that came back clean, in `docs/PERFORMANCE.md` §4(q).
-
-Run the lane as one process per grid and merge the parts — 64³, 256³ and 512³ pass first time, 128³
-usually needs a retry:
-```
-for N in 64 128 256 512; do
-  CHAR_SIZES=$N julia -t8 --project=benchmark benchmark/characterize.jl cpu results/t8-part-$N.json
-done
-```
-Each part holds only its own grid's rows, so the union is disjoint and merging them with
-`BenchmarkTools.load`/`save` gives exactly what one uncrashed process would have written. Do not reach
-for `set_fft_threads!(1)`: it removes the callback and the crash with it, but this lane exists to
-measure threaded FFT, so it would corrupt the column it is meant to produce.
-
-GPU (ROCm), one-time instantiate then run:
-```
-julia --project=benchmark/gpu/rocm -e 'using Pkg; Pkg.instantiate()'
-julia --project=benchmark/gpu/rocm benchmark/gpu/rocm/runbenchmarks.jl
-```
-
-## The exhaustive report
-
-`runbenchmarks.jl` above is the quick, regression-sensitive run (grids 64³/128³). For the **full
-matrix** — the CPU thread sweep (1/2/4/8) and the GPU, over each backend's default grids (CPU
-64³–512³, device 64³–256³) and every op-class,
-run one grid size at a time to bound memory — use the driver:
-
-```sh
-bash benchmark/characterize.sh                    # writes benchmark/RESULTS.md (~15-30 min)
-THREADS="1 2 4 8 16" bash benchmark/characterize.sh   # override the thread set
-```
-
-It saves per-run JSON under `benchmark/results/` (gitignored) and assembles the committed
-`benchmark/RESULTS.md` (full table + provenance) via `benchmark/report.jl`. `characterize.jl` is the
-per-launch runner (backend chosen by its first argument, `cpu`/`gpu`).
-
-## Coverage contract
-
-Every public operation is benchmarked over {Float64, Float32} × {representative grid sizes} ×
-{CPU `-t1`, CPU `-t4`, GPU}. New operations add their benchmark to the matching per-class file —
-the performance analogue of the test coverage contract (`docs/TESTING.md` §4).
+A new public operation adds its benchmark to the matching class file; the coverage contract is in
+`docs/PERFORMANCE.md` §5.
