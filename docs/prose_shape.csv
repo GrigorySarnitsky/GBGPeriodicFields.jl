@@ -63,7 +63,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",368,107,0
 "Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",661,165,2
 "Convolution.jl :: convolve(field, kernel::SpectralKernel)",78,72,0
-"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",694,209,2
+"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",698,209,2
 "Convolution.jl :: exponential_convolve(field, multipliers, coefficient::Real)",54,46,0
 "Convolution.jl :: field ⋆ kernel",60,51,0
 "Convolution.jl :: inv(kernel::ProductKernel)",62,33,1
@@ -244,7 +244,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: _assign!(destination, broadcasted)",56,54,0
 "FiberSections.jl :: _assign!(destination, source)",33,31,0
 "FiberSections.jl :: _assign_slabs!(destination, instantiated, axis::Val)",44,41,0
-"FiberSections.jl :: _assign_threaded!(destination, broadcasted)",162,160,0
+"FiberSections.jl :: _assign_threaded!(destination, broadcasted)",158,156,0
 "FiberSections.jl :: _broadcast_sliceable(argument)",55,54,0
 "FiberSections.jl :: _call_values(f, arrays, n, constants)",55,51,0
 "FiberSections.jl :: _check_owned_storage(data, what::AbstractString)",241,86,0
@@ -252,7 +252,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: _det_tensor_rhs(symbol, kind)",65,31,0
 "FiberSections.jl :: _dot_tensor_rhs(A_symbol, A_kind, B_symbol, B_kind)",23,19,0
 "FiberSections.jl :: _dot_vector_rhs(u_symbol, u_kind, v_symbol, v_kind)",32,28,0
-"FiberSections.jl :: _element_values(arrays, n)",155,108,0
+"FiberSections.jl :: _element_values(arrays, n)",157,108,0
 "FiberSections.jl :: _fiber_component_count(::Val{R})",16,15,0
 "FiberSections.jl :: _fiber_order(fiber_type)",35,34,0
 "FiberSections.jl :: _fiber_type(::Type{T}, ::Val{R})",30,28,0
@@ -335,7 +335,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: FieldPhysicalBroadcastStyle{N}",38,37,0
 "Fields.jl :: FieldSpectralBroadcastStyle{N}",36,35,0
 "Fields.jl :: FieldSpectralMultipliers(",646,189,0
-"Fields.jl :: FieldTransformPlans(",537,170,1
+"Fields.jl :: FieldTransformPlans(",512,145,1
 "Fields.jl :: Fields",494,443,0
 "Fields.jl :: Grid3D(",232,66,0
 "Fields.jl :: RealFourierLayout()",73,33,0
@@ -399,7 +399,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _vector_component_data(",45,28,0
 "Fields.jl :: _wavenumber_broadcast_view(multipliers::FieldSpectralMultipl",41,39,0
 "Fields.jl :: _write_shared_mode!(destination, source, destination_index, ",30,24,0
-"Fields.jl :: adapt!(destination, source)",321,156,0
+"Fields.jl :: adapt!(destination, source)",305,156,0
 "Fields.jl :: adapt(storage, object)",509,140,2
 "Fields.jl :: embed_modes!(destination::AbstractFieldSpectral, source::Abs",368,80,1
 "Fields.jl :: extract_modes!(destination::AbstractFieldSpectral, source::A",248,64,1
@@ -447,7 +447,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: _lagrange_weight_matrix(n)",55,54,0
 "Interpolation.jl :: _locate(coordinate, origin, spacing, number_of_grid_points)",42,38,0
 "Interpolation.jl :: _scan_offsets!(offsets, counts)",96,82,0
-"Interpolation.jl :: _scan_offsets!(offsets::Vector, counts::Vector)",173,86,0
+"Interpolation.jl :: _scan_offsets!(offsets::Vector, counts::Vector)",177,90,0
 "Interpolation.jl :: _show_spline_eltype(io, scheme)",83,59,0
 "Interpolation.jl :: anterpolate!(field::AbstractFieldPhysical, points::PointSet,",394,209,0
 "Interpolation.jl :: anterpolate(grid::Grid3D, points, quantities, scheme::Abstra",81,63,0
