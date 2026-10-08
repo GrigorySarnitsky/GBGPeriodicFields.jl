@@ -506,6 +506,19 @@ work that is nearly free while a field is cache-resident and is not once it is n
 deferred for want of a consumer, not because the cost is deemed unimportant — and it wants a
 node-scale CPU measurement before it is ranked.
 
+*Re-derived 2026-09-03, after decision 79, from the 2026-08-31 archives of both hosts* (42 matched
+cells: two backends, two CPUs, three thread counts, both element types, ``64^3``–``512^3``). The
+table above predates decision 79, and the fixed-kernel row no longer holds as a single ratio: the
+answer depends on rank. This form is compute-bound on the exponential and a stored kernel
+bandwidth-bound on the coefficients it streams. Since decision 79 one exponential serves all three
+components of a vector field, so at ``256^3``–``512^3`` the lazy form runs at ``0.88``–``1.03`` of a
+stored kernel's time, on a GPU and a threaded CPU alike. A scalar field pays one exponential per
+element and the stored kernel leads, ``0.73``–``3.09`` over those sizes and up to about ``20\times`` at
+``64^3``–``128^3`` on a CPU, where there is too little traffic to hide it. Serially the stored kernel
+leads throughout, and `Float32` shifts the balance toward it, halving its traffic while leaving the
+exponential unchanged. These figures lived in the `exponential_convolve!` docstring until 2026-10-08,
+which now gives the guidance without them.
+
 **(l) The threaded `_assign!` inner loop runs at ~8.6 GB/s per thread — mid thread counts sit *above*
 serial on the streaming ops.** Found by the first 512³ CPU sweep (2026-07-21) and visible, unnoticed, in
 every committed CPU column before it: on **both** measured CPUs, at **every** grid size, `add!`/

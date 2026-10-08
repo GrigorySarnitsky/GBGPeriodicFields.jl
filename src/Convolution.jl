@@ -1591,47 +1591,23 @@ _offset_mode_data(offset::RadialKernel) = _RadialOffset(offset.sigma)
     exponential_convolve!(destination, α::Real, a, β::Real, b, multipliers,
                           coefficient::Real, offset_scale::Real, offset)
 
-Smooth a field with the periodic heat kernel: convolve it with the exponential radial kernel, optionally times a per-mode exponent field —
-``\\exp(c |k|^2 + s \\hat w)``, radial in the ``c |k|^2`` part alone — where ``c`` is a real
-coefficient on the squared wavenumber ``|k|^2``, and the optional term adds a per-mode real field
-``\\hat w`` supplied by the caller under a real scale ``s``. The kernel is evaluated on the fly,
-never stored as a field, and the result is written into
-`destination` in place, which is returned.
+Convolve a field with an exponential kernel, given by its transfer function
+``\\exp(c |k|^2 + s \\hat w(k))``, and write the result into `destination`, which is returned. For
+``c \\le 0`` and no ``\\hat w`` this is the periodic Gaussian (heat) kernel, the operator
+``e^{-c\\Delta}``, which smooths the field at the length scale ``\\sqrt{-2c}``. In spectral
+representation each coefficient is multiplied by the kernel's value at its mode, with ``|k|^2`` the
+true squared wavenumber, kept at the Nyquist frequency, so the kernel is real, even and positive; the
+optional ``s \\hat w`` adds a per-mode term the caller supplies. The kernel is evaluated per mode and
+never stored.
 
 Use this in-place form when `destination` is already allocated; the allocating [`exponential_convolve`](@ref)
-returns a fresh result instead.
+returns a fresh result instead. It acts in spectral representation only.
 
-It acts in spectral representation only.
-
-For a coefficient ``c \\le 0`` this is, physically, convolution with the periodic
-Gaussian (heat) kernel: the operator ``e^{-c\\Delta}``, which smooths the field at the length scale
-``\\sqrt{-2c}``. In spectral representation it is the coefficientwise product with
-``\\exp(c |k|^2)``, the true squared wavenumber kept at the Nyquist frequency (the Laplacian
-convention), so the kernel is real, even, and positive — a valid kernel for every real field. The
-optional term ``s \\hat w`` generalizes the exponent by whatever per-mode field the caller supplies.
-
-Choose between this and a stored kernel by reuse and by rank. When the exponent changes between
-applications — so a stored kernel would be rebuilt each time — the lazy form wins outright: a rebuild
-writes a whole field of coefficients that this form never writes, let alone reads, and it reads three
-one-dimensional wavenumber arrays instead.
-
-For one **fixed** kernel reused across many calls the two are close, and rank decides, because this
-form's cost is the exponential it evaluates per mode while a stored kernel's is the coefficient field
-it streams. On a **vector** field one exponential serves all three components, so the lazy form runs
-at ``0.88``–``1.03`` of a stored kernel's time at ``256^3``–``512^3``, on a GPU and on a threaded CPU
-alike. On a **scalar** field it pays one exponential per element and the stored kernel leads —
-``0.73``–``3.09`` over those sizes, and on a CPU by as much as ``20\\times`` at ``64^3``–``128^3``,
-where there is too little memory traffic to hide the exponential. Serially the stored kernel leads
-throughout, and `Float32` shifts the balance further toward it, halving its traffic while leaving the
-exponential unchanged. The two-operand forms fuse the combination into this same pass, removing the
-combination's destination write and re-read.
-
-On a CPU a deeply damped kernel has one further `Float32` cost cliff: modes whose factor lands in the
-subnormal range — exponent arguments ``c \\lvert k\\rvert^2 + s \\hat w`` between about ``-103`` and
-``-87`` — are produced through a hardware assist at roughly ``16\\times`` the usual per-element cost,
-so a kernel deep enough to cross that band pays a multiple of its whole pass. The `Float64` band
-(arguments below about ``-708``) is beyond any physical kernel, and the GPU backends flush subnormals
-to zero, so both are unaffected; where the band matters, use `Float64` or a milder exponent.
+Prefer it to a [`StoredKernel`](@ref) holding the same factor when the exponent changes between
+calls, since the stored kernel would be rebuilt each time. For one fixed kernel applied many times to a
+scalar field, a stored kernel is usually faster, this form evaluating one exponential per
+coefficient; on a vector or tensor field one exponential serves every component and the two are
+comparable.
 
 # Arguments
 
@@ -1639,11 +1615,10 @@ to zero, so both are unaffected; where the band matters, use `Float64` or a mild
   since the product is coefficientwise.
 - `field` — the field to filter, in spectral representation.
 - `α`, `β` — in the single-operand forms, where they trail the argument list, the accumulation
-  weights of `LinearAlgebra.mul!(C, A, B, α, β)`, which they mirror: the result is written as ``\\alpha (\\text{filtered } f) + \\beta \\texttt{destination}``.
+  weights, as in `LinearAlgebra.mul!(C, A, B, α, β)`: the formula below.
 - `α`, `a`, `β`, `b` — in the two-operand forms, where they lead it, the real weights and fields of
   the combination ``\\alpha a + \\beta b`` the kernel is applied to, exactly as [`combine!`](@ref)
-  takes them; with `b === destination` the filtered accumulate runs in place. The two roles never
-  share a signature, which is why one pair of glyphs can serve both.
+  takes them; with `b === destination` the filtered accumulate runs in place.
 - `multipliers` — the wavenumber arrays for the field's grid; the kernel is evaluated from their
   squared-wavenumber family.
 - `coefficient` — the real factor ``c`` on ``|k|^2`` in the exponent, dimensionless as received (the
@@ -1658,16 +1633,15 @@ to zero, so both are unaffected; where the band matters, use `Float64` or a mild
 The single-operand accumulate form computes, with ``\\hat d`` the coefficients of `destination`,
 
 ```math
-\\hat d(k) \\leftarrow \\alpha \\exp\\bigl(c |k|^2 + s \\hat w(k)\\bigr) \\hat f(k) + \\beta \\hat d(k),
+\\hat d(k) \\leftarrow \\alpha \\exp\\bigl(c |k|^2 + s \\hat w(k)\\bigr) \\hat f(k) + \\beta \\hat d(k).
 ```
 
 # The two-operand form
 
 Passing `α, a, β, b` ahead of the multipliers applies the same kernel to a weighted combination,
-``\\exp(c |k|^2 + s \\hat w) \\cdot (\\alpha \\hat a + \\beta \\hat b)``, in one pass — the lazy-kernel
-twin of the kernel-composed `combine!` method, and the fusion [`divergence!`](@ref GBGPeriodicFields.DifferentialOperators.divergence!) and
-[`helmholtz_projection!`](@ref GBGPeriodicFields.DifferentialOperators.helmholtz_projection!) perform when given a trailing kernel. With `b === destination` it is the
-filtered accumulate, computed in place.
+``\\exp(c |k|^2 + s \\hat w) (\\alpha \\hat a + \\beta \\hat b)``, in one pass, as the kernel form of
+`combine!` does for a stored kernel. With `b === destination` it is the filtered accumulate,
+computed in place.
 
 !!! warning "The offset must be real-valued and even"
     The exponential of a real, even multiplier keeps a real field real, and **both** halves of that
@@ -1677,6 +1651,13 @@ filtered accumulate, computed in place.
     transform then silently keeps only the Hermitian part, exactly as a caller-built kernel can
     under `convolve!`. There is deliberately no *scalar* exponent
     offset: a constant ``s_0`` in the exponent is ``e^{s_0}`` times the kernel and belongs in ``α``.
+
+!!! warning "A deep `Float32` kernel is slow on a CPU"
+    Where the exponent ``c |k|^2 + s \\hat w`` falls between about ``-103`` and ``-87``, the
+    `Float32` exponential is a subnormal number, which a CPU produces at roughly 16 times the usual
+    cost; a kernel deep enough to cover many modes in that band pays a multiple of its whole pass.
+    `Float64` has its band near ``-708``, beyond any physical kernel, and GPUs flush subnormals to
+    zero, so neither is affected. Where the band matters, use `Float64` or a milder exponent.
 """
 function exponential_convolve! end
 
