@@ -8,6 +8,8 @@ Config(
     tool = v"2.0.0-rc.70",
     docs_build = ["julia", "--project=docs", "docs/make.jl"],
     test = ["julia", "--project", "-e", "using Pkg; Pkg.test()"],
+    # Approved by the owner on 2026-10-11 for publication: the address in Project.toml's `authors`.
+    leak_emails = ["grigory@sarnitsky.se"],
     # The one tooling page, written by `Render.pages` during the docs build: what the documentation
     # is held to, a link to the rulebook, and this package's switches. No rule reads a generated page.
     generated = ["docs/src/gbg.md"],
