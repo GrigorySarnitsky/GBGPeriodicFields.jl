@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.69 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.70 — rewritten by `gbg sync`; do not edit -->
 # What GBGPeriodicFields has switched off
 
 Each entry names a rule this package does not hold itself to, and why. A rule listed
