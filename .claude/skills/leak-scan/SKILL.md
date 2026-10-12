@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.72 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.73 — rewritten by `gbg sync`; do not edit -->
 # /leak-scan
 
 Nothing secret or personal is published when a repository is made public; it records only accepted fingerprints.
@@ -29,6 +29,17 @@ decides, since it says what publishing would cost — and not otherwise; it ends
      document a documentation fix; in code it waits for the owner's answer like any code change; on
      GitHub an edit or a deletion there. An email address stays only if the owner approves it in
      `leak_emails`. A private word (`RULE.LEAK.TERM`) you do not read: name its file to the owner.
+     A workflow log is the output GitHub keeps of one run, and it deletes the log by itself once
+     the repository's retention period has passed (90 days unless its Actions settings say
+     otherwise; `gh api repos/<owner>/<repo>/actions/permissions/artifact-and-log-retention`
+     shows it). A run the scan lists as one whose log is no longer kept is one GitHub no longer
+     serves — past its retention, or deleted — so it has nothing to publish and needs no check
+     by the owner. A log is removed only for a finding the scan names in that run's own log, and
+     only on the owner's answer; propose deleting the log alone
+     (`gh api -X DELETE repos/<owner>/<repo>/actions/runs/<id>/logs`), which keeps the run's
+     record, rather than the run (`gh run delete`). A log is how a failed run is diagnosed, and a
+     pass that prints `INCOMPLETE`, or whose findings move from one pass to the next, is the
+     scan's defect to report, not a reason to delete anything.
    - **Only in the history** (a path, a word, an address, a session link in an old commit or its
      message). A note, not a secret — a session link opens only to the owner's account — and so
      accepted once the current files are clean (the owner's three tiers, 2026-10-02; GBGCodingTools
@@ -36,7 +47,8 @@ decides, since it says what publishing would cost — and not otherwise; it ends
      in `.gbg/leak-accepted.txt`, and you commit that file.
 4. The package is ready to publish when a scan, `--github` included, prints no blocking finding, none
    in the current files, and every history note accepted. Say so, with the counts, and with what the
-   scan says it could not read (the wiki, release assets and the like), which the owner checks himself.
+   scan says it could not read (the wiki, release assets and the like), which the owner checks himself;
+   the runs whose log is no longer kept you give as one count, since there is nothing in them to check.
 5. Say also what publishing needs beyond the scan: the package's test and docs environments fetch
    GBGCodingTools by its URL, so while GBGCodingTools is private nobody else can run them.
 
