@@ -428,10 +428,10 @@ function field_data end
     ) where {T<:AbstractFloat}
 
     ScalarFieldPhysical(
+      array_family::Type{<:AbstractArray},
       f,
       grid::Grid3D{T};
       layout::RealFourierLayout = RealFourierLayout(),
-      array_family = Array,
     ) where {T<:AbstractFloat}
 
     ScalarFieldPhysical(
@@ -445,12 +445,12 @@ Scalar field in physical representation, stored as its values on a three-dimensi
 The function constructor constructs a scalar field in physical representation by sampling a real-valued function on a three-dimensional physical grid.
 # Arguments
 
+- `array_family` — the array family the sampled values are stored in: `Array` on the host, `CuArray`
+  or `ROCArray` to build the field on a GPU. It is required and checked as the allocating
+  constructors check theirs.
 - `f` — the sampled function, called as `f(x, y, z)` at each grid point.
 - `grid` — the `Grid3D` the values are sampled on.
 - `layout` — a keyword: the `RealFourierLayout` used when transforming the field.
-- `array_family` — a keyword: the array family the sampled values are stored in (`Array` on the host,
-  `CuArray` or `ROCArray` to build the field on a GPU), checked as the allocating constructors check
-  theirs.
 
 The allocating constructor takes an `array_family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
@@ -480,8 +480,8 @@ end
 
 
 
-function ScalarFieldPhysical(f, grid::Grid3D{T}; layout::RealFourierLayout = RealFourierLayout(),
-    array_family::Type{<:AbstractArray} = Array) where {T<:AbstractFloat}
+function ScalarFieldPhysical(array_family::Type{<:AbstractArray}, f, grid::Grid3D{T};
+    layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
   fourier_layout = layout
   _check_array_family_element_type(array_family, grid)
   values_at_grid = Array{T}(undef, field_physical_shape(grid, Val(0))...)
@@ -579,10 +579,10 @@ field_data(field::ScalarFieldSpectral) = field.fourier_coefficients
     ) where {T<:AbstractFloat}
 
     VectorFieldPhysical(
+      array_family::Type{<:AbstractArray},
       f,
       grid::Grid3D{T};
       layout::RealFourierLayout = RealFourierLayout(),
-      array_family = Array,
     ) where {T<:AbstractFloat}
 
 
@@ -597,13 +597,13 @@ Vector field in physical representation, stored as its components on a three-dim
 The function constructor constructs a vector field in physical representation by sampling a real vector-valued function on a three-dimensional physical grid.
 # Arguments
 
+- `array_family` — the array family the sampled values are stored in: `Array` on the host, `CuArray`
+  or `ROCArray` to build the field on a GPU. It is required and checked as the allocating
+  constructors check theirs.
 - `f` — the sampled function, called as `f(x, y, z)`; it must return a three-component
   indexable object.
 - `grid` — the `Grid3D` the values are sampled on.
 - `layout` — a keyword: the `RealFourierLayout` used when transforming the field.
-- `array_family` — a keyword: the array family the sampled values are stored in (`Array` on the host,
-  `CuArray` or `ROCArray` to build the field on a GPU), checked as the allocating constructors check
-  theirs.
 
 The allocating constructor takes an `array_family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
@@ -634,8 +634,8 @@ end
 
 
 
-function VectorFieldPhysical(f, grid::Grid3D{T}; layout::RealFourierLayout = RealFourierLayout(),
-    array_family::Type{<:AbstractArray} = Array) where {T<:AbstractFloat}
+function VectorFieldPhysical(array_family::Type{<:AbstractArray}, f, grid::Grid3D{T};
+    layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
   fourier_layout = layout
   _check_array_family_element_type(array_family, grid)
   values_at_grid = Array{T}(undef, field_physical_shape(grid, Val(1))...)
@@ -740,10 +740,10 @@ field_data(field::VectorFieldSpectral) = field.fourier_coefficients
     ) where {T<:AbstractFloat, N}
 
     TensorFieldPhysical{R}(
+      array_family::Type{<:AbstractArray},
       f,
       grid::Grid3D{T};
       layout::RealFourierLayout = RealFourierLayout(),
-      array_family = Array,
     ) where {R, T<:AbstractFloat}
 
 
@@ -760,13 +760,13 @@ The array has shape `field_physical_shape(grid, Val(R))`. The constructors witho
 The function constructor constructs a tensor field of order ``R \\ge 2`` in physical representation by sampling a real tensor-valued function on a three-dimensional physical grid.
 # Arguments
 
+- `array_family` — the array family the sampled values are stored in: `Array` on the host, `CuArray`
+  or `ROCArray` to build the field on a GPU. It is required and checked as the allocating
+  constructors check theirs.
 - `f` — the sampled function, called as `f(x, y, z)`; it must return an indexable object with
   tensor-fiber shape `fiber_shape(Val(R))`.
 - `grid` — the `Grid3D` the values are sampled on.
 - `layout` — a keyword: the `RealFourierLayout` used when transforming the field.
-- `array_family` — a keyword: the array family the sampled values are stored in (`Array` on the host,
-  `CuArray` or `ROCArray` to build the field on a GPU), checked as the allocating constructors check
-  theirs.
 
 The allocating constructor takes an `array_family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
@@ -801,8 +801,8 @@ TensorFieldPhysical(values_at_grid::AbstractArray{T, N}, grid::Grid3D{T};
   TensorFieldPhysical{N - 3}(values_at_grid, grid; layout)
 
 
-function TensorFieldPhysical{R}(f, grid::Grid3D{T}; layout::RealFourierLayout = RealFourierLayout(),
-    array_family::Type{<:AbstractArray} = Array) where {R, T<:AbstractFloat}
+function TensorFieldPhysical{R}(array_family::Type{<:AbstractArray}, f, grid::Grid3D{T};
+    layout::RealFourierLayout = RealFourierLayout()) where {R, T<:AbstractFloat}
   fourier_layout = layout
   _check_array_family_element_type(array_family, grid)
   (R isa Integer && R ≥ 2) || throw(ArgumentError("tensor order R must be an integer at least 2"))
@@ -1011,13 +1011,13 @@ field_data(field::TensorFieldSpectral) = field.fourier_coefficients
 """
     similar_field(reference::AbstractField, data)
 
-    similar_field(reference::AbstractField, ::Val{R})
+    similar_field(reference::AbstractField[, ::Val{R}])
 
 Construct a field with metadata copied from `reference`.
 
-With storage array `data`, the field has the same representation and tensor order as `reference`. With `Val{R}`, new storage is allocated with the same representation and tensor order `R`.
+With storage array `data`, the field has the same representation and tensor order as `reference`. Otherwise new storage is allocated, uninitialized, with the same representation and the tensor order `R` (by default `reference`'s).
 
-This is used by out-of-place field broadcasting and by allocating algebraic operations. With no
+Out-of-place broadcasting and the allocating algebra use it. With no
 reference field in hand — only a grid, a layout and a backend — use the allocating type
 constructors instead, which take an array family in place of the array
 ([`ScalarFieldPhysical`](@ref) and its five siblings).
@@ -1032,6 +1032,10 @@ constructors instead, which take an array family in place of the array
     never does — so half of this operation could not carry the name in any case.
 """
 function similar_field end
+
+
+# With no order given, a field like the reference: its own tensor order.
+similar_field(reference::AbstractField) = similar_field(reference, Val(field_tensor_order(reference)))
 
 similar_field(reference::ScalarFieldPhysical{T}, data::AbstractArray{T, 3}) where {T<:AbstractFloat} =
   ScalarFieldPhysical(data, field_grid(reference); layout = field_layout(reference))

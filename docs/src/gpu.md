@@ -62,7 +62,7 @@ u = VectorFieldPhysical(CuArray, grid)          # uninitialized, on the GPU
 plans = FieldTransformPlans(u, û)               # built from GPU fields, so on the GPU
 multipliers = FieldSpectralMultipliers(û)
 
-θ = adapt(CuArray, ScalarFieldPhysical((x, y, z) -> sin(x), grid))  # host to GPU
+θ = adapt(CuArray, ScalarFieldPhysical(Array, (x, y, z) -> sin(x), grid))  # host to GPU
 θ̂ = ScalarFieldSpectral(CuArray, grid)
 to_spectral!(θ̂, θ, plans)                       # a transform on the GPU
 ∇θ̂ = gradient(θ̂, multipliers)                   # an operator on the GPU
@@ -146,7 +146,7 @@ u = VectorFieldPhysical(ROCArray, grid)         # uninitialized, on the GPU
 plans = FieldTransformPlans(u, û)               # built from GPU fields, so on the GPU
 multipliers = FieldSpectralMultipliers(û)
 
-θ = adapt(ROCArray, ScalarFieldPhysical((x, y, z) -> sin(x), grid))  # host to GPU
+θ = adapt(ROCArray, ScalarFieldPhysical(Array, (x, y, z) -> sin(x), grid))  # host to GPU
 θ̂ = ScalarFieldSpectral(ROCArray, grid)
 to_spectral!(θ̂, θ, plans)                       # a transform on the GPU
 ∇θ̂ = gradient(θ̂, multipliers)                   # an operator on the GPU

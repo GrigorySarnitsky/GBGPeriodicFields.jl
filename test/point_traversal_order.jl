@@ -142,8 +142,8 @@ end
 
     @test point_values(interpolate(spectral, points, scheme)) ==
           point_values(interpolate(spectral, points, scheme; traversal))
-    @test isapprox(field_data(anterpolate(reference, points, quantities, scheme)),
-                   field_data(anterpolate(reference, points, quantities, scheme; traversal));
+    @test isapprox(field_data(anterpolate(field_grid(reference), points, quantities, scheme)),
+                   field_data(anterpolate(field_grid(reference), points, quantities, scheme; traversal));
                    rtol = sqrt(eps(T)))
 
     # `DirectDFT` deliberately takes NO order: it reads every mode for every point, so its cost is

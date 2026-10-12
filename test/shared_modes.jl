@@ -22,7 +22,7 @@ using GBGPeriodicFields: Fields
 const LAYOUTS = (RealFourierLayout(), RealFourierLayout((3, 1, 2)))
 
 spectral_of(f, grid, layout, ::Val{R}) where {R} = begin
-  physical = R == 0 ? ScalarFieldPhysical(f, grid; layout) : VectorFieldPhysical(Array, grid; layout)
+  physical = R == 0 ? ScalarFieldPhysical(Array, f, grid; layout) : VectorFieldPhysical(Array, grid; layout)
   if R == 1
     for c in 1:3, k in 1:grid.grid_size[3], j in 1:grid.grid_size[2], i in 1:grid.grid_size[1]
       x = grid.origin[1] + (i - 1) * grid.grid_spacing[1]

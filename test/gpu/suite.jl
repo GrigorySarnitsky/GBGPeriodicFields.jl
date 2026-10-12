@@ -117,9 +117,9 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
 
     @testset "FFT round-trip (scalar / vector / tensor)" begin
       for host in (
-          ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + 0.3, grid),
-          VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), grid),
-          TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.0; 0.0 sin(z) cos(x); 1.0 0.0 sin(y)], grid),
+          ScalarFieldPhysical(Array, (x, y, z) -> sin(x) * cos(y) + 0.3, grid),
+          VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(2z)), grid),
+          TensorFieldPhysical{2}(Array, (x, y, z) -> [sin(x) cos(y) 0.0; 0.0 sin(z) cos(x); 1.0 0.0 sin(y)], grid),
         )
         device = on_device(host)
         plans = plans_for(device)
@@ -141,10 +141,10 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
     end
 
     @testset "vector-space ops + broadcasting" begin
-      a = ScalarFieldPhysical((x, y, z) -> sin(x), grid)
-      b = ScalarFieldPhysical((x, y, z) -> cos(y), grid)
-      sf = ScalarFieldPhysical((x, y, z) -> 2.0 + sin(x), grid)   # nonzero everywhere
-      v = VectorFieldPhysical((x, y, z) -> (cos(x), sin(y), 1.0), grid)
+      a = ScalarFieldPhysical(Array, (x, y, z) -> sin(x), grid)
+      b = ScalarFieldPhysical(Array, (x, y, z) -> cos(y), grid)
+      sf = ScalarFieldPhysical(Array, (x, y, z) -> 2.0 + sin(x), grid)   # nonzero everywhere
+      v = VectorFieldPhysical(Array, (x, y, z) -> (cos(x), sin(y), 1.0), grid)
       ad, bd, sfd, vd = on_device.((a, b, sf, v))
 
       @test matches(ad + bd, a + b)
@@ -165,7 +165,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
     end
 
     @testset "spectral zero-mode update (invariant 4)" begin
-      a = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y), grid)
+      a = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) * cos(y), grid)
       device = on_device(a)
       spectral = to_spectral(device, plans_for(device))
       shifted = spectral + 1.5
@@ -178,10 +178,10 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
     end
 
     @testset "contractions and products" begin
-      u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z) + 0.2), grid)
-      v = VectorFieldPhysical((x, y, z) -> (cos(x), sin(2y), cos(z)), grid)
-      A = TensorFieldPhysical{2}(tensor_a, grid)
-      B = TensorFieldPhysical{2}(tensor_b, grid)
+      u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z) + 0.2), grid)
+      v = VectorFieldPhysical(Array, (x, y, z) -> (cos(x), sin(2y), cos(z)), grid)
+      A = TensorFieldPhysical{2}(Array, tensor_a, grid)
+      B = TensorFieldPhysical{2}(Array, tensor_b, grid)
       ud, vd, Ad, Bd = on_device.((u, v, A, B))
 
       @test matches(dot(ud, vd), dot(u, v))
@@ -209,9 +209,9 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
     end
 
     @testset "transpose, sym / skew / dev, norms" begin
-      A = TensorFieldPhysical{2}(tensor_a, grid)
-      u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
-      s = ScalarFieldPhysical((x, y, z) -> sin(x) - 0.5, grid)
+      A = TensorFieldPhysical{2}(Array, tensor_a, grid)
+      u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+      s = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) - 0.5, grid)
       Ad, ud, sd = on_device.((A, u, s))
 
       @test matches(transpose(Ad), transpose(A))
@@ -226,9 +226,9 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
     end
 
     @testset "map! / map (arbitrary φ)" begin
-      A = TensorFieldPhysical{2}(tensor_a, grid)
-      u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
-      v = VectorFieldPhysical((x, y, z) -> (cos(x), sin(2y), cos(z)), grid)
+      A = TensorFieldPhysical{2}(Array, tensor_a, grid)
+      u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+      v = VectorFieldPhysical(Array, (x, y, z) -> (cos(x), sin(2y), cos(z)), grid)
       Ad, ud, vd = on_device.((A, u, v))
       @test matches(map(det, Ad), map(det, A))                  # tensor → scalar
       @test matches(map(exp ∘ det, Ad), map(exp ∘ det, A))      # composition + exp device intrinsic
@@ -382,13 +382,13 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
     end
 
     @testset "spectral linear ops + differential operators" begin
-      phi = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y), grid)
+      phi = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) * cos(y), grid)
       # Components depend on more than one coordinate so curl and the Helmholtz
       # projection are genuinely nonzero: a purely axis-aligned field (sin x, sin y,
       # sin z) is irrotational and longitudinal, so both would project to ~0 and the
       # comparison would degenerate to roundoff.
-      u = VectorFieldPhysical((x, y, z) -> (sin(x) + cos(y), sin(y) + cos(z), sin(z) + cos(x)), grid)
-      A = TensorFieldPhysical{2}(tensor_a, grid)
+      u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x) + cos(y), sin(y) + cos(z), sin(z) + cos(x)), grid)
+      A = TensorFieldPhysical{2}(Array, tensor_a, grid)
       phid, ud, Ad = on_device.((phi, u, A))
 
       phi_spec_h = to_spectral(phi, plans_for(phi))
@@ -450,8 +450,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
     end
 
     @testset "convolution (apply a Fourier kernel)" begin
-      phi = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + T(0.3), grid)
-      u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), grid)
+      phi = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) * cos(y) + T(0.3), grid)
+      u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(2z)), grid)
       phid, ud = on_device.((phi, u))
 
       phi_spec_h = to_spectral(phi, plans_for(phi));  phi_spec_d = to_spectral(phid, plans_for(phid))
@@ -465,7 +465,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test kernel_matches(cutoff_d, cutoff_h)                                              # the builder itself
       @test matches(convolve(phi_spec_d, cutoff_d), convolve(phi_spec_h, cutoff_h))  # scalar field
       @test matches(convolve(u_spec_d, cutoff_d), convolve(u_spec_h, cutoff_h))      # scalar kernel over a vector field
-      A = TensorFieldPhysical{2}(tensor_a, grid); Ad = on_device(A)
+      A = TensorFieldPhysical{2}(Array, tensor_a, grid); Ad = on_device(A)
       A_spec_h = to_spectral(A, plans_for(A)); A_spec_d = to_spectral(Ad, plans_for(Ad))
       @test matches(convolve(A_spec_d, cutoff_d), convolve(A_spec_h, cutoff_h))      # scalar kernel over a tensor field (R=2)
 
@@ -476,25 +476,25 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(device_dest, host_dest)
 
       # the lazy exponential kernel and the kernel-composed combine! (decision 33)
-      @test matches(exponential_convolve(u_spec_d, mult_d, T(-1) / 20),
-                    exponential_convolve(u_spec_h, mult_h, T(-1) / 20))
+      @test matches(exponential_convolve(u_spec_d, mult_d; coefficient = T(-1) / 20),
+                    exponential_convolve(u_spec_h, mult_h; coefficient = T(-1) / 20))
       # ŵ is a FIELD (a per-mode offset), so |k|² is materialized from its radial symbol for this use.
       k2_h = materialize_kernel(radial_kernel(identity, mult_h)).field
       k2_d = materialize_kernel(radial_kernel(identity, mult_d)).field
-      @test matches(exponential_convolve(phi_spec_d, mult_d, T(-1) / 20, T(1) / 100, k2_d),
-                    exponential_convolve(phi_spec_h, mult_h, T(-1) / 20, T(1) / 100, k2_h))
+      @test matches(exponential_convolve(phi_spec_d, mult_d; coefficient = T(-1) / 20, offset = k2_d, offset_scale = T(1) / 100),
+                    exponential_convolve(phi_spec_h, mult_h; coefficient = T(-1) / 20, offset = k2_h, offset_scale = T(1) / 100))
       # the fiber-extruded offset: a VECTOR field with the per-mode ŵ (the pass-audit ŵ row's GPU twin)
-      @test matches(exponential_convolve(u_spec_d, mult_d, T(-1) / 20, T(1) / 100, k2_d),
-                    exponential_convolve(u_spec_h, mult_h, T(-1) / 20, T(1) / 100, k2_h))
+      @test matches(exponential_convolve(u_spec_d, mult_d; coefficient = T(-1) / 20, offset = k2_d, offset_scale = T(1) / 100),
+                    exponential_convolve(u_spec_h, mult_h; coefficient = T(-1) / 20, offset = k2_h, offset_scale = T(1) / 100))
       # a RADIAL offset, evaluated per mode on the device (2026-10-01): scalar and vector
       band_h, band_d = spectral_band(mult_h, T(1) / 2, T(5) / 2), spectral_band(mult_d, T(1) / 2, T(5) / 2)
-      @test matches(exponential_convolve(phi_spec_d, mult_d, T(-1) / 20, T(3) / 10, band_d),
-                    exponential_convolve(phi_spec_h, mult_h, T(-1) / 20, T(3) / 10, band_h))
-      @test matches(exponential_convolve(u_spec_d, mult_d, T(-1) / 20, T(3) / 10, band_d),
-                    exponential_convolve(u_spec_h, mult_h, T(-1) / 20, T(3) / 10, band_h))
+      @test matches(exponential_convolve(phi_spec_d, mult_d; coefficient = T(-1) / 20, offset = band_d, offset_scale = T(3) / 10),
+                    exponential_convolve(phi_spec_h, mult_h; coefficient = T(-1) / 20, offset = band_h, offset_scale = T(3) / 10))
+      @test matches(exponential_convolve(u_spec_d, mult_d; coefficient = T(-1) / 20, offset = band_d, offset_scale = T(3) / 10),
+                    exponential_convolve(u_spec_h, mult_h; coefficient = T(-1) / 20, offset = band_h, offset_scale = T(3) / 10))
       combined_h = T(1) * u_spec_h;  combined_d = on_device(combined_h)
-      exponential_convolve!(combined_h, T(3) / 10, u_spec_h, T(7) / 10, combined_h, mult_h, T(-1) / 20)
-      exponential_convolve!(combined_d, T(3) / 10, u_spec_d, T(7) / 10, combined_d, mult_d, T(-1) / 20)
+      exponential_convolve!(combined_h, T(3) / 10, u_spec_h, T(7) / 10, combined_h, mult_h; coefficient = T(-1) / 20)
+      exponential_convolve!(combined_d, T(3) / 10, u_spec_d, T(7) / 10, combined_d, mult_d; coefficient = T(-1) / 20)
       @test matches(combined_d, combined_h)
       kerneled_h = T(1) * u_spec_h;  kerneled_d = on_device(kerneled_h)
       combine!(kerneled_h, T(3) / 10, u_spec_h, T(7) / 10, kerneled_h, cutoff_h)
@@ -551,9 +551,9 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       number_of_points = 50
       host_points = PointSet(T(2π) .* rand(T, number_of_points, 3))
       device_points = on_device_ps(host_points)
-      cases = ((ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + T(0.3), grid),  ScalarPointValues(rand(T, number_of_points))),
-               (VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), grid), VectorPointValues(rand(T, number_of_points, 3))),
-               (TensorFieldPhysical{2}(tensor_a, grid),                            TensorPointValues{2}(rand(T, number_of_points, 3, 3))))
+      cases = ((ScalarFieldPhysical(Array, (x, y, z) -> sin(x) * cos(y) + T(0.3), grid),  ScalarPointValues(rand(T, number_of_points))),
+               (VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(2z)), grid), VectorPointValues(rand(T, number_of_points, 3))),
+               (TensorFieldPhysical{2}(Array, tensor_a, grid),                            TensorPointValues{2}(rand(T, number_of_points, 3, 3))))
       for (host_field, host_quantities) in cases
         device_field = on_device(host_field)
         device_quantities = on_device_pv(host_quantities)
@@ -572,7 +572,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # SMatrix and LagrangeSpline(2) a wider 6-node stencil — both exercise device code paths the
       # square 4×4 CatmullRom does not. Check gather + scatter parity against the CPU.
       for scheme in (LalescuSpline(6; smoothness = 1), LagrangeSpline(6))
-        scalar_host = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + T(0.3), grid)
+        scalar_host = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) * cos(y) + T(0.3), grid)
         quantities_host = ScalarPointValues(rand(T, number_of_points))
         @test matches(interpolate(on_device(scalar_host), device_points, scheme),
                       interpolate(scalar_host, host_points, scheme))
@@ -650,8 +650,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       device_points = on_device_ps(host_points)
       tol = T === Float32 ? 1.0f-3 : 1e-9
       # band-limited below the Nyquist of (8,7,6) ⇒ NUFFT is exact; scalar + vector
-      sf = ScalarFieldPhysical((x, y, z) -> cos(2x) + T(1) / 2 * sin(y) * cos(z) + T(3) / 10, grid)
-      vf = VectorFieldPhysical((x, y, z) -> (sin(y) + cos(2z), sin(2x) + cos(z), sin(x) + cos(2y)), grid)
+      sf = ScalarFieldPhysical(Array, (x, y, z) -> cos(2x) + T(1) / 2 * sin(y) * cos(z) + T(3) / 10, grid)
+      vf = VectorFieldPhysical(Array, (x, y, z) -> (sin(y) + cos(2z), sin(2x) + cos(z), sin(x) + cos(2y)), grid)
       for host_physical in (sf, vf)
         R = field_tensor_order(host_physical)
         host_spectral = to_spectral(host_physical, plans_for(host_physical))
@@ -660,12 +660,12 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
         device_q = on_device_pv(host_q)
         # DirectDFT (stateless): device vs CPU, gather + scatter
         @test matches(interpolate(device_spectral, device_points, DirectDFT()), interpolate(host_spectral, host_points, DirectDFT()))
-        @test matches(anterpolate(device_spectral, device_points, device_q, DirectDFT()), anterpolate(host_spectral, host_points, host_q, DirectDFT()))
+        @test matches(anterpolate(field_grid(device_spectral), device_points, device_q, DirectDFT(); layout = field_layout(device_spectral)), anterpolate(field_grid(host_spectral), host_points, host_q, DirectDFT(); layout = field_layout(host_spectral)))
         # NUFFT (per-backend plan: device plan ↔ device arrays): device vs CPU
         device_nufft = NUFFT(device_spectral; tol = tol)
         host_nufft = NUFFT(host_spectral; tol = tol)
         @test matches(interpolate(device_spectral, device_points, device_nufft), interpolate(host_spectral, host_points, host_nufft))
-        @test matches(anterpolate(device_spectral, device_points, device_q, device_nufft), anterpolate(host_spectral, host_points, host_q, host_nufft))
+        @test matches(anterpolate(field_grid(device_spectral), device_points, device_q, device_nufft), anterpolate(field_grid(host_spectral), host_points, host_q, host_nufft))
       end
     end
 
@@ -675,8 +675,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # the covariance tensor `cov` run on the device through the same reduce / mapped-mean paths (decision 49).
       rtol = T == Float64 ? 1e-9 : 1.0f-3
       eq(a, b) = isapprox(a, b; rtol = rtol, atol = rtol)
-      sf = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + T(0.3), grid)
-      vf = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z) + T(0.1)), grid)
+      sf = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) * cos(y) + T(0.3), grid)
+      vf = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(2z) + T(0.1)), grid)
       sfd, vfd = on_device.((sf, vf))
       @test eq(integral(sfd), integral(sf))
       @test eq(mean(sfd), mean(sf))
@@ -777,7 +777,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
 
       # co-spectra (two-field forms): the cross-power radial_spectrum(f, g) and the cross-correlation
       # radial_correlation(f, g) run the same device kernels, match the CPU, and refine inner(f, g).
-      wf = VectorFieldPhysical((x, y, z) -> (cos(x), sin(y) + T(0.2), cos(2z)), grid)
+      wf = VectorFieldPhysical(Array, (x, y, z) -> (cos(x), sin(y) + T(0.2), cos(2z)), grid)
       wfd = on_device(wf)
       wf_spec_h = to_spectral(wf, plans_for(wf)); wf_spec_d = to_spectral(wfd, plans_for(wfd))
       _, cospectrum_d = radial_spectrum(vf_spec_d, wf_spec_d, mult_d)
@@ -926,8 +926,8 @@ function aliased_device_allocations(::Type{T}) where {T<:AbstractFloat}
     "convolve!(vh, vh, radial)" => () -> convolve!(vh, vh, radial),
     "convolve!(vh, vh, separable)" => () -> convolve!(vh, vh, separable),
     "convolve!(sh, sh, radial)" => () -> convolve!(sh, sh, radial),
-    "exponential_convolve!(vh, vh, m, c)" => () -> exponential_convolve!(vh, vh, m, T(-0.01)),
-    "exponential_convolve!(sh, sh, m, c)" => () -> exponential_convolve!(sh, sh, m, T(-0.01)),
+    "exponential_convolve!(vh, vh, m; coefficient = c)" => () -> exponential_convolve!(vh, vh, m; coefficient = T(-0.01)),
+    "exponential_convolve!(sh, sh, m; coefficient = c)" => () -> exponential_convolve!(sh, sh, m; coefficient = T(-0.01)),
     "reality_projection!(sh)" => () -> reality_projection!(sh),
     "mean_free_projection!(vh)" => () -> mean_free_projection!(vh),
     "add!(pv, pv, pv2)" => () -> add!(pv, pv, pv2),
@@ -1030,7 +1030,7 @@ function device_cost_lane(::Type{T}) where {T<:AbstractFloat}
     (name = :convolve_vector_separable, run = () -> convolve!(d, a, separable), bytes = 6M * c),
     (name = :combine_vector_radial, run = () -> combine!(d, T(0.3), a, T(0.7), b, cutoff), bytes = 9M * c),
     (name = :laplacian_vector, run = () -> laplacian!(d, a, m), bytes = 6M * c),
-    (name = :exponential_convolve_vector, run = () -> exponential_convolve!(d, a, m, T(-1e-4)), bytes = 6M * c),
+    (name = :exponential_convolve_vector, run = () -> exponential_convolve!(d, a, m; coefficient = T(-1e-4)), bytes = 6M * c),
   ]
   copy_source, copy_destination = field_data(a), field_data(d)
   copy = (run = () -> copyto!(copy_destination, copy_source), bytes = 2 * sizeof(copy_source))
@@ -1148,10 +1148,10 @@ end
       family_plans = FieldTransformPlans(AT, grid; layout)
       @test Array(field_data(to_spectral(device_u, family_plans))) ==
             Array(field_data(to_spectral(device_u, device_plans)))
-      # A function-sampled field lands in the family it names (the `array_family` keyword, 2026-10-07).
-      sampled = ScalarFieldPhysical((x, y, z) -> sin(x), grid; layout, array_family = AT)
+      # A function-sampled field lands in the family it names (its first argument since decision 101).
+      sampled = ScalarFieldPhysical(AT, (x, y, z) -> sin(x), grid; layout)
       @test field_data(sampled) isa AT
-      @test Array(field_data(sampled)) == field_data(ScalarFieldPhysical((x, y, z) -> sin(x), grid; layout))
+      @test Array(field_data(sampled)) == field_data(ScalarFieldPhysical(Array, (x, y, z) -> sin(x), grid; layout))
       # So are multipliers (decision 94): the same device arrays as the moved host multipliers, and
       # the same canonical type.
       family_multipliers = FieldSpectralMultipliers(AT, grid; layout)

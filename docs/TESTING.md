@@ -166,8 +166,9 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   `hdf5.jl` also covers **transfer-scheme persistence** (decision 75 — nine schemes round-tripped by `===` plus a bitwise behavioural check, eight malformed-group refusals, the `NUFFT` refusal, and a completeness guard over every concrete scheme type, itself verified by perturbation),
   `displacement.jl` (spatial motion, decision 73 — `displace!` against a raw-array oracle, the fused torus arity bitwise against cover-then-`wrap!`, and the wrap contract's endpoint / non-finite / origin pins),
   `caller_counts.jl` (operand counts the caller chooses, decision 88 — `add!`/`subtract!`, `map!`, `displace!` and the tuple `weighted_inner` past their group sizes and past 32 operands, bitwise against the ungrouped arithmetic, with the destination aliasing a later operand),
-  `interpolation_transfer.jl` (the physical-domain spline transfer — the smooth `LalescuSpline`/`CatmullRom` and the ``C^0`` `LagrangeSpline` — interpolation / anterpolation kernels),
-  `transfer_spectral.jl` (the spectral-domain transfer schemes — the exact `DirectDFT` and the fast `NUFFT`), and
+  `interpolation_transfer.jl` (the physical-domain spline transfer kernels, smooth `LalescuSpline` and ``C^0`` `LagrangeSpline`),
+  `transfer_spectral.jl` (the spectral-domain transfer schemes — the exact `DirectDFT` and the fast `NUFFT`),
+  `argument_shapes.jl` (decision 101's argument shapes), and
   `reductions.jl` (the L²/measure reductions + the multiplier-weighted `weighted_inner`, including its
   **tuple-of-weights** form (decision 72) — fused bitwise-equal to the separate calls for every count
   from one to five over a heterogeneous tuple holding one weight of each storage class, the order
@@ -283,9 +284,9 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
 ## 3. Writing a test here
 
 **Helpers and conventions.** Build fields from coordinate functions
-(`ScalarFieldPhysical((x,y,z) -> …, grid)`); take component slices with the local
+(`ScalarFieldPhysical(Array, (x,y,z) -> …, grid)`); take component slices with the local
 `comp`/`tcomp` helpers; build matching transform plans with a `plans_for(field)` helper
-that allocates the spectral scratch with `similar(field_data(field), …)` so it inherits
+allocating the spectral scratch with `similar(field_data(field), …)` so it inherits
 the field's backend. Compare with `field_data(result) ≈ expected`.
 
 **Tolerances — the part that bites.** `≈` (`isapprox`) uses a *relative* tolerance with

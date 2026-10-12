@@ -162,7 +162,7 @@ const _SERIAL_CUTOFF = Ref(1 << 14)
 
 
 """
-    with_threading(f; enabled::Union{Nothing, Bool} = true)
+    with_threading(f; enabled::Union{Nothing, Bool})
 
 Run `f()` with the CPU-threading decision forced to `enabled`, restore the previous setting, and return
 `f()`'s value. The override is dynamically scoped and task-local, affecting only `f()`, and is restored
@@ -179,21 +179,16 @@ even on an exception.
     The override (and the cutoff) governs the fused broadcast assignments, the fused CPU loops
     behind the algebra and the differential operators ([`helmholtz_projection!`](@ref GBGPeriodicFields.DifferentialOperators.helmholtz_projection!) included), and the
     fixed-tree reductions — a reduction whose summation tree is a function of the array length
-    alone, so it returns the same value at every thread count. Two groups of operations run as
-    portable device-style kernels on **every**
-    backend and partition by `Threads.nthreads()` directly, ignoring this setting: the grid↔point
-    transfer ([`interpolate!`](@ref GBGPeriodicFields.Interpolation.interpolate!)/[`anterpolate!`](@ref GBGPeriodicFields.Interpolation.anterpolate!)) and the radial reductions
-    ([`radial_spectrum`](@ref GBGPeriodicFields.Reductions.radial_spectrum)/[`radial_correlation`](@ref GBGPeriodicFields.Reductions.radial_correlation)) — the kernels with atomic or irregular access, which a
-    gated loop cannot serve — "gated" meaning a CPU loop that consults this setting before
-    threading, as against a kernel that always partitions by thread count. To run those
-    serially, start Julia with one thread.
+    alone, so it returns the same value at every thread count.
 
-    A third category is neither governed nor exempt: an operation that is **not threaded at all**, and
-    so unaffected by this setting for a different reason. The [`weighted_inner`](@ref GBGPeriodicFields.Reductions.weighted_inner) reduction is the one to know about —
-    its single fused pass is serial, which is why it diverges from [`inner`](@ref GBGPeriodicFields.Reductions.inner) as threads are added.
-    Nothing is wrong there; it simply has no threaded route to override.
+    Two groups of operations run as portable device-style kernels on **every** backend and
+    partition by `Threads.nthreads()` directly, ignoring this setting: the grid↔point
+    transfer ([`interpolate!`](@ref GBGPeriodicFields.Interpolation.interpolate!)/[`anterpolate!`](@ref GBGPeriodicFields.Interpolation.anterpolate!)) and the radial reductions
+    ([`radial_spectrum`](@ref GBGPeriodicFields.Reductions.radial_spectrum)/[`radial_correlation`](@ref GBGPeriodicFields.Reductions.radial_correlation)). Their atomic or irregular access
+    is something a loop consulting this setting cannot serve. To run those
+    serially, start Julia with one thread.
 """
-with_threading(f; enabled::Union{Nothing, Bool} = true) =
+with_threading(f; enabled::Union{Nothing, Bool}) =
   Base.ScopedValues.with(f, _THREADING_OVERRIDE => enabled)
 
 

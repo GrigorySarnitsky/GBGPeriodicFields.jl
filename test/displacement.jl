@@ -138,7 +138,7 @@ end
       end
 
       @testset "sampling is invariant under whole-period shifts (the no-wrap contract)" begin
-        field = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + T(0.3) * sin(z), grid)
+        field = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) * cos(y) + T(0.3) * sin(z), grid)
         inside = PointSet(copy(X0))
         outside = PointSet(X0 .+ T(2) .* reshape(collect(L), 1, 3))
         a = interpolate(field, inside, CatmullRom)

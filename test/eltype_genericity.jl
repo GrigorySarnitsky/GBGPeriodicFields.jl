@@ -32,9 +32,9 @@ function run_eltype_tests(::Type{T}) where {T<:AbstractFloat}
   @testset "T = $T" begin
 
     @testset "construction yields element type $T" begin
-      a = ScalarFieldPhysical((x, y, z) -> sin(x), grid)
-      v = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
-      A = TensorFieldPhysical{2}((x, y, z) -> fill(sin(x), 3, 3), grid)
+      a = ScalarFieldPhysical(Array, (x, y, z) -> sin(x), grid)
+      v = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+      A = TensorFieldPhysical{2}(Array, (x, y, z) -> fill(sin(x), 3, 3), grid)
       @test field_scalar_type(a) === T
       @test eltype(field_data(a)) === T
       @test eltype(field_data(v)) === T
@@ -42,7 +42,7 @@ function run_eltype_tests(::Type{T}) where {T<:AbstractFloat}
     end
 
     @testset "FFT round-trip preserves type and value" begin
-      a = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + 0.3, grid)
+      a = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) * cos(y) + 0.3, grid)
       plans = plans_for(a)
       spectral = to_spectral(a, plans)
       @test eltype(field_data(spectral)) === Complex{T}
@@ -52,11 +52,11 @@ function run_eltype_tests(::Type{T}) where {T<:AbstractFloat}
     end
 
     @testset "algebra preserves element type and values" begin
-      a = ScalarFieldPhysical((x, y, z) -> sin(x), grid)
-      b = ScalarFieldPhysical((x, y, z) -> cos(y), grid)
-      u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
-      v = VectorFieldPhysical((x, y, z) -> (cos(x), sin(y), 1.0), grid)
-      A = TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.0; 0.0 sin(z) cos(x); 1.0 0.0 sin(y)], grid)
+      a = ScalarFieldPhysical(Array, (x, y, z) -> sin(x), grid)
+      b = ScalarFieldPhysical(Array, (x, y, z) -> cos(y), grid)
+      u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+      v = VectorFieldPhysical(Array, (x, y, z) -> (cos(x), sin(y), 1.0), grid)
+      A = TensorFieldPhysical{2}(Array, (x, y, z) -> [sin(x) cos(y) 0.0; 0.0 sin(z) cos(x); 1.0 0.0 sin(y)], grid)
 
       sum_ab = a + b
       scaled = 2.5 * a               # a Float64 scalar must not promote a Float32 field
@@ -81,7 +81,7 @@ function run_eltype_tests(::Type{T}) where {T<:AbstractFloat}
     end
 
     @testset "laplacian round-trip: Δ sin x = -sin x" begin
-      phi = ScalarFieldPhysical((x, y, z) -> sin(x), grid)
+      phi = ScalarFieldPhysical(Array, (x, y, z) -> sin(x), grid)
       m = FieldSpectralMultipliers(to_spectral(phi, plans_for(phi)))
       lap = to_physical(laplacian(to_spectral(phi, plans_for(phi)), m), plans_for(phi))
       @test eltype(field_data(lap)) === T
@@ -89,7 +89,7 @@ function run_eltype_tests(::Type{T}) where {T<:AbstractFloat}
     end
 
     @testset "spectral symmetric_gradient / weighted_inner preserve element type" begin
-      u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+      u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid)
       us = to_spectral(u, plans_for(u))
       m = FieldSpectralMultipliers(us)
       S = symmetric_gradient(us, m)
@@ -109,12 +109,12 @@ function run_eltype_tests(::Type{T}) where {T<:AbstractFloat}
     # swept over the exponent here: the two early-return values AND the general branch, integer and
     # fractional, since only the general branch was ever wrong.
     @testset "lpnorm preserves element type at every exponent" begin
-      u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+      u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid)
       for p in (1, 2, 3, T(2.5), Inf)
         @test lpnorm(u, p) isa T
       end
       @test lpnorm(u, 2) isa T && approx(lpnorm(u, 2), l2norm(u))
-      s = ScalarFieldPhysical((x, y, z) -> sin(x), grid)
+      s = ScalarFieldPhysical(Array, (x, y, z) -> sin(x), grid)
       for p in (1, 3, Inf)
         @test lpnorm(s, p) isa T
       end

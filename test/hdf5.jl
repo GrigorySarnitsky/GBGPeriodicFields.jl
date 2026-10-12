@@ -295,8 +295,6 @@ end
                LalescuSpline(6; smoothness = 4),                # m = 2n, the upper bound of the valid region
                LagrangeSpline(2),
                LagrangeSpline(8),
-               LalescuSpline(4; smoothness = 1, T = Float32),
-               LagrangeSpline(6; T = Float32),
                DirectDFT())
 
     h5open(path, "w") do io
@@ -320,7 +318,7 @@ end
 
     # The reconstructed scheme must COMPUTE identically, which is the claim a consumer depends on.
     grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
-    field = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + 0.3 * sin(z), grid)
+    field = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) * cos(y) + 0.3 * sin(z), grid)
     points = PointSet(2π .* rand(16, 3))
     for scheme in (CatmullRom, LagrangeSpline(6), LalescuSpline(8; smoothness = 2))
       h5open(path, "cw") do io
@@ -352,6 +350,10 @@ end
       attrs(io["future"])["version"] = 99
       write_scheme(io, "alien_eltype", CatmullRom)
       attrs(io["alien_eltype"])["eltype"] = "Float16"
+      # A scheme written before decision 101 could record Float32 weights; it still reads, as the
+      # Float64 scheme, the weights being converted to the field's type at each launch either way.
+      write_scheme(io, "single_eltype", CatmullRom)
+      attrs(io["single_eltype"])["eltype"] = "Float32"
       write_scheme(io, "no_param", CatmullRom)
       delete_attribute(io["no_param"], "stencil_width")
       write_scheme(io, "wrong_tag", CatmullRom)
@@ -365,6 +367,7 @@ end
       @test_throws ArgumentError read_scheme(io, "impossible")     # constructor revalidates
       @test_throws ArgumentError read_scheme(io, "future")         # schema from a newer version
       @test_throws ArgumentError read_scheme(io, "alien_eltype")   # closed element-type table
+      @test read_scheme(io, "single_eltype") === CatmullRom       # a recorded Float32 reads as Float64
       @test_throws ArgumentError read_scheme(io, "no_param")       # incomplete group
       @test_throws ArgumentError read_scheme(io, "wrong_tag")      # unrecognized tag
       @test_throws ArgumentError read_scheme(io, "bare")           # no `type` attribute

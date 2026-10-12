@@ -66,8 +66,8 @@ const INVOCATIONS = Dict{Tuple{Symbol, Symbol}, Function}(
   (:symmetric_gradient!, :multipliers)  => (c, k) -> symmetric_gradient!(tspec(c), vspec(c), k),
   (:helmholtz_projection, :multipliers) => (c, k) -> helmholtz_projection(vspec(c), k),
   (:helmholtz_projection!, :multipliers)=> (c, k) -> helmholtz_projection!(vspec(c), vspec(c), k),
-  (:exponential_convolve, :multipliers) => (c, k) -> exponential_convolve(sspec(c), k, -0.1),
-  (:exponential_convolve!, :multipliers)=> (c, k) -> exponential_convolve!(sspec(c), sspec(c), k, -0.1),
+  (:exponential_convolve, :multipliers) => (c, k) -> exponential_convolve(sspec(c), k; coefficient = -0.1),
+  (:exponential_convolve!, :multipliers)=> (c, k) -> exponential_convolve!(sspec(c), sspec(c), k; coefficient = -0.1),
   (:radial_spectrum, :multipliers)      => (c, k) -> radial_spectrum(sspec(c), k),
   (:translation_kernel!, :multipliers)  => (c, k) -> translation_kernel!(
       translation_kernel(carrier_of(Val(:multipliers), c), (0.1, 0.2, 0.3)), k, (0.2, 0.3, 0.4)),
@@ -83,10 +83,8 @@ const INVOCATIONS = Dict{Tuple{Symbol, Symbol}, Function}(
   (:combine!, :kernel)                  => (c, k) -> combine!(vspec(c), 0.3, vspec(c), 0.7, vspec(c), k),
   (:weighted_inner, :kernel)            => (c, k) -> weighted_inner(vspec(c), k),
   (:materialize_kernel!, :kernel)       => (c, k) -> materialize_kernel!(StoredKernel(sspec(c)), k),
-  (:exponential_convolve!, :kernel)     => (c, k) -> exponential_convolve!(vspec(c), vspec(c),
-                                             carrier_of(Val(:multipliers), c), -0.1, 0.01, k),   # a radial offset
-  (:exponential_convolve, :kernel)      => (c, k) -> exponential_convolve(vspec(c),
-                                             carrier_of(Val(:multipliers), c), -0.1, 0.01, k),
+  (:exponential_convolve!, :kernel)     => (c, k) -> exponential_convolve!(vspec(c), vspec(c), carrier_of(Val(:multipliers), c); coefficient = -0.1, offset = k, offset_scale = 0.01),   # a radial offset
+  (:exponential_convolve, :kernel)      => (c, k) -> exponential_convolve(vspec(c), carrier_of(Val(:multipliers), c); coefficient = -0.1, offset = k, offset_scale = 0.01),
 
   # --- transform plans ---
   (:to_physical, :plans)                => (c, k) -> to_physical(sspec(c), k),
@@ -98,7 +96,10 @@ const INVOCATIONS = Dict{Tuple{Symbol, Symbol}, Function}(
   # --- the NUFFT plan ---
   (:interpolate, :nufft)                => (c, k) -> interpolate(sspec(c), epoints(c), k),
   (:interpolate!, :nufft)               => (c, k) -> interpolate!(evalues(), sspec(c), epoints(c), k),
-  (:anterpolate, :nufft)                => (c, k) -> anterpolate(sspec(c), epoints(c), evalues(), k),
+  # The layout is passed explicitly: left out, it defaults to the plan's own, and a plan cannot then
+  # disagree with a layout the caller never stated.
+  (:anterpolate, :nufft)                => (c, k) -> anterpolate(field_grid(sspec(c)), epoints(c), evalues(), k;
+                                                                 layout = field_layout(sspec(c))),
   (:anterpolate!, :nufft)               => (c, k) -> anterpolate!(sspec(c), epoints(c), evalues(), k),
 )
 
@@ -132,6 +133,10 @@ const EXEMPT = Dict{Tuple{Symbol, Symbol}, String}(
   (:show, :kernel)      => "single-carrier operation: a display takes one object and an `IO`",
   (:show, :multipliers) => "single-carrier operation: a display takes one object and an `IO`",
 )
+
+
+# Carriers an operation takes by keyword: `exponential_convolve!`'s offset since decision 101.
+const KEYWORD_CARRIERS = ((:exponential_convolve!, :offset, :kernel), (:exponential_convolve, :offset, :kernel))
 
 
 function derived_pairs()
@@ -173,6 +178,14 @@ function derived_pairs()
         k === nothing || push!(found, (name, k))
       end
     end
+  end
+  # A keyword's type is not part of a method's signature, so a carrier taken by keyword is declared here
+  # rather than derived, and the declaration is checked: each must name a keyword the operation has.
+  for (name, keyword, carrier) in KEYWORD_CARRIERS
+    f = resolve(name)
+    any(m -> keyword in Base.kwarg_decl(m), methods(f)) ||
+      error("KEYWORD_CARRIERS names `$keyword` for `$name`, which takes no such keyword")
+    push!(found, (name, carrier))
   end
   return found
 end

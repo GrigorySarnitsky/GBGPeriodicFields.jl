@@ -15,7 +15,7 @@ const F = GBGPeriodicFields.Fields
 
 comp(data, i) = data[:, :, :, i]                     # vector component slice (Array copy)
 tcomp(data, i, j) = data[:, :, :, i, j]              # tensor component slice (Array copy)
-phys_scalar(f) = ScalarFieldPhysical(f, grid)
+phys_scalar(f) = ScalarFieldPhysical(Array, f, grid)
 phys_scalar_zero() = ScalarFieldPhysical(zeros(T, gs...), grid)
 
 # Forward+inverse plans matching the tensor order of `physical`.
@@ -54,7 +54,7 @@ end
   end
 
   @testset "field ± constant fiber (physical)" begin
-    v = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+    v = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid)
     k = FiberVector{T}((1.0, 2.0, 3.0))     # StaticArraysCore: construct from a tuple
     vk = v + k
     for i in 1:3
@@ -65,7 +65,7 @@ end
     @test comp(field_data(k - v), 2) ≈ k[2] .- comp(field_data(v), 2)
 
     A = FiberTensor2{T}(ntuple(i -> Float64(i), 9))   # column-major 9-tuple
-    t = TensorFieldPhysical{2}((x, y, z) -> fill(sin(x), 3, 3), grid)
+    t = TensorFieldPhysical{2}(Array, (x, y, z) -> fill(sin(x), 3, 3), grid)
     tA = t + A
     @test field_data(tA)[:, :, :, 2, 3] ≈ field_data(t)[:, :, :, 2, 3] .+ A[2, 3]
   end
@@ -88,7 +88,7 @@ end
 
   @testset "scalar-field multiplication / division (physical)" begin
     sf = phys_scalar((x, y, z) -> 2.0 + sin(x))      # nonzero everywhere
-    v = VectorFieldPhysical((x, y, z) -> (cos(x), sin(y), 1.0), grid)
+    v = VectorFieldPhysical(Array, (x, y, z) -> (cos(x), sin(y), 1.0), grid)
     a = phys_scalar((x, y, z) -> cos(z))
     k = FiberVector{T}((1.0, -2.0, 0.5))
 
@@ -149,7 +149,7 @@ end
   @testset "intentional absences (spectral nonlinear products)" begin
     a = phys_scalar((x, y, z) -> sin(x))
     b = phys_scalar((x, y, z) -> cos(x))
-    v = VectorFieldPhysical((x, y, z) -> (sin(x), 1.0, 1.0), grid)
+    v = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), 1.0, 1.0), grid)
     aplans = plans_for(a); vplans = plans_for(v)
     as = to_spectral(a, aplans); bs = to_spectral(b, aplans); vs = to_spectral(v, vplans)
 
@@ -167,8 +167,8 @@ end
   tensor_b(x, y, z) = [cos(x) 0.1 sin(y); sin(z) cos(y) 0.2; 0.7 sin(x) cos(z)]
 
   @testset "vector dot / cross (physical + fiber)" begin
-    u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z) + 0.2), grid)
-    v = VectorFieldPhysical((x, y, z) -> (cos(x), sin(2y), cos(z)), grid)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z) + 0.2), grid)
+    v = VectorFieldPhysical(Array, (x, y, z) -> (cos(x), sin(2y), cos(z)), grid)
     k = FiberVector{T}((1.0, -2.0, 0.5))
     ud = field_data(u); vd = field_data(v)
 
@@ -192,8 +192,8 @@ end
   end
 
   @testset "tensor inner product + transpose" begin
-    A = TensorFieldPhysical{2}(tensor_a, grid)
-    B = TensorFieldPhysical{2}(tensor_b, grid)
+    A = TensorFieldPhysical{2}(Array, tensor_a, grid)
+    B = TensorFieldPhysical{2}(Array, tensor_b, grid)
     Ad = field_data(A); Bd = field_data(B)
 
     inner = dot(A, B)
@@ -207,9 +207,9 @@ end
   end
 
   @testset "tensor-vector and tensor-tensor products" begin
-    A = TensorFieldPhysical{2}(tensor_a, grid)
-    B = TensorFieldPhysical{2}(tensor_b, grid)
-    u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+    A = TensorFieldPhysical{2}(Array, tensor_a, grid)
+    B = TensorFieldPhysical{2}(Array, tensor_b, grid)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid)
     Ad = field_data(A); Bd = field_data(B); ud = field_data(u)
 
     w = A * u                                                     # left action  (A u)ᵢ = Aᵢⱼ uⱼ
@@ -240,16 +240,16 @@ end
   end
 
   @testset "norms (physical only)" begin
-    s = ScalarFieldPhysical((x, y, z) -> sin(x) - 0.5, grid)
-    u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
-    A = TensorFieldPhysical{2}(tensor_a, grid)
+    s = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) - 0.5, grid)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+    A = TensorFieldPhysical{2}(Array, tensor_a, grid)
     @test field_data(norm(s)) ≈ abs.(field_data(s))
     @test field_data(norm(u)) ≈ sqrt.(comp(field_data(u), 1) .^ 2 .+ comp(field_data(u), 2) .^ 2 .+ comp(field_data(u), 3) .^ 2)
     @test field_data(norm(A)) ≈ sqrt.(sum(tcomp(field_data(A), i, j) .^ 2 for i in 1:3 for j in 1:3))
   end
 
   @testset "sym / skew / dev (fields + fibers)" begin
-    A = TensorFieldPhysical{2}(tensor_a, grid)
+    A = TensorFieldPhysical{2}(Array, tensor_a, grid)
     Ad = field_data(A)
     S = sym(A); K = skew(A); D = dev(A)
     @test field_data(S) .+ field_data(K) ≈ Ad                     # A = sym + skew
@@ -265,7 +265,7 @@ end
   end
 
   @testset "trace (fields + fibers, both representations)" begin
-    A = TensorFieldPhysical{2}(tensor_a, grid)
+    A = TensorFieldPhysical{2}(Array, tensor_a, grid)
     Ad = field_data(A)
     expected = tcomp(Ad, 1, 1) .+ tcomp(Ad, 2, 2) .+ tcomp(Ad, 3, 3)
     @test tr(A) isa ScalarFieldPhysical
@@ -284,7 +284,7 @@ end
   end
 
   @testset "determinant (fields + fibers, physical only)" begin
-    A = TensorFieldPhysical{2}(tensor_a, grid)
+    A = TensorFieldPhysical{2}(Array, tensor_a, grid)
     Ad = field_data(A)
     expected = [det(Ad[i, j, k, :, :]) for i in 1:gs[1], j in 1:gs[2], k in 1:gs[3]]  # per-point 3×3 LU det (independent of Sarrus)
     @test det(A) isa ScalarFieldPhysical
@@ -301,8 +301,8 @@ end
   end
 
   @testset "weighted combination combine! (physical + spectral)" begin
-    av = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
-    bv = VectorFieldPhysical((x, y, z) -> (cos(x), sin(y), z + 0.2), grid)
+    av = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+    bv = VectorFieldPhysical(Array, (x, y, z) -> (cos(x), sin(y), z + 0.2), grid)
     dest = F.similar_field(av, Val(1))
     combine!(dest, 2.0, av, -3.0, bv)
     @test field_data(dest) ≈ 2.0 .* field_data(av) .- 3.0 .* field_data(bv)
@@ -311,7 +311,7 @@ end
     a0 = phys_scalar((x, y, z) -> sin(x)); b0 = phys_scalar((x, y, z) -> cos(y) + 0.3)
     d0 = phys_scalar_zero(); combine!(d0, 0.5, a0, 4.0, b0)        # R = 0
     @test field_data(d0) ≈ 0.5 .* field_data(a0) .+ 4.0 .* field_data(b0)
-    At = TensorFieldPhysical{2}(tensor_a, grid); Bt = TensorFieldPhysical{2}(tensor_b, grid)
+    At = TensorFieldPhysical{2}(Array, tensor_a, grid); Bt = TensorFieldPhysical{2}(Array, tensor_b, grid)
     dt = F.similar_field(At, Val(2)); combine!(dt, -1.0, At, 2.0, Bt)  # R = 2
     @test field_data(dt) ≈ -1.0 .* field_data(At) .+ 2.0 .* field_data(Bt)
 
@@ -319,15 +319,15 @@ end
     ds = F.similar_field(as, Val(1)); combine!(ds, 0.5, as, 4.0, bs)
     @test field_data(ds) ≈ 0.5 .* field_data(as) .+ 4.0 .* field_data(bs)
 
-    u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid); u0 = copy(field_data(u))
-    k = VectorFieldPhysical((x, y, z) -> (1.0, cos(z), x), grid)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid); u0 = copy(field_data(u))
+    k = VectorFieldPhysical(Array, (x, y, z) -> (1.0, cos(z), x), grid)
     combine!(u, 1.0, u, 0.5, k)                                    # alias-safe accumulate u ← u + ½k
     @test field_data(u) ≈ u0 .+ 0.5 .* field_data(k)
   end
 
   @testset "spectral linear contractions are coefficient-wise" begin
-    A = TensorFieldPhysical{2}(tensor_a, grid)
-    u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+    A = TensorFieldPhysical{2}(Array, tensor_a, grid)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid)
     k = FiberVector{T}((1.0, -2.0, 0.5))
     As = to_spectral(A, plans_for(A)); us = to_spectral(u, plans_for(u))
 
@@ -349,10 +349,10 @@ end
   end
 
   @testset "M3 intentional absences (spectral nonlinear products)" begin
-    u = VectorFieldPhysical((x, y, z) -> (sin(x), 1.0, 1.0), grid)
-    v = VectorFieldPhysical((x, y, z) -> (cos(x), 1.0, 1.0), grid)
-    A = TensorFieldPhysical{2}(tensor_a, grid)
-    B = TensorFieldPhysical{2}(tensor_b, grid)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), 1.0, 1.0), grid)
+    v = VectorFieldPhysical(Array, (x, y, z) -> (cos(x), 1.0, 1.0), grid)
+    A = TensorFieldPhysical{2}(Array, tensor_a, grid)
+    B = TensorFieldPhysical{2}(Array, tensor_b, grid)
     us = to_spectral(u, plans_for(u)); vs = to_spectral(v, plans_for(v))
     As = to_spectral(A, plans_for(A)); Bs = to_spectral(B, plans_for(B))
 
@@ -366,9 +366,9 @@ end
   end
 
   @testset "in-place forms and alias guards" begin
-    u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z) + 0.2), grid)
-    v = VectorFieldPhysical((x, y, z) -> (cos(x), sin(2y), cos(z)), grid)
-    A = TensorFieldPhysical{2}(tensor_a, grid)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z) + 0.2), grid)
+    v = VectorFieldPhysical(Array, (x, y, z) -> (cos(x), sin(2y), cos(z)), grid)
+    A = TensorFieldPhysical{2}(Array, tensor_a, grid)
     sf = phys_scalar((x, y, z) -> 2.0 + sin(x))     # nonzero everywhere
 
     # contractions / norms / division write into a caller-supplied destination
@@ -388,18 +388,18 @@ end
     # alias guards (invariant 9): destination === source must still be correct
     At = field_data(transpose(A)); Asym = field_data(sym(A))
     Askew = field_data(skew(A)); Adev = field_data(dev(A))
-    a1 = TensorFieldPhysical{2}(tensor_a, grid); transpose!(a1, a1); @test field_data(a1) ≈ At
-    a2 = TensorFieldPhysical{2}(tensor_a, grid); sym!(a2, a2);       @test field_data(a2) ≈ Asym
-    a3 = TensorFieldPhysical{2}(tensor_a, grid); skew!(a3, a3);      @test field_data(a3) ≈ Askew
-    a4 = TensorFieldPhysical{2}(tensor_a, grid); dev!(a4, a4);       @test field_data(a4) ≈ Adev
+    a1 = TensorFieldPhysical{2}(Array, tensor_a, grid); transpose!(a1, a1); @test field_data(a1) ≈ At
+    a2 = TensorFieldPhysical{2}(Array, tensor_a, grid); sym!(a2, a2);       @test field_data(a2) ≈ Asym
+    a3 = TensorFieldPhysical{2}(Array, tensor_a, grid); skew!(a3, a3);      @test field_data(a3) ≈ Askew
+    a4 = TensorFieldPhysical{2}(Array, tensor_a, grid); dev!(a4, a4);       @test field_data(a4) ≈ Adev
   end
 
   @testset "linear field/fiber ops: physical/spectral symmetry" begin
     # Operations linear in the field exist in BOTH representations and commute with the
     # transform: applying in spectral and inverting equals applying in physical. (Nonlinear
     # field-field products are physical-only — asserted absent in spectral above.)
-    u = VectorFieldPhysical((x, y, z) -> (sin(x) * cos(y), cos(z), sin(z) + 0.3), grid)
-    A = TensorFieldPhysical{2}(tensor_a, grid)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x) * cos(y), cos(z), sin(z) + 0.3), grid)
+    A = TensorFieldPhysical{2}(Array, tensor_a, grid)
     sf = phys_scalar((x, y, z) -> 0.7 + sin(x) * sin(y))
     k = FiberVector{T}((1.0, -2.0, 0.5))
     M = FiberTensor2{T}(ntuple(i -> Float64(i) + 0.5, 9))

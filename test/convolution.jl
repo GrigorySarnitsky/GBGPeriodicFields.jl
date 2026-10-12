@@ -51,11 +51,11 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
   as_kernel(data) = GBGPeriodicFields.Convolution.StoredKernel(scalar_kernel(data))
 
   # a resolved real scalar field and a resolved real vector field, in spectral representation
-  phi = ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), grid)
+  phi = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) + cos(2y) * sin(z), grid)
   phi_s = to_spectral(phi, plans_for(phi))
-  u = VectorFieldPhysical((x, y, z) -> (sin(x), sin(2y), cos(z)), grid)
+  u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), sin(2y), cos(z)), grid)
   u_s = to_spectral(u, plans_for(u))
-  A = TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], grid)
+  A = TensorFieldPhysical{2}(Array, (x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], grid)
   A_s = to_spectral(A, plans_for(A))
 
   @testset "T = $T" begin
@@ -104,10 +104,10 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
 
       # analytic oracle: translating cos(2x + 0.3)·sin(y) by Δ gives cos(2(x − Δ₁) + 0.3)·sin(y − Δ₂)
       offset = (T(0.37), T(-0.21), T(0.11))
-      g = ScalarFieldPhysical((x, y, z) -> cos(2x + T(0.3)) * sin(y), grid)
+      g = ScalarFieldPhysical(Array, (x, y, z) -> cos(2x + T(0.3)) * sin(y), grid)
       g_s = to_spectral(g, plans_for(g))
       moved = to_physical(convolve(g_s, translation_kernel(mult, offset)), plans_for(g))
-      analytic = ScalarFieldPhysical((x, y, z) -> cos(2 * (x - offset[1]) + T(0.3)) * sin(y - offset[2]), grid)
+      analytic = ScalarFieldPhysical(Array, (x, y, z) -> cos(2 * (x - offset[1]) + T(0.3)) * sin(y - offset[2]), grid)
       @test approx(field_data(moved), field_data(analytic))
 
       # a whole-cell displacement is exactly circshift. The field is random, so every mode carries
@@ -140,7 +140,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
 
       # at Nyquist the mode is attenuated, not moved: cos(4x) is the Nyquist mode of an 8-point 2π
       # axis, so a half-cell displacement annihilates it and a whole-cell one flips its sign
-      nyquist = ScalarFieldPhysical((x, y, z) -> cos(4x), grid)
+      nyquist = ScalarFieldPhysical(Array, (x, y, z) -> cos(4x), grid)
       nyquist_s = to_spectral(nyquist, plans_for(nyquist))
       annihilated = to_physical(convolve(nyquist_s, translation_kernel(mult, (dx[1] / 2, T(0), T(0)))),
                                 plans_for(nyquist))
@@ -287,48 +287,47 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       k2 = kernel_array(radial_kernel(identity, m))
       k2_field = ScalarFieldSpectral(Complex{T}.(k2), grid)   # the same values as a field, for ŵ
       stored = as_kernel(Complex{T}.(exp.(coefficient .* k2)))
-      @test field_data(exponential_convolve(phi_s, m, coefficient)) == field_data(convolve(phi_s, stored))
-      u_s = to_spectral(VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), grid),
-                        plans_for(VectorFieldPhysical((x, y, z) -> (T(0), T(0), T(0)), grid)))
-      @test field_data(exponential_convolve(u_s, m, coefficient)) == field_data(convolve(u_s, stored))
+      @test field_data(exponential_convolve(phi_s, m; coefficient = coefficient)) == field_data(convolve(phi_s, stored))
+      u_s = to_spectral(VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(2z)), grid),
+                        plans_for(VectorFieldPhysical(Array, (x, y, z) -> (T(0), T(0), T(0)), grid)))
+      @test field_data(exponential_convolve(u_s, m; coefficient = coefficient)) == field_data(convolve(u_s, stored))
 
       # oracle 2 (independent): a single mode is an eigenvector — exp(c·1)·cos(x) for cos(x)
-      cosx = ScalarFieldPhysical((x, y, z) -> cos(x), grid)
+      cosx = ScalarFieldPhysical(Array, (x, y, z) -> cos(x), grid)
       cosx_s = to_spectral(cosx, plans_for(cosx))
-      smoothed = to_physical(exponential_convolve(cosx_s, m, coefficient), plans_for(cosx))
+      smoothed = to_physical(exponential_convolve(cosx_s, m; coefficient = coefficient), plans_for(cosx))
       @test approx(field_data(smoothed), exp(coefficient) .* field_data(cosx))
 
       # α/β accumulate against a hand-built reference
       dest0 = randn(Complex{T}, shape0)
       dest = scalar_kernel(copy(dest0))
-      exponential_convolve!(dest, phi_s, m, coefficient, T(0.5), T(-1.5))
+      exponential_convolve!(dest, phi_s, m, T(0.5), T(-1.5); coefficient = coefficient)
       @test approx(field_data(dest),
                    T(0.5) .* (exp.(coefficient .* k2) .* field_data(phi_s)) .+ T(-1.5) .* dest0)
 
       # the per-mode offset enters as scale × field: exp(c|k|² + s·ŵ) with ŵ = |k|²
       offset_scale = T(0.011)
       stored_off = as_kernel(Complex{T}.(exp.(coefficient .* k2 .+ offset_scale .* k2)))
-      @test field_data(exponential_convolve(phi_s, m, coefficient, offset_scale, k2_field)) ==
+      @test field_data(exponential_convolve(phi_s, m; coefficient = coefficient, offset = k2_field, offset_scale = offset_scale)) ==
             field_data(convolve(phi_s, stored_off))
 
       # the two-operand forms == combine! then exponential_convolve!, in one pass
       b_s = scalar_kernel(randn(Complex{T}, shape0))
       sequential = scalar_kernel(zeros(Complex{T}, shape0))
       combine!(sequential, T(0.3), phi_s, T(0.7), b_s)
-      exponential_convolve!(sequential, sequential, m, coefficient)
+      exponential_convolve!(sequential, sequential, m; coefficient = coefficient)
       fused = scalar_kernel(zeros(Complex{T}, shape0))
-      exponential_convolve!(fused, T(0.3), phi_s, T(0.7), b_s, m, coefficient)
+      exponential_convolve!(fused, T(0.3), phi_s, T(0.7), b_s, m; coefficient = coefficient)
       @test field_data(fused) == field_data(sequential)
       combine!(sequential, T(0.3), phi_s, T(0.7), b_s)
-      exponential_convolve!(sequential, sequential, m, coefficient, offset_scale, k2_field)
-      exponential_convolve!(fused, T(0.3), phi_s, T(0.7), b_s, m, coefficient, offset_scale, k2_field)
+      exponential_convolve!(sequential, sequential, m; coefficient = coefficient, offset = k2_field, offset_scale = offset_scale)
+      exponential_convolve!(fused, T(0.3), phi_s, T(0.7), b_s, m; coefficient = coefficient, offset = k2_field, offset_scale = offset_scale)
       @test field_data(fused) == field_data(sequential)
 
       # aliasing: b === destination is the filtered accumulate in place
       inplace = scalar_kernel(copy(field_data(b_s)))
-      exponential_convolve!(inplace, T(0.3), phi_s, T(0.7), inplace, m, coefficient)
-      @test field_data(inplace) == field_data(exponential_convolve(
-        scalar_kernel(T(0.3) .* field_data(phi_s) .+ T(0.7) .* field_data(b_s)), m, coefficient))
+      exponential_convolve!(inplace, T(0.3), phi_s, T(0.7), inplace, m; coefficient = coefficient)
+      @test field_data(inplace) == field_data(exponential_convolve(scalar_kernel(T(0.3) .* field_data(phi_s) .+ T(0.7) .* field_data(b_s)), m; coefficient = coefficient))
     end
 
     @testset "kernel-composed combine!: ĝ ⊙ (α·a + β·b) in one pass (decision 33)" begin
@@ -345,8 +344,8 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       @test field_data(fused) == field_data(sequential)
 
       # the scalar kernel broadcasts over the fiber: the R=1 path
-      u_s = to_spectral(VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), grid),
-                        plans_for(VectorFieldPhysical((x, y, z) -> (T(0), T(0), T(0)), grid)))
+      u_s = to_spectral(VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(2z)), grid),
+                        plans_for(VectorFieldPhysical(Array, (x, y, z) -> (T(0), T(0), T(0)), grid)))
       v_s = VectorFieldSpectral(randn(Complex{T}, F.field_spectral_shape(grid, layout, Val(1))), grid)
       vseq = VectorFieldSpectral(zeros(Complex{T}, F.field_spectral_shape(grid, layout, Val(1))), grid)
       combine!(vseq, T(0.3), u_s, T(0.7), v_s)
@@ -379,7 +378,7 @@ end
     grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
     layout = RealFourierLayout()
     shape0 = F.field_spectral_shape(grid, layout, Val(0))
-    phi = ScalarFieldPhysical((x, y, z) -> sin(x), grid)
+    phi = ScalarFieldPhysical(Array, (x, y, z) -> sin(x), grid)
     phi_s = to_spectral(phi, FieldTransformPlans(phi, ScalarFieldSpectral(zeros(ComplexF64, shape0), grid)))
     ones_kernel = ScalarFieldSpectral(ones(ComplexF64, shape0), grid)
     @test_throws MethodError convolve(phi, ones_kernel)    # no physical-space convolution (spectral only)
@@ -392,8 +391,8 @@ end
     @test_throws MethodError assignment_window(phi_s)
     @test_throws MethodError tophat_window(phi_s, 1.0)
     mult_absence = FieldSpectralMultipliers(phi_s)
-    @test_throws MethodError exponential_convolve(phi, mult_absence, -0.1)          # spectral-only too
-    @test_throws MethodError exponential_convolve!(phi, phi, mult_absence, -0.1)
+    @test_throws MethodError exponential_convolve(phi, mult_absence; coefficient = -0.1)          # spectral-only too
+    @test_throws MethodError exponential_convolve!(phi, phi, mult_absence; coefficient = -0.1)
     @test_throws MethodError combine!(phi, 0.3, phi, 0.7, phi, ones_kernel)         # kerneled combine! likewise
   end
 
@@ -404,7 +403,7 @@ end
     shape0 = F.field_spectral_shape(grid, layout, Val(0))
     plans = FieldTransformPlans(ScalarFieldPhysical(zeros(T, 8, 7, 6), grid),
                                 ScalarFieldSpectral(zeros(Complex{T}, shape0), grid))
-    phi = ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) + sin(z), grid)
+    phi = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) + cos(2y) + sin(z), grid)
     phi_s = to_spectral(phi, plans)
     @test isapprox(field_data(convolve(phi_s, GBGPeriodicFields.Convolution.StoredKernel(
                      ScalarFieldSpectral(ones(Complex{T}, shape0), grid)))),
@@ -500,7 +499,7 @@ end
   stored = GBGPeriodicFields.Convolution.StoredKernel(
              ScalarFieldSpectral(Complex{TP}.(exp.(c .* expected_w2)), grid_c; layout = layout_c))
   ref_route = convolve(fs, stored)
-  @test isapprox(field_data(exponential_convolve(fs, m, c)), field_data(ref_route);
+  @test isapprox(field_data(exponential_convolve(fs, m; coefficient = c)), field_data(ref_route);
                  rtol = rtol_c, atol = rtol_c)
 
   # translation kernel on the anisotropic box: h is a physical length, so unequal Δx_a is the
@@ -516,11 +515,11 @@ end
   before = copy(field_data(dst))
   convolve!(dst, other, stored, TP(0), TP(2))
   @test field_data(dst) == 2 .* before
-  exponential_convolve!(dst, other, m, c, TP(0), TP(2))
+  exponential_convolve!(dst, other, m, TP(0), TP(2); coefficient = c)
   @test field_data(dst) == 4 .* before
   fused = ScalarFieldSpectral(zeros(Complex{TP}, size(field_data(fs))...), grid_c; layout = layout_c)
-  exponential_convolve!(fused, TP(0), other, TP(2), fs, m, c)     # two-operand: α = 0 drops a
-  @test isapprox(field_data(fused), 2 .* field_data(exponential_convolve(fs, m, c));
+  exponential_convolve!(fused, TP(0), other, TP(2), fs, m; coefficient = c)     # two-operand: α = 0 drops a
+  @test isapprox(field_data(fused), 2 .* field_data(exponential_convolve(fs, m; coefficient = c));
                  rtol = rtol_c, atol = rtol_c)
   combine!(fused, TP(0), other, TP(2), fs, stored)                # kernel-composed combine!
   @test isapprox(field_data(fused), 2 .* field_data(ref_route); rtol = rtol_c, atol = rtol_c)
@@ -533,8 +532,8 @@ end
   combined = ScalarFieldSpectral(zeros(Complex{TP}, size(field_data(fs))...), grid_c; layout = layout_c)
   combine!(combined, TP(1 // 2), fs, TP(2), other)          # the sequential reference input
   a_dst = ScalarFieldSpectral(copy(field_data(fs)), grid_c; layout = layout_c)
-  exponential_convolve!(a_dst, TP(1 // 2), a_dst, TP(2), other, m, c)
-  @test isapprox(field_data(a_dst), field_data(exponential_convolve(combined, m, c));
+  exponential_convolve!(a_dst, TP(1 // 2), a_dst, TP(2), other, m; coefficient = c)
+  @test isapprox(field_data(a_dst), field_data(exponential_convolve(combined, m; coefficient = c));
                  rtol = rtol_c, atol = rtol_c)
   a_dst2 = ScalarFieldSpectral(copy(field_data(fs)), grid_c; layout = layout_c)
   combine!(a_dst2, TP(1 // 2), a_dst2, TP(2), other, stored)
@@ -782,26 +781,26 @@ end
       factor = exp.(c .* k2 .+ s .* T.(low^2 .<= k2 .<= high^2))
       expected = field_data(f) .* factor
       out = similar_field(f, Val(R))
-      @test field_data(exponential_convolve!(out, f, multipliers, c, s, band)) ≈ expected rtol = 64 * eps(T)
+      @test field_data(exponential_convolve!(out, f, multipliers; coefficient = c, offset = band, offset_scale = s)) ≈ expected rtol = 64 * eps(T)
       # Bitwise the stored form of the same offset, single- and two-operand, α/β and the allocating form.
       stored = materialize_kernel(band).field
       for (α, β) in ((one(T), zero(T)), (T(0.7), T(0.4)))
         d1, d2 = similar_field(f, Val(R)), similar_field(f, Val(R))
         field_data(d1) .= 1; field_data(d2) .= 1
-        exponential_convolve!(d1, f, multipliers, c, s, band, α, β)
-        exponential_convolve!(d2, f, multipliers, c, s, stored, α, β)
+        exponential_convolve!(d1, f, multipliers, α, β; coefficient = c, offset = band, offset_scale = s)
+        exponential_convolve!(d2, f, multipliers, α, β; coefficient = c, offset = stored, offset_scale = s)
         @test field_data(d1) == field_data(d2)
-        exponential_convolve!(d1, α, f, β, b, multipliers, c, s, band)
-        exponential_convolve!(d2, α, f, β, b, multipliers, c, s, stored)
+        exponential_convolve!(d1, α, f, β, b, multipliers; coefficient = c, offset = band, offset_scale = s)
+        exponential_convolve!(d2, α, f, β, b, multipliers; coefficient = c, offset = stored, offset_scale = s)
         @test field_data(d1) == field_data(d2)
       end
-      @test field_data(exponential_convolve(f, multipliers, c, s, band)) ==
-            field_data(exponential_convolve(f, multipliers, c, s, stored))
+      @test field_data(exponential_convolve(f, multipliers; coefficient = c, offset = band, offset_scale = s)) ==
+            field_data(exponential_convolve(f, multipliers; coefficient = c, offset = stored, offset_scale = s))
       # Refused: a complex symbol, and a kernel built for another box.
-      @test_throws ArgumentError exponential_convolve!(out, f, multipliers, c, s, radial_kernel(k -> complex(k), multipliers))
+      @test_throws ArgumentError exponential_convolve!(out, f, multipliers; coefficient = c, offset = radial_kernel(k -> complex(k), multipliers), offset_scale = s)
       other = Grid3D(sizes, T.((2π, 2π, 2π)))
       foreign = spectral_band(FieldSpectralMultipliers(ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(other, layout, Val(0))...), other; layout)), low, high)
-      @test_throws ArgumentError exponential_convolve!(out, f, multipliers, c, s, foreign)
+      @test_throws ArgumentError exponential_convolve!(out, f, multipliers; coefficient = c, offset = foreign, offset_scale = s)
     end
   end
 end
@@ -856,7 +855,7 @@ end
     sincc(y) = y == 0 ? one(TP) : sin(y) / y
     k = (TP(2), TP(1.5), TP(-2 / 3))                              # integer multiples of 2π/L per axis
     for l in ((TP(0.7), TP(1.3), TP(2.1)), (TP(1), TP(1), TP(1)))   # not whole cells; a cube
-      f = ScalarFieldPhysical((x, y, z) -> cos(k[1] * x + k[2] * y + k[3] * z), grid)
+      f = ScalarFieldPhysical(Array, (x, y, z) -> cos(k[1] * x + k[2] * y + k[3] * z), grid)
       averaged = to_physical(convolve(to_spectral(f, plans), tophat_window(mult, l)), plans)
       factor = prod(sincc(k[a] * l[a] / 2) for a in 1:3)
       @test isapprox(field_data(averaged), factor .* field_data(f); atol = tol)
@@ -868,7 +867,7 @@ end
     window = tophat_window(mult, (TP(0.4), TP(0.8), TP(1.6)))
     @test eltype(window.factor_1) === TP
     # A zero edge is the identity, bitwise.
-    fs = to_spectral(ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z / 3), grid), plans)
+    fs = to_spectral(ScalarFieldPhysical(Array, (x, y, z) -> sin(x) + cos(2y) * sin(z / 3), grid), plans)
     @test field_data(convolve(fs, tophat_window(mult, zero(TP)))) == field_data(fs)
     # An edge equal to the domain's extent keeps the mean alone.
     rng = MersenneTwister(7)

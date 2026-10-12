@@ -30,14 +30,14 @@ function add_convolution!(group, AT, ::Type{T}, grid, tag) where {T}
   corner_squared = maximum(m.squared_wavenumber_1) + maximum(m.squared_wavenumber_2) +
                    maximum(m.squared_wavenumber_3)
   coefficient = -T(4) / T(corner_squared); weight_a = T(0.3); weight_b = T(0.7)
-  group["exponential_convolve! scalar | $tag"] = @benchmarkable (exponential_convolve!($sout, $s, $m, $coefficient); bench_sync(field_data($sout)))
-  group["exponential_convolve! vector | $tag"] = @benchmarkable (exponential_convolve!($uout, $u, $m, $coefficient); bench_sync(field_data($uout)))
+  group["exponential_convolve! scalar | $tag"] = @benchmarkable (exponential_convolve!($sout, $s, $m; coefficient = $coefficient); bench_sync(field_data($sout)))
+  group["exponential_convolve! vector | $tag"] = @benchmarkable (exponential_convolve!($uout, $u, $m; coefficient = $coefficient); bench_sync(field_data($uout)))
   # The exponent offset as a radial band (decision 92) against the same offset stored as a field: the
   # radial form reads no offset values, the stored one streams a field of them.
   offset_band = spectral_band(m, 1, 3)
   offset_stored = materialize_kernel(offset_band).field
-  group["exponential_convolve! vector, radial offset | $tag"] = @benchmarkable (exponential_convolve!($uout, $u, $m, $coefficient, 0.01, $offset_band); bench_sync(field_data($uout)))
-  group["exponential_convolve! vector, stored offset | $tag"] = @benchmarkable (exponential_convolve!($uout, $u, $m, $coefficient, 0.01, $offset_stored); bench_sync(field_data($uout)))
+  group["exponential_convolve! vector, radial offset | $tag"] = @benchmarkable (exponential_convolve!($uout, $u, $m; coefficient = $coefficient, offset = $offset_band, offset_scale = 0.01); bench_sync(field_data($uout)))
+  group["exponential_convolve! vector, stored offset | $tag"] = @benchmarkable (exponential_convolve!($uout, $u, $m; coefficient = $coefficient, offset = $offset_stored, offset_scale = 0.01); bench_sync(field_data($uout)))
   group["combine!∘kernel vector | $tag"] = @benchmarkable (combine!($uout, $weight_a, $u, $weight_b, $uout, $kernel); bench_sync(field_data($uout)))
   # These two rows named the builders but timed `materialize_kernel(builder(...))`, so an O(1) lazy
   # build was reported at the cost of an O(N³) materialization and neither could be tracked separately.

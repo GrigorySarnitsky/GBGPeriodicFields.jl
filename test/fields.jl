@@ -20,9 +20,9 @@ const layout = RealFourierLayout()
 @testset "Fields.jl" begin
 
   @testset "construction + shapes" begin
-    sp = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + 0.3, grid)
-    vp = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
-    tp = TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.0; 0.0 sin(z) cos(x); 1.0 0.0 sin(y)], grid)
+    sp = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) * cos(y) + 0.3, grid)
+    vp = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+    tp = TensorFieldPhysical{2}(Array, (x, y, z) -> [sin(x) cos(y) 0.0; 0.0 sin(z) cos(x); 1.0 0.0 sin(y)], grid)
     @test size(field_data(sp)) == (8, 7, 6)
     @test size(field_data(vp)) == (8, 7, 6, 3)
     @test size(field_data(tp)) == (8, 7, 6, 3, 3)
@@ -53,9 +53,9 @@ const layout = RealFourierLayout()
 
   @testset "FFT round-trip (scalar/vector/tensor)" begin
     for (field, R) in (
-        (ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + 0.3, grid), 0),
-        (VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), grid), 1),
-        (TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.0; 0.0 sin(z) cos(x); 1.0 0.0 sin(y)], grid), 2),
+        (ScalarFieldPhysical(Array, (x, y, z) -> sin(x) * cos(y) + 0.3, grid), 0),
+        (VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(2z)), grid), 1),
+        (TensorFieldPhysical{2}(Array, (x, y, z) -> [sin(x) cos(y) 0.0; 0.0 sin(z) cos(x); 1.0 0.0 sin(y)], grid), 2),
       )
       spec_shape = F.field_spectral_shape(grid, layout, Val(R))
       spectral = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, spec_shape), grid) :
@@ -68,7 +68,7 @@ const layout = RealFourierLayout()
   end
 
   @testset "allocating transforms preserve their input" begin
-    a = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + 0.3, grid)
+    a = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) * cos(y) + 0.3, grid)
     spectral_zero = ScalarFieldSpectral(zeros(Complex{T}, F.field_spectral_shape(grid, layout, Val(0))), grid)
     plans = FieldTransformPlans(a, spectral_zero)
 
@@ -83,7 +83,7 @@ const layout = RealFourierLayout()
   end
 
   @testset "scratch arity of to_physical!: preserving AND allocation-free (decision 64)" begin
-    a = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + 0.3, grid)
+    a = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) * cos(y) + 0.3, grid)
     spectral_zero = ScalarFieldSpectral(zeros(Complex{T}, F.field_spectral_shape(grid, layout, Val(0))), grid)
     plans = FieldTransformPlans(a, spectral_zero)
     spectral = to_spectral(a, plans)
@@ -119,7 +119,7 @@ const layout = RealFourierLayout()
   end
 
   @testset "spectral multipliers vs AbstractFFTs" begin
-    sp = ScalarFieldPhysical((x, y, z) -> sin(x), grid)
+    sp = ScalarFieldPhysical(Array, (x, y, z) -> sin(x), grid)
     spectral = to_spectral(sp, FieldTransformPlans(sp, ScalarFieldSpectral(zeros(Complex{T}, F.field_spectral_shape(grid, layout, Val(0))), grid)))
     m = F.FieldSpectralMultipliers(spectral)
 
@@ -145,9 +145,9 @@ const layout = RealFourierLayout()
   end
 
   @testset "broadcasting" begin
-    a = ScalarFieldPhysical((x, y, z) -> sin(x), grid)
-    b = ScalarFieldPhysical((x, y, z) -> cos(y), grid)
-    c = ScalarFieldPhysical((x, y, z) -> 1.0, grid)
+    a = ScalarFieldPhysical(Array, (x, y, z) -> sin(x), grid)
+    b = ScalarFieldPhysical(Array, (x, y, z) -> cos(y), grid)
+    c = ScalarFieldPhysical(Array, (x, y, z) -> 1.0, grid)
 
     # in-place fused assignment writes into destination storage
     dest = F.similar_field(a, Val(0))
@@ -169,10 +169,10 @@ const layout = RealFourierLayout()
   end
 
   @testset "compatibility accept/reject" begin
-    a = ScalarFieldPhysical((x, y, z) -> sin(x), grid)
-    v = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+    a = ScalarFieldPhysical(Array, (x, y, z) -> sin(x), grid)
+    v = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid)
     other_grid = Grid3D((8, 7, 6), (2π, 2π, 4π))   # different domain size
-    a_other = ScalarFieldPhysical((x, y, z) -> sin(x), other_grid)
+    a_other = ScalarFieldPhysical(Array, (x, y, z) -> sin(x), other_grid)
 
     @test F._check_field_compatibility(a, a) === nothing
     @test_throws ArgumentError F._check_field_compatibility(a, a_other)        # grid mismatch
@@ -275,12 +275,12 @@ end
   # non-zero origin on this path (the HDF5 origin case supplies a raw array, bypassing it)
   origin = (TP(0.4), TP(-0.7), TP(1.1))
   grid_o = Grid3D((8, 6, 4), (TP(2π), TP(4π), TP(6π)); origin = origin)
-  s = ScalarFieldPhysical((x, y, z) -> x, grid_o)
+  s = ScalarFieldPhysical(Array, (x, y, z) -> x, grid_o)
   @test field_data(s)[3, 1, 1] ≈ origin[1] + 2 * grid_o.grid_spacing[1]
-  u = VectorFieldPhysical((x, y, z) -> (y, z, x), grid_o)
+  u = VectorFieldPhysical(Array, (x, y, z) -> (y, z, x), grid_o)
   @test field_data(u)[1, 2, 1, 1] ≈ origin[2] + grid_o.grid_spacing[2]
   @test field_data(u)[1, 1, 2, 2] ≈ origin[3] + grid_o.grid_spacing[3]
-  A = TensorFieldPhysical{2}((x, y, z) -> fill(z, 3, 3), grid_o)
+  A = TensorFieldPhysical{2}(Array, (x, y, z) -> fill(z, 3, 3), grid_o)
   @test field_data(A)[1, 1, 3, 2, 2] ≈ origin[3] + 2 * grid_o.grid_spacing[3]
 
   # the explicit multiplier constructors (documented public API, never previously called):
@@ -588,23 +588,26 @@ end
 end
 
 
-# The function-sampling constructors take their storage as the keyword `array_family`, checked as the
-# allocating constructors check theirs (the keyword was `array_type`, converted unchecked, until 2026-10-07, and `family` until 2026-10-08).
+# The function-sampling constructors take their array family as a required first argument, checked as
+# the allocating constructors check theirs (decision 101; it was the keyword `array_type`, converted
+# unchecked, until 2026-10-07, then the keyword `family`, then `array_family`, defaulting to `Array`).
 @testset "sampling constructors take a checked array family ($T)" for T in (Float64, Float32)
   grid = Grid3D((6, 5, 4), T.((2pi, 4pi, 2pi)))
   f = (x, y, z) -> sin(x) + cos(y) * z
-  plain = ScalarFieldPhysical(f, grid)
-  @test field_data(ScalarFieldPhysical(f, grid; array_family = Array)) == field_data(plain)
-  @test field_data(ScalarFieldPhysical(f, grid; array_family = Array{T})) == field_data(plain)
+  plain = ScalarFieldPhysical(Array, f, grid)
+  @test field_data(ScalarFieldPhysical(Array{T}, f, grid)) == field_data(plain)
   @test field_data(plain) isa Array{T, 3}
-  @test field_data(VectorFieldPhysical((x, y, z) -> (x, y, z), grid; array_family = Array)) isa Array{T, 4}
-  @test field_data(TensorFieldPhysical{2}((x, y, z) -> zeros(3, 3), grid; array_family = Array)) isa Array{T, 5}
+  @test field_data(plain)[2, 3, 4] ≈ f(grid.grid_spacing[1], 2grid.grid_spacing[2], 3grid.grid_spacing[3])
+  @test field_data(VectorFieldPhysical(Array, (x, y, z) -> (x, y, z), grid)) isa Array{T, 4}
+  @test field_data(TensorFieldPhysical{2}(Array, (x, y, z) -> zeros(3, 3), grid)) isa Array{T, 5}
   other = T === Float64 ? Float32 : Float64
-  for make in (g -> ScalarFieldPhysical(f, g; array_family = Array{other}),
-               g -> VectorFieldPhysical((x, y, z) -> (x, y, z), g; array_family = Array{Complex{T}}),
-               g -> TensorFieldPhysical{2}((x, y, z) -> zeros(3, 3), g; array_family = Array{other}))
+  for make in (g -> ScalarFieldPhysical(Array{other}, f, g),
+               g -> VectorFieldPhysical(Array{Complex{T}}, (x, y, z) -> (x, y, z), g),
+               g -> TensorFieldPhysical{2}(Array{other}, (x, y, z) -> zeros(3, 3), g))
     @test_throws ArgumentError make(grid)
   end
+  # The family is required: the former keyword spelling no longer has a method.
+  @test_throws MethodError ScalarFieldPhysical(f, grid)
 end
 
 

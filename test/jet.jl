@@ -31,12 +31,12 @@ end
 
 
 @testset "JET static analysis" begin
-  a = ScalarFieldPhysical((x, y, z) -> sin(x), grid)
-  b = ScalarFieldPhysical((x, y, z) -> cos(y), grid)
-  sf = ScalarFieldPhysical((x, y, z) -> 2.0 + sin(x), grid)
-  u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
-  v = VectorFieldPhysical((x, y, z) -> (cos(x), sin(y), 1.0), grid)
-  A = TensorFieldPhysical{2}((x, y, z) -> fill(sin(x), 3, 3), grid)
+  a = ScalarFieldPhysical(Array, (x, y, z) -> sin(x), grid)
+  b = ScalarFieldPhysical(Array, (x, y, z) -> cos(y), grid)
+  sf = ScalarFieldPhysical(Array, (x, y, z) -> 2.0 + sin(x), grid)
+  u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+  v = VectorFieldPhysical(Array, (x, y, z) -> (cos(x), sin(y), 1.0), grid)
+  A = TensorFieldPhysical{2}(Array, (x, y, z) -> fill(sin(x), 3, 3), grid)
   as = to_spectral(a, plans_for(a))
   us = to_spectral(u, plans_for(u))
   m = FieldSpectralMultipliers(as)

@@ -65,7 +65,7 @@ const FOLDS = ((1, 2, 3), (2, 1, 3), (3, 2, 1), (1, 3, 2))
         ("convolve ∘ separable",     () -> convolve(u0, sep),                   1),
         ("convolve ∘ radial",        () -> convolve(u0, rad),                   1),
         ("convolve ∘ product",       () -> convolve(u0, convolve(rad, sep)),    1),
-        ("exponential_convolve",     () -> exponential_convolve(u0, m, TP(-0.1)), 1),
+        ("exponential_convolve",     () -> exponential_convolve(u0, m; coefficient = TP(-0.1)), 1),
         ("materialize_kernel sep",   () -> materialize_kernel(sep),             0),
         ("materialize_kernel rad",   () -> materialize_kernel(rad),             0),
         ("squared_wavenumber_field", () -> materialize_kernel(radial_kernel(identity, m)),     0),
@@ -103,12 +103,12 @@ const FOLDS = ((1, 2, 3), (2, 1, 3), (3, 2, 1), (1, 3, 2))
           q = value_order == 0 ? ScalarPointValues(rand(rng, TP, 6)) :
               value_order == 1 ? VectorPointValues(rand(rng, TP, 6, 3)) :
                                  TensorPointValues(rand(rng, TP, 6, 3, 3))
-          deposited = anterpolate(spec(field_order), points, q, DirectDFT())
+          deposited = anterpolate(field_grid(spec(field_order)), points, q, DirectDFT(); layout = field_layout(spec(field_order)))
           @test field_tensor_order(deposited) == value_order   # the VALUES' order, not the field's
           @test field_layout(deposited).fft_dims == fold
         end
         # a mismatched pair must be refused, not silently mis-sized
-        @test_throws ArgumentError anterpolate(spec(0), points,
+        @test_throws ArgumentError anterpolate(field_grid(spec(0)), points,
                                                VectorPointValues(rand(rng, TP, 6, 3)),
                                                NUFFT(spec(0); tol = TP === Float64 ? 1e-8 : 1.0f-4))
       end

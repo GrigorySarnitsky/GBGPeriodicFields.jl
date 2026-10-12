@@ -339,11 +339,11 @@ _point_value_shape(number_of_points::Integer, ::Val{R}) where {R} = (number_of_p
 
 """
     similar_point_values(reference::AbstractPointValues, data)
-    similar_point_values(reference::AbstractPointValues, ::Val{R}) where {R}
+    similar_point_values(reference::AbstractPointValues[, ::Val{R}]) where {R}
 
 Allocate point values shaped like `reference`. The `data` form wraps the supplied array in a
-point-value type of the same tensor order as `reference`. The `Val{R}` form allocates a fresh
-`(M, fiber_shape(Val(R))...)` array of order `R` on `reference`'s backend, through `similar`, and wraps it. The
+point-value type of the same tensor order as `reference`. Otherwise a fresh `(M, fiber_shape(Val(R))...)`
+array of order `R` (by default `reference`'s) is allocated on `reference`'s backend and wrapped. The
 broadcast machinery and the allocating algebra wrappers use it to build their results.
 
 !!! note "Deliberately not an extension of `Base.similar`"
@@ -353,6 +353,11 @@ broadcast machinery and the allocating algebra wrappers use it to build their re
     allocating.
 """
 function similar_point_values end
+
+
+# With no order given, point values like the reference: its own tensor order.
+similar_point_values(reference::AbstractPointValues) =
+  similar_point_values(reference, Val(point_value_tensor_order(reference)))
 
 similar_point_values(::ScalarPointValues, data::AbstractArray) = ScalarPointValues(data)
 similar_point_values(::VectorPointValues, data::AbstractArray) = VectorPointValues(data)

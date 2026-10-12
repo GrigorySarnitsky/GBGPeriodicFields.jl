@@ -485,10 +485,9 @@ function run_value_lane(configs)
                         ref_convolve(field_data(sh), complex.(ref_spectral_cutoff(grid, layout, shape, cutoff)))),
       (:⋆,              field_data(sh ⋆ spectral_cutoff(multipliers, cutoff)),
                         ref_convolve(field_data(sh), complex.(ref_spectral_cutoff(grid, layout, shape, cutoff)))),
-      (:exponential_convolve, field_data(exponential_convolve(sh, multipliers, -T(1) / 10)),
+      (:exponential_convolve, field_data(exponential_convolve(sh, multipliers; coefficient = -T(1) / 10)),
                         ref_convolve(field_data(sh), complex.(ref_exponential_symbol(grid, layout, shape, -T(1) / 10)))),
-      (:exponential_convolve!, field_data(exponential_convolve!(similar_field(spectral_zero, Val(0)), sh,
-                                                                multipliers, -T(1) / 10)),
+      (:exponential_convolve!, field_data(exponential_convolve!(similar_field(spectral_zero, Val(0)), sh, multipliers; coefficient = -T(1) / 10)),
                         ref_convolve(field_data(sh), complex.(ref_exponential_symbol(grid, layout, shape, -T(1) / 10)))),
       (:radial_kernel,  kernel_data(radial_kernel(k2 -> exp(-k2 / 10), multipliers)),
                         complex.(ref_exponential_symbol(grid, layout, shape, -T(1) / 10))),
@@ -690,8 +689,8 @@ function run_value_lane(configs)
     # again and its datasets are read with the HDF5 API directly, and the largest one is compared with
     # the array that went in.
     persistence_comparisons = if HDF5_AVAILABLE && !LEDGER_FIXTURES_ONLY
-      written_scheme = LalescuSpline(6; smoothness = 1, T = T)
-      written_lagrange = LagrangeSpline(6; T = T)
+      written_scheme = LalescuSpline(6; smoothness = 1)
+      written_lagrange = LagrangeSpline(6)
       path = joinpath(mktempdir(), "value.h5")
       HDF5.h5open(path, "w") do file
         write_field(file, "field", u)
@@ -1067,8 +1066,7 @@ function run_value_lane(configs)
       exponent = -T(1) / 10
       symbol = complex.(ref_exponential_symbol(grid, layout, size(field_data(sh))[1:3], exponent))
       push!(generated, (:exponential_convolve!,
-                        field_data(exponential_convolve!(similar_field(sh, Val(0)), α, sh, β, sh2,
-                                                         multipliers, exponent)),
+                        field_data(exponential_convolve!(similar_field(sh, Val(0)), α, sh, β, sh2, multipliers; coefficient = exponent)),
                         ref_convolve(α .* field_data(sh) .+ β .* field_data(sh2), symbol)))
 
       # The spectral SCATTER at its arities, both schemes, against the adjoint sum — compared on the
@@ -1217,19 +1215,16 @@ function run_value_lane(configs)
       symbol2 = complex.(ref_exponential_symbol(grid, layout, size(field_data(sh))[1:3], exponent2)) .*
                 exp.(offset_scale .* real.(field_data(offset_field)))
       push!(generated, (:exponential_convolve,
-                        field_data(exponential_convolve(sh, multipliers, exponent2, offset_scale, offset_field)),
+                        field_data(exponential_convolve(sh, multipliers; coefficient = exponent2, offset = offset_field, offset_scale = offset_scale)),
                         ref_convolve(field_data(sh), symbol2)))
       push!(generated, (:exponential_convolve!,
-                        field_data(exponential_convolve!(similar_field(sh, Val(0)), sh, multipliers,
-                                                         exponent2, offset_scale, offset_field)),
+                        field_data(exponential_convolve!(similar_field(sh, Val(0)), sh, multipliers; coefficient = exponent2, offset = offset_field, offset_scale = offset_scale)),
                         ref_convolve(field_data(sh), symbol2)))
       push!(generated, (:exponential_convolve!,
-                        field_data(exponential_convolve!(similar_field(sh, Val(0)), sh, multipliers,
-                                                         exponent2, offset_scale, offset_field, α, zero(T))),
+                        field_data(exponential_convolve!(similar_field(sh, Val(0)), sh, multipliers, α, zero(T); coefficient = exponent2, offset = offset_field, offset_scale = offset_scale)),
                         α .* ref_convolve(field_data(sh), symbol2)))
       push!(generated, (:exponential_convolve!,
-                        field_data(exponential_convolve!(similar_field(sh, Val(0)), α, sh, β, sh2,
-                                                         multipliers, exponent2, offset_scale, offset_field)),
+                        field_data(exponential_convolve!(similar_field(sh, Val(0)), α, sh, β, sh2, multipliers; coefficient = exponent2, offset = offset_field, offset_scale = offset_scale)),
                         ref_convolve(α .* field_data(sh) .+ β .* field_data(sh2), symbol2)))
       # A RADIAL offset (2026-10-01): ŵ = the band indicator, a function of |k|² alone, evaluated per
       # mode. The reference is the same exp(c|k|² + s·ŵ) written over the raw squared wavenumber, on the
@@ -1239,15 +1234,13 @@ function run_value_lane(configs)
       symbol3 = complex.(ref_exponential_symbol(grid, layout, size(field_data(sh))[1:3], exponent2) .*
                          exp.(offset_scale .* band_values))
       push!(generated, (:exponential_convolve,
-                        field_data(exponential_convolve(sh, multipliers, exponent2, offset_scale, radial_offset)),
+                        field_data(exponential_convolve(sh, multipliers; coefficient = exponent2, offset = radial_offset, offset_scale = offset_scale)),
                         ref_convolve(field_data(sh), symbol3)))
       push!(generated, (:exponential_convolve!,
-                        field_data(exponential_convolve!(similar_field(uh, Val(1)), uh, multipliers,
-                                                         exponent2, offset_scale, radial_offset)),
+                        field_data(exponential_convolve!(similar_field(uh, Val(1)), uh, multipliers; coefficient = exponent2, offset = radial_offset, offset_scale = offset_scale)),
                         field_data(uh) .* symbol3))
       push!(generated, (:exponential_convolve!,
-                        field_data(exponential_convolve!(similar_field(uh, Val(1)), α, uh, β, uh,
-                                                         multipliers, exponent2, offset_scale, radial_offset)),
+                        field_data(exponential_convolve!(similar_field(uh, Val(1)), α, uh, β, uh, multipliers; coefficient = exponent2, offset = radial_offset, offset_scale = offset_scale)),
                         (α .* field_data(uh) .+ β .* field_data(uh)) .* symbol3))
 
       # The two-field CO-correlation, the Wiener–Khinchin dual of the co-spectrum.

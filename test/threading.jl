@@ -105,10 +105,10 @@ println(ka_digest(field_data(embed_modes!(ka_embedded, ka_coarse))))
   end
 
   @testset "field operations threaded == serial (bitwise)" begin
-    a = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + 0.3, grid)
-    b = ScalarFieldPhysical((x, y, z) -> cos(z), grid)
-    u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
-    v = VectorFieldPhysical((x, y, z) -> (cos(x), sin(y), 1.0), grid)
+    a = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) * cos(y) + 0.3, grid)
+    b = ScalarFieldPhysical(Array, (x, y, z) -> cos(z), grid)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+    v = VectorFieldPhysical(Array, (x, y, z) -> (cos(x), sin(y), 1.0), grid)
     @test bitwise(() -> a + b)
     @test bitwise(() -> a - b)
     @test bitwise(() -> 2.5 * a)
@@ -122,11 +122,11 @@ println(ka_digest(field_data(embed_modes!(ka_embedded, ka_coarse))))
   end
 
   @testset "codegen kernels threaded == serial (bitwise)" begin
-    u  = VectorFieldPhysical((x, y, z) -> (sin(x) * cos(y), cos(z), sin(z) + 0.2), grid)
-    v  = VectorFieldPhysical((x, y, z) -> (cos(x), sin(2y), cos(z)), grid)
-    A  = TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], grid)
-    B  = TensorFieldPhysical{2}((x, y, z) -> [cos(x) 0.1 sin(y); sin(z) cos(y) 0.2; 0.7 sin(x) cos(z)], grid)
-    sf = ScalarFieldPhysical((x, y, z) -> 2.0 + sin(x), grid)
+    u  = VectorFieldPhysical(Array, (x, y, z) -> (sin(x) * cos(y), cos(z), sin(z) + 0.2), grid)
+    v  = VectorFieldPhysical(Array, (x, y, z) -> (cos(x), sin(2y), cos(z)), grid)
+    A  = TensorFieldPhysical{2}(Array, (x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], grid)
+    B  = TensorFieldPhysical{2}(Array, (x, y, z) -> [cos(x) 0.1 sin(y); sin(z) cos(y) 0.2; 0.7 sin(x) cos(z)], grid)
+    sf = ScalarFieldPhysical(Array, (x, y, z) -> 2.0 + sin(x), grid)
 
     @test bitwise(() -> dot(u, v))          # vector inner product (scalar kernel)
     @test bitwise(() -> cross(u, v))        # cross product
@@ -170,8 +170,8 @@ println(ka_digest(field_data(embed_modes!(ka_embedded, ka_coarse))))
                           TensorFieldSpectral{R}(zeros(Complex{T}, shape), og)
       return FieldTransformPlans(physical, spectral)
     end
-    phi = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + sin(2z), og)
-    u = VectorFieldPhysical((x, y, z) -> (sin(x) + cos(y), sin(y) + cos(z), sin(z) + cos(x)), og)
+    phi = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) * cos(y) + sin(2z), og)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x) + cos(y), sin(y) + cos(z), sin(z) + cos(x)), og)
     phis = to_spectral(phi, plans_for(phi)); us = to_spectral(u, plans_for(u))
     m = FieldSpectralMultipliers(phis)
 
@@ -190,20 +190,20 @@ println(ka_digest(field_data(embed_modes!(ka_embedded, ka_coarse))))
     # The exponential fiber hoist (decision 79): the serial and threaded CPU routes are DIFFERENT
     # BODIES — bufferless fibre-inner serially (decision 70's zero pin), row-buffered under threads —
     # so this toggle compares two real implementations, not a path against itself.
-    @test bitwise(() -> exponential_convolve(us, m, -0.03))
+    @test bitwise(() -> exponential_convolve(us, m; coefficient = -0.03))
     # The offset scale is small so the exponent stays finite everywhere: `phis` is a raw spectrum
     # whose large coefficients would overflow `exp` at an O(1) scale, and a NaN cell fails `==`
     # in EVERY route — three identical NaN payloads read as a mismatch. The complex-capable factor
     # buffer is still exercised, `phis` being genuinely complex (the fixture that found the
     # InexactError the real-valued-in-complex-storage fixtures missed).
-    @test bitwise(() -> exponential_convolve(us, m, -0.03, 1e-4, phis))
+    @test bitwise(() -> exponential_convolve(us, m; coefficient = -0.03, offset = phis, offset_scale = 1e-4))
     ws = similar_field(us, Val(1))
     with_threading(enabled = false) do
-      exponential_convolve!(ws, 1.5, us, -0.5, laplacian(us, m), m, -0.03)
+      exponential_convolve!(ws, 1.5, us, -0.5, laplacian(us, m), m; coefficient = -0.03)
     end
     ws2 = similar_field(us, Val(1))
     with_threading(enabled = true) do
-      exponential_convolve!(ws2, 1.5, us, -0.5, laplacian(us, m), m, -0.03)
+      exponential_convolve!(ws2, 1.5, us, -0.5, laplacian(us, m), m; coefficient = -0.03)
     end
     @test field_data(ws) == field_data(ws2)
     # `helmholtz_projection` belongs here since decision 40 gave it a gated CPU loop beside its

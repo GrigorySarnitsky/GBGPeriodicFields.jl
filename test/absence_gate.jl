@@ -104,8 +104,8 @@ const ABSENT_CALLS = Dict{Symbol, Function}(
   :convolve             => () -> convolve(agsphys(), agkernel()),
   :convolve!            => () -> convolve!(agsphys(), agsphys(), agkernel()),
   :⋆                    => () -> agsphys() ⋆ agkernel(),
-  :exponential_convolve => () -> exponential_convolve(agsphys(), agmult(), -0.1),
-  :exponential_convolve! => () -> exponential_convolve!(agsphys(), agsphys(), agmult(), -0.1),
+  :exponential_convolve => () -> exponential_convolve(agsphys(), agmult(); coefficient = -0.1),
+  :exponential_convolve! => () -> exponential_convolve!(agsphys(), agsphys(), agmult(); coefficient = -0.1),
   :weighted_inner       => () -> weighted_inner(agsphys(), agkernel()),
   :radial_spectrum      => () -> radial_spectrum(agsphys(), agmult()),
   :radial_correlation   => () -> radial_correlation(agsphys(), agplans()),
@@ -115,8 +115,6 @@ const ABSENT_CALLS = Dict{Symbol, Function}(
   # Definitional asymmetries: each transform names its input representation.
   :to_physical          => () -> to_physical(agsphys(), agplans()),
   :to_spectral          => () -> to_spectral(agsspec(), agplans()),
-  # The spectral transfer's scatter takes the deposit target in spectral representation.
-  :anterpolate          => () -> anterpolate(agsphys(), agpoints(), ScalarPointValues(rand(9)), DirectDFT()),
   # Moving modes between grid resolutions is spectral by definition: a mode is what the operation
   # names, and two physical fields of different sizes share no sample points to copy (decision 85).
   :embed_modes!         => () -> embed_modes!(agsphys(), ScalarFieldPhysical(rand(4, 4, 2), Grid3D((4, 4, 2), (2π, 2π, 2π)); layout = ALAYOUT)),

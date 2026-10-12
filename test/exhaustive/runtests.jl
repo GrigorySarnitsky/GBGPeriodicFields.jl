@@ -94,9 +94,9 @@ function operations_for(c::Config)
     (:helmholtz_projection!, [1, 1],    SPECTRAL, (d, a) -> helmholtz_projection!(d, a, m)),
     (:convolve!,             [1, 1],    SPECTRAL, (d, a) -> convolve!(d, a, kernel)),
     (Symbol("convolve!·αβ"), [1, 1],    SPECTRAL, (d, a) -> convolve!(d, a, kernel, α, β)),
-    (:exponential_convolve!, [0, 0],    SPECTRAL, (d, a) -> exponential_convolve!(d, a, m, -T(1) / 10)),
+    (:exponential_convolve!, [0, 0],    SPECTRAL, (d, a) -> exponential_convolve!(d, a, m; coefficient = -T(1) / 10)),
     (Symbol("exponential_convolve!·αβ"), [0, 0], SPECTRAL,
-       (d, a) -> exponential_convolve!(d, a, m, -T(1) / 10, α, β)),
+       (d, a) -> exponential_convolve!(d, a, m, α, β; coefficient = -T(1) / 10)),
     # divergence!'s α/β form is the KERNEL-COMPOSED arity of decision 32, so it takes a kernel too.
     (Symbol("divergence!∘kernel·αβ"), [0, 1], SPECTRAL, (d, a) -> divergence!(d, a, m, kernel, α, β)),
     (Symbol("helmholtz_projection!∘kernel·αβ"), [1, 1], SPECTRAL,

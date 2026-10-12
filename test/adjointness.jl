@@ -70,14 +70,14 @@ eval_modes(modes, x, y, z) = sum(amplitude * cos(k[1] * x + k[2] * y + k[3] * z 
 
 random_scalar(rng; nmodes = 10, kmax = 3) =
   let modes = random_modes(rng, nmodes, kmax)
-    ScalarFieldPhysical((x, y, z) -> eval_modes(modes, x, y, z), grid)
+    ScalarFieldPhysical(Array, (x, y, z) -> eval_modes(modes, x, y, z), grid)
   end
 
 function random_vector(rng; nmodes = 10, kmax = 3)
   mx = random_modes(rng, nmodes, kmax)
   my = random_modes(rng, nmodes, kmax)
   mz = random_modes(rng, nmodes, kmax)
-  return VectorFieldPhysical((x, y, z) -> (eval_modes(mx, x, y, z), eval_modes(my, x, y, z), eval_modes(mz, x, y, z)), grid)
+  return VectorFieldPhysical(Array, (x, y, z) -> (eval_modes(mx, x, y, z), eval_modes(my, x, y, z), eval_modes(mz, x, y, z)), grid)
 end
 
 

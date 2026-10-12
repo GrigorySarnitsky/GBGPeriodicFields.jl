@@ -28,8 +28,8 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
       @test maximum(s) ≈ c && minimum(s) ≈ c && extrema(s) == (c, c)
 
       # analytic: ⟨sin x⟩ = 0, ⟨sin²x⟩ = 1/2 on a full period
-      sx  = ScalarFieldPhysical((x, y, z) -> sin(x), g)
-      sx2 = ScalarFieldPhysical((x, y, z) -> sin(x)^2, g)
+      sx  = ScalarFieldPhysical(Array, (x, y, z) -> sin(x), g)
+      sx2 = ScalarFieldPhysical(Array, (x, y, z) -> sin(x)^2, g)
       @test abs(mean(sx)) < atol
       @test mean(sx2) ≈ T(1) / 2 atol = atol
       @test var(ScalarFieldPhysical(fill(c, N, N, N), g)) ≈ 0 atol = atol
@@ -39,7 +39,7 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
     end
 
     @testset "grid vector — fiber-valued mean, inner, norms ($T)" begin
-      v = VectorFieldPhysical((x, y, z) -> (T(1), T(2), T(2)), g)
+      v = VectorFieldPhysical(Array, (x, y, z) -> (T(1), T(2), T(2)), g)
       m = mean(v)
       @test m isa FiberVector{T}
       @test m ≈ T[1, 2, 2]
@@ -53,7 +53,7 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
       @test lpnorm(v, 4) ≈ T(3)                                  # constant ⇒ any p
 
       # inner symmetry and the energy identity ½⟨|u|²⟩
-      u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z) * cos(x)), g)
+      u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z) * cos(x)), g)
       @test inner(u, v) ≈ inner(v, u)
       @test 0.5 * inner(u, u) ≈ 0.5 * sum(abs2, field_data(u)) / N^3 atol = atol
       @test l2norm(u) ≈ sqrt(sum(abs2, field_data(u)) / N^3) atol = atol
@@ -108,19 +108,19 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
       @test maximum(det, D) ≈ T(24) && minimum(det, D) ≈ T(24)
 
       # The identity map must reproduce the bare, fiber-preserving reductions exactly.
-      v = VectorFieldPhysical((x, y, z) -> (T(1), T(2), T(2)), g)
+      v = VectorFieldPhysical(Array, (x, y, z) -> (T(1), T(2), T(2)), g)
       @test mean(identity, v) ≈ mean(v)
       @test integral(identity, v) ≈ integral(v)
       @test mean(identity, D) ≈ mean(D)
 
       # Analytic: ⟨sin²x⟩ = 1/2 over a full period.
-      sx = ScalarFieldPhysical((x, y, z) -> sin(x), g)
+      sx = ScalarFieldPhysical(Array, (x, y, z) -> sin(x), g)
       @test mean(abs2, sx) ≈ T(0.5) atol = atol
 
       # `maximum(norm, ·)` is the fused peer of the materializing `lpnorm(·, Inf)`.
       @test maximum(norm, v) ≈ T(3)
       @test maximum(norm, v) ≈ lpnorm(v, Inf)
-      u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z) * cos(x)), g)
+      u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z) * cos(x)), g)
       @test maximum(norm, u) ≈ lpnorm(u, Inf) atol = atol
       @test extrema(norm, u) == (minimum(norm, u), maximum(norm, u))
 
@@ -155,12 +155,12 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
         atol = T == Float64 ? 1e-10 : 1.0f-4
         # pairs are deliberately NON-orthogonal (shared modes) so the inner is O(1) and rtol genuinely
         # exercises the Parseval normalization, not two near-zero round-off values
-        f1 = ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp)
-        f2 = ScalarFieldPhysical((x, y, z) -> 2sin(x) - cos(2y) * sin(z), gp)        # ⟨f1 f2⟩ = 3/4
-        u1 = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), gp)
-        u2 = VectorFieldPhysical((x, y, z) -> (2sin(x), cos(y), cos(z)), gp)         # ⟨u1·u2⟩ = 3/2
-        A1 = TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp)
-        A2 = TensorFieldPhysical{2}((x, y, z) -> [2sin(x) 0 0; 0 sin(z) 0; 0 0 sin(y)], gp)   # diagonal overlap = 2
+        f1 = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) + cos(2y) * sin(z), gp)
+        f2 = ScalarFieldPhysical(Array, (x, y, z) -> 2sin(x) - cos(2y) * sin(z), gp)        # ⟨f1 f2⟩ = 3/4
+        u1 = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(2z)), gp)
+        u2 = VectorFieldPhysical(Array, (x, y, z) -> (2sin(x), cos(y), cos(z)), gp)         # ⟨u1·u2⟩ = 3/2
+        A1 = TensorFieldPhysical{2}(Array, (x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp)
+        A2 = TensorFieldPhysical{2}(Array, (x, y, z) -> [2sin(x) 0 0; 0 sin(z) 0; 0 0 sin(y)], gp)   # diagonal overlap = 2
         for (a, b) in ((f1, f2), (u1, u2), (A1, A2))
           @test isapprox(inner(tospec(a), tospec(b)), inner(a, b); rtol = rtol, atol = atol)   # Parseval, all orders
         end
@@ -183,9 +183,9 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
                                          TensorFieldSpectral{R}(zeros(Complex{T}, shape), gp);
                         to_spectral(phys, FieldTransformPlans(phys, spec0)))
         # non-zero DC components so the checks exercise real values, not two round-off zeros
-        f = ScalarFieldPhysical((x, y, z) -> 2 + sin(x) + cos(2y) * sin(z), gp)
-        u = VectorFieldPhysical((x, y, z) -> (T(1) + sin(x), T(2) + cos(y), sin(2z)), gp)
-        A = TensorFieldPhysical{2}((x, y, z) -> [1+sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) 2+sin(y)], gp)
+        f = ScalarFieldPhysical(Array, (x, y, z) -> 2 + sin(x) + cos(2y) * sin(z), gp)
+        u = VectorFieldPhysical(Array, (x, y, z) -> (T(1) + sin(x), T(2) + cos(y), sin(2z)), gp)
+        A = TensorFieldPhysical{2}(Array, (x, y, z) -> [1+sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) 2+sin(y)], gp)
         for section in (f, u, A)                        # scalar / vector / tensor, both grids
           spectral = tospec(section)
           # independent oracle: the physical reduction (summed in physical space) == the zero-mode read
@@ -197,11 +197,11 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
         @test integral(tospec(u)) isa FiberVector{T} && mean(tospec(u)) isa FiberVector{T}
         @test integral(tospec(A)) isa FiberTensor2{T} && mean(tospec(A)) isa FiberTensor2{T}
         # analytical oracles: a constant carries all of ∫ and the mean in the DC mode
-        c = T(2.5); cs = tospec(ScalarFieldPhysical((x, y, z) -> c, gp))
+        c = T(2.5); cs = tospec(ScalarFieldPhysical(Array, (x, y, z) -> c, gp))
         @test isapprox(mean(cs), c; rtol = rtol, atol = atol)                          # ⟨c⟩ = c
         @test isapprox(integral(cs), c * prod(gp.domain_size); rtol = rtol, atol = atol) # ∫c dx = c|Ω|
         # a zero-mean fluctuation has a vanishing DC coefficient
-        @test isapprox(mean(tospec(ScalarFieldPhysical((x, y, z) -> sin(x), gp))), 0; atol = atol)
+        @test isapprox(mean(tospec(ScalarFieldPhysical(Array, (x, y, z) -> sin(x), gp))), 0; atol = atol)
         # extensive = |Ω|·intensive holds in the spectral representation too
         @test isapprox(integral(tospec(f)), prod(gp.domain_size) * mean(tospec(f)); rtol = rtol, atol = atol)
       end
@@ -219,9 +219,9 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
                                          TensorFieldSpectral{R}(zeros(Complex{T}, shape), gp);
                         to_spectral(phys, FieldTransformPlans(phys, spec0)))
         m = FieldSpectralMultipliers(ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(gp, layout, Val(0))), gp))
-        f = ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp)
-        u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), gp)
-        A = TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp)
+        f = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) + cos(2y) * sin(z), gp)
+        u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(2z)), gp)
+        A = TensorFieldPhysical{2}(Array, (x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp)
         for section in (f, u, A)                          # scalar / vector / tensor, both grids
           spectral = tospec(section)
           shells, spectrum = radial_spectrum(spectral, m)
@@ -231,7 +231,7 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
         end
         # analytical oracle: a constant field c has ALL energy in the |k| = 0 shell, E(0) = c² = inner
         c = T(2.5)
-        constant = tospec(ScalarFieldPhysical((x, y, z) -> c, gp))
+        constant = tospec(ScalarFieldPhysical(Array, (x, y, z) -> c, gp))
         _, constant_spectrum = radial_spectrum(constant, m)
         @test isapprox(constant_spectrum[1], c^2; rtol = rtol, atol = atol)
         @test isapprox(constant_spectrum[1], inner(constant, constant); rtol = rtol, atol = atol)
@@ -255,7 +255,7 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
         # part exceeds a half, so `round` and `floor` place it in DIFFERENT shells. Without it every
         # mode here sits at |k| ∈ {1, 2, √10} — where the two conventions agree — and the test passes
         # under either, which is exactly what the first draft did.
-        let field = tospec(ScalarFieldPhysical(
+        let field = tospec(ScalarFieldPhysical(Array,
               (x, y, z) -> cos(x) + 2sin(2y) - cos(x + 3z) + 3cos(x + y + z), gp))
           shells_m, spectrum_m = radial_spectrum(field, m)
           data = field_data(field)
@@ -287,7 +287,7 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
         end
 
         # analytical oracle: cos(x) puts ALL its energy ⟨cos²⟩ = 1/2 in the |k| = 1 shell
-        cosine = tospec(ScalarFieldPhysical((x, y, z) -> cos(x), gp))
+        cosine = tospec(ScalarFieldPhysical(Array, (x, y, z) -> cos(x), gp))
         _, cosine_spectrum = radial_spectrum(cosine, m)
         @test isapprox(cosine_spectrum[2], T(1) / 2; rtol = rtol, atol = atol)   # E(|k| = 1) = 1/2
         @test isapprox(cosine_spectrum[2], inner(cosine, cosine); rtol = rtol, atol = atol)
@@ -313,9 +313,9 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
         ksq = radial_kernel(identity, m)   # w = |k|², as the radial symbol itself
         band = spectral_cutoff(m, T(2.5))                        # sharp 0/1 mask ⇒ w² = w
 
-        f = tospec(ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp))
-        u = tospec(VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), gp))
-        A = tospec(TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp))
+        f = tospec(ScalarFieldPhysical(Array, (x, y, z) -> sin(x) + cos(2y) * sin(z), gp))
+        u = tospec(VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(2z)), gp))
+        A = tospec(TensorFieldPhysical{2}(Array, (x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp))
 
         # w ≡ 1 reduces to the plain inner (scalar / vector / tensor)
         for spectral in (f, u, A)
@@ -333,11 +333,11 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
           @test isapprox(weighted_inner(spectral, band), inner(conv, conv); rtol = rtol, atol = atol)
         end
         # mixed form is symmetric in f, g; the two-argument form is the g = f case
-        g = tospec(ScalarFieldPhysical((x, y, z) -> cos(x) * sin(y) + sin(3z), gp))
+        g = tospec(ScalarFieldPhysical(Array, (x, y, z) -> cos(x) * sin(y) + sin(3z), gp))
         @test isapprox(weighted_inner(f, g, ksq), weighted_inner(g, f, ksq); rtol = rtol, atol = atol)
         @test weighted_inner(f, f, ksq) ≈ weighted_inner(f, ksq)
         # spectral-only: a physical field has no weighted_inner
-        @test_throws MethodError weighted_inner(ScalarFieldPhysical((x, y, z) -> sin(x), gp), ones_w)
+        @test_throws MethodError weighted_inner(ScalarFieldPhysical(Array, (x, y, z) -> sin(x), gp), ones_w)
 
         # --- every storage class serves as a weight, and all four agree BITWISE (decision 62) ---
         # The oracle is each kernel's own materialized form: a compressed kernel and the coefficients
@@ -385,9 +385,9 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
           end
           return [iszero(shell_count[i]) ? zero(T) : shell_sum[i] / shell_count[i] for i in 1:nshell]
         end
-        for phys in (ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp),
-                     VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), gp),
-                     TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp),
+        for phys in (ScalarFieldPhysical(Array, (x, y, z) -> sin(x) + cos(2y) * sin(z), gp),
+                     VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(2z)), gp),
+                     TensorFieldPhysical{2}(Array, (x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp),
                      # a RANDOM field — exercises all modes, checked directly in physical space (circshift)
                      ScalarFieldPhysical(randn(MersenneTwister(11), T, gs...), gp))
           R = field_tensor_order(phys)
@@ -404,7 +404,7 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
         end
         # analytical oracle: a constant field c is perfectly correlated, C(r) = c² at every separation
         c = T(1.7)
-        constant = ScalarFieldPhysical((x, y, z) -> c, gp)
+        constant = ScalarFieldPhysical(Array, (x, y, z) -> c, gp)
         plans_c = FieldTransformPlans(constant, ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(gp, layout, Val(0))), gp))
         _, constant_corr = radial_correlation(to_spectral(constant, plans_c), plans_c)
         @test isapprox(constant_corr[1], c^2; rtol = rtol, atol = atol)                       # C(0) = c²
@@ -425,12 +425,12 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
                         to_spectral(phys, FieldTransformPlans(phys, spec0)))
         m = FieldSpectralMultipliers(ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(gp, layout, Val(0))), gp))
         # distinct scalar / vector / tensor pairs so the co-spectrum is non-trivial (g ≠ f)
-        pairs = ((ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp),
-                  ScalarFieldPhysical((x, y, z) -> cos(x) + sin(2y) + T(2) / 5 * cos(z), gp)),
-                 (VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), gp),
-                  VectorFieldPhysical((x, y, z) -> (cos(x), sin(y) + 3 * cos(2z) / 10, sin(z)), gp)),
-                 (TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp),
-                  TensorFieldPhysical{2}((x, y, z) -> [cos(x) sin(y) 0.2; 0.7 cos(z) sin(x); 0.1 sin(z) cos(y)], gp)))
+        pairs = ((ScalarFieldPhysical(Array, (x, y, z) -> sin(x) + cos(2y) * sin(z), gp),
+                  ScalarFieldPhysical(Array, (x, y, z) -> cos(x) + sin(2y) + T(2) / 5 * cos(z), gp)),
+                 (VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(2z)), gp),
+                  VectorFieldPhysical(Array, (x, y, z) -> (cos(x), sin(y) + 3 * cos(2z) / 10, sin(z)), gp)),
+                 (TensorFieldPhysical{2}(Array, (x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp),
+                  TensorFieldPhysical{2}(Array, (x, y, z) -> [cos(x) sin(y) 0.2; 0.7 cos(z) sin(x); 0.1 sin(z) cos(y)], gp)))
         for (pf, pg) in pairs
           fh = tospec(pf); gh = tospec(pg)
           _, Efg = radial_spectrum(fh, gh, m)
@@ -444,16 +444,16 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
         # analytical oracle (both signs): f = cos x + cos 2x, g = cos x − cos 2x.
         #   inner(f, g) = ⟨cos²x⟩ − ⟨cos²2x⟩ = 0, but the co-spectrum resolves that cancellation into
         #   E(|k| = 1) = +⟨cos²x⟩ = +1/2  and  E(|k| = 2) = −⟨cos²2x⟩ = −1/2.
-        fpm = tospec(ScalarFieldPhysical((x, y, z) -> cos(x) + cos(2x), gp))
-        gpm = tospec(ScalarFieldPhysical((x, y, z) -> cos(x) - cos(2x), gp))
+        fpm = tospec(ScalarFieldPhysical(Array, (x, y, z) -> cos(x) + cos(2x), gp))
+        gpm = tospec(ScalarFieldPhysical(Array, (x, y, z) -> cos(x) - cos(2x), gp))
         _, Epm = radial_spectrum(fpm, gpm, m)
         @test isapprox(Epm[2], T(1) / 2;  rtol = rtol, atol = atol)         # +1/2 in the |k| = 1 shell
         @test isapprox(Epm[3], -T(1) / 2; rtol = rtol, atol = atol)         # −1/2 in the |k| = 2 shell (negative!)
         @test isapprox(sum(Epm), inner(fpm, gpm); rtol = rtol, atol = atol) # … and the two cancel: Σ = inner = 0
         @test isapprox(sum(Epm), 0; atol = atol)
         # orthogonal pair cos(x) ⟂ sin(x): zero co-spectrum everywhere (and inner = 0)
-        fo = tospec(ScalarFieldPhysical((x, y, z) -> cos(x), gp))
-        go = tospec(ScalarFieldPhysical((x, y, z) -> sin(x), gp))
+        fo = tospec(ScalarFieldPhysical(Array, (x, y, z) -> cos(x), gp))
+        go = tospec(ScalarFieldPhysical(Array, (x, y, z) -> sin(x), gp))
         _, Eo = radial_spectrum(fo, go, m)
         @test all(x -> isapprox(x, 0; atol = atol), Eo) && isapprox(inner(fo, go), 0; atol = atol)
       end
@@ -483,12 +483,12 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
                     R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), gp) :
                              TensorFieldSpectral{R}(zeros(Complex{T}, shape), gp))
         # scalar / vector / tensor pairs + a RANDOM scalar pair (exercises all modes, checked in physical space)
-        pairs = ((ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp),
-                  ScalarFieldPhysical((x, y, z) -> cos(x) + sin(2y) + T(2) / 5 * cos(z), gp)),
-                 (VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), gp),
-                  VectorFieldPhysical((x, y, z) -> (cos(x), sin(y) + 3 * cos(2z) / 10, sin(z)), gp)),
-                 (TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp),
-                  TensorFieldPhysical{2}((x, y, z) -> [cos(x) sin(y) 0.2; 0.7 cos(z) sin(x); 0.1 sin(z) cos(y)], gp)),
+        pairs = ((ScalarFieldPhysical(Array, (x, y, z) -> sin(x) + cos(2y) * sin(z), gp),
+                  ScalarFieldPhysical(Array, (x, y, z) -> cos(x) + sin(2y) + T(2) / 5 * cos(z), gp)),
+                 (VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(2z)), gp),
+                  VectorFieldPhysical(Array, (x, y, z) -> (cos(x), sin(y) + 3 * cos(2z) / 10, sin(z)), gp)),
+                 (TensorFieldPhysical{2}(Array, (x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp),
+                  TensorFieldPhysical{2}(Array, (x, y, z) -> [cos(x) sin(y) 0.2; 0.7 cos(z) sin(x); 0.1 sin(z) cos(y)], gp)),
                  (ScalarFieldPhysical(randn(MersenneTwister(11), T, gs...), gp),
                   ScalarFieldPhysical(randn(MersenneTwister(23), T, gs...), gp)))
         for (pf, pg) in pairs
@@ -526,7 +526,7 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
     @test_throws MethodError lpnorm(spec, 2)  # lpnorm / maximum have no single-coefficient form, stay physical-only
     @test_throws MethodError maximum(spec)
     # radial_spectrum is the mirror image — spectral-only, no physical-field method
-    @test_throws MethodError radial_spectrum(ScalarFieldPhysical((x, y, z) -> sin(x), g), m)
+    @test_throws MethodError radial_spectrum(ScalarFieldPhysical(Array, (x, y, z) -> sin(x), g), m)
 
     # The mapped forms apply a nonlinear map to the fiber, so they are physical-only for the same
     # reason `lpnorm`/`std` are: a coefficientwise map has no meaning on a spectral representation.

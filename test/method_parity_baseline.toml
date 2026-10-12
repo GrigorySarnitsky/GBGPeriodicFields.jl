@@ -436,7 +436,9 @@ FiberSections = 114   # + _section_tensor_order, cartesian _index_ranges, _check
   # 185 → 186: `_canonical_multipliers` (decision 94, 2026-10-02), the derivation body now shared by
   # the field-taking `FieldSpectralMultipliers` and the new family-taking one (a constructor of the
   # type, counted with the type rather than here).
-Fields = 186
+  # 186 → 187: the one-argument `similar_field(reference)` (decision 101, 2026-10-12), defaulting
+  # the order to the reference's own; the sampling constructors changed shape, not number.
+Fields = 187
   # 176 → 177: no method was added. The count moved when the parity check moved to
   # GBGCodingTools.TestHarness (2026-09-27), whose surface walk descends into Base's submodules and so
   # sees this module's `Base.Broadcast.broadcastable` method, which the package's own scan never did.
@@ -496,7 +498,11 @@ DifferentialOperators = 90
   # kernel; the eight are the helpers that keep the two kinds apart — `_check_offset_compatibility`,
   # `_offset_broadcast_data` and `_offset_mode_data` two each, and one more `_exponential_exponent`
   # (the radial symbol evaluated from |k|²) and `_exponential_factor_type`.
-Convolution = 125
+  # 125 → 127: the exponent as keywords (decision 101, 2026-10-12). The six positional
+  # `exponential_convolve!` methods and the two allocating ones became four public keyword forms
+  # (`coefficient`, `offset`, `offset_scale`) over six internal `_exponential_convolve!` methods,
+  # which keep the dispatch on the offset's kind: 8 → 10.
+Convolution = 127
   # 83 → 103: the exponential fiber hoist (decision 79, IT item 2). The exponential family's R ≥ 1
   # forms moved from the fused broadcast to a decision-38 kernel pair — `exp` once per mode, reused
   # across the fiber, bitwise identical — so the module gained the two `_modes!` dispatchers with
@@ -521,7 +527,9 @@ Convolution = 125
   # the `Fields` version now taking an array it is the same function and the duplicate is gone.
   # 235 → 242: equality by value (decision 91) — `==`, `isequal` and `hash` on point values and on
   # point sets, two methods each, and the shared `_point_section_equality`. `adapt!` kept its two.
-Points = 242
+  # 242 → 243: the one-argument `similar_point_values(reference)` (decision 101, 2026-10-12), the
+  # twin of `similar_field`'s.
+Points = 243
   # 234 → 235: no method was added. The count moved when the parity check moved to
   # GBGCodingTools.TestHarness (2026-09-27), whose surface walk descends into Base's submodules and so
   # sees this module's `Base.Broadcast.broadcastable` method, which the package's own scan never did.
@@ -553,7 +561,10 @@ Points = 242
   # 152 → 149: `anterpolate!`'s α and β come as a pair or not at all (2026-10-07, the rulebook's
   # mirror clause): the three α-only forms the positional defaults generated, one per scheme family,
   # are gone, `LinearAlgebra.mul!` having none.
-Interpolation = 149
+  # 149 → 148: decision 101 (2026-10-12). The spline element-type keyword went, and with it the
+  # display helper `_show_spline_eltype`; the allocating `anterpolate` changed shape (a grid and a
+  # layout for every scheme), not number.
+Interpolation = 148
   # 177 → 179: the threaded running total (decision 81). `_scan_offsets!` has two methods — the
   # generic one, which is `cumsum!` and stays the device path since GPUArrays already scans in
   # parallel, and the host one that threads. On a CPU this was the only stage of the traversal build

@@ -414,10 +414,13 @@ function read_scheme(parent::HDF5.H5DataStore, name::AbstractString)
   # The constructors revalidate the parameters (a spline enforces 0 <= m <= 2n), so a group asserting
   # an impossible combination throws there rather than yielding a malformed scheme.
   if tag == "GBGPeriodicFields.LalescuSpline"
-    return LalescuSpline(width(); smoothness = _scheme_parameter(a, name, "smoothness"),
-                         T = _scheme_eltype(a, name))
+    # The stored element type is validated and not rebuilt: weights are kept in Float64 since
+    # decision 101 and converted to the field's type at each launch, so the result is the same.
+    _scheme_eltype(a, name)
+    return LalescuSpline(width(); smoothness = _scheme_parameter(a, name, "smoothness"))
   elseif tag == "GBGPeriodicFields.LagrangeSpline"
-    return LagrangeSpline(width(); T = _scheme_eltype(a, name))
+    _scheme_eltype(a, name)
+    return LagrangeSpline(width())
   elseif tag == "GBGPeriodicFields.DirectDFT"
     return DirectDFT()
   else

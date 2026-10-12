@@ -281,11 +281,11 @@ function step!(uh, ws, m, plans, dealias, band, p, dt)
   field_data(ws.ustar) .= field_data(uh) .+ FT(dt) .* field_data(ws.k1)
   ## the stage's display math is in the block above; this factor is evaluated per mode from
   ## the wavenumber arrays, so no kernel field is built, one fewer device array resident.
-  exponential_convolve!(ws.ustar, ws.ustar, m, -p.ν * dt)
+  exponential_convolve!(ws.ustar, ws.ustar, m; coefficient = -p.ν * dt)
   to_velocity_vorticity!(ws.uω, ws.ω, ws.ustar, ws, m, plans)           # û*'s velocity & vorticity (scratch)
   rhs!(ws.k2, ws.uω, ws.ω, ws, m, plans, dealias)                       # k₂ = N̂(û*)
-  exponential_convolve!(ws.k1, ws.k1, m, -p.ν * dt)                     # ℰ·k₁, the same lazy factor
-  exponential_convolve!(uh, uh, m, -p.ν * dt)                           # ℰ·ûₙ
+  exponential_convolve!(ws.k1, ws.k1, m; coefficient = -p.ν * dt)                     # ℰ·k₁, the same lazy factor
+  exponential_convolve!(uh, uh, m; coefficient = -p.ν * dt)                           # ℰ·ûₙ
   field_data(uh) .+= (FT(dt) / 2) .* (field_data(ws.k1) .+ field_data(ws.k2))   # ûₙ₊₁
   force!(uh, band, ws, p, m)
   return uh

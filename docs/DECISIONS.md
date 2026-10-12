@@ -4093,3 +4093,43 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
        docstrings and error messages; the benchmark suite's `build_suite(; array_type)` is
        `build_suite(; array_family)`. Breaking only for a caller passing the keyword, which nothing
        outside this package's tests did. Entries above keep the words they were written with.
+
+101. **The argument shapes of a second positional audit** (2026-10-12, owner-ruled). A review of every
+     public signature against `RULE.API.POSITIONAL` as rc.69 settled it found every one compliant, and
+     seven places where the order or a default did not follow from what the argument is. Each is changed;
+     all are breaking.
+
+     - **The sampling constructors take the array family first, required.** They took it as a keyword
+       defaulting to `Array`, a default kept from the package's host-only beginning, while the allocating
+       constructors take the same choice as a required first argument. Both now take it first and
+       required, `ScalarFieldPhysical(Array, f, grid)`: a package developed GPU-first should not create
+       host storage unless asked, and one choice is spelled one way.
+
+     - **`exponential_convolve!` takes its exponent by keyword**:
+       `exponential_convolve!(dest, f, mult[, α, β]; coefficient, offset = nothing, offset_scale = 1)` and
+       `(dest, α, a, β, b, mult; coefficient, …)`. Its two-operand form had taken nine positional
+       arguments, four of them plain numbers in different roles, so a swapped pair type-checked. The
+       offset's class (a stored field or a radial kernel) is now resolved by an internal method, so it no
+       longer selects among the operation's own methods and is a keyword; α, β stay positional under the
+       mirror clause. The decision-79 kernel pair is unchanged behind it, and the forms stay
+       allocation-free.
+
+     - **`anterpolate` has one allocating shape**, `anterpolate(grid, points, quantities, scheme; layout)`,
+       for every scheme. The spline form always built the default layout, so a caller with a permuted
+       layout received a field the package refused to combine with theirs; the spectral forms took a
+       reference field only for its grid and layout. The layout defaults to the standard one, and for a
+       `NUFFT` plan to the layout it was built for.
+
+     - **`with_threading` requires `enabled`.** Its default of `true` went against its main use, forcing
+       the serial path, and every call in the package named the value anyway.
+
+     - **`similar_field(reference)` and `similar_point_values(reference)` default to the reference's own
+       tensor order**, the meaning of most of the 248 calls in the package, as Julia's `similar(A)` does.
+
+     - **`NUFFT`'s `width` and `beta` default to `nothing`**, meaning derived from `tol`. Zero had stood for
+       "not given", indistinguishable from a caller passing zero; a given value must now be positive.
+
+     - **The spline constructors lose their `T` keyword.** The weights are converted to the field's element
+       type at every launch, so the stored precision changed nothing a caller could observe beyond the
+       display; they are stored in `Float64`. A scheme group recording `Float32` weights still reads, as
+       the `Float64` scheme.

@@ -435,7 +435,7 @@ function run_mismatch_lane()
     ("weighted_inner(f, g, w)",        weighted_inner, scalar,   :one,  foreign -> weighted_inner(scalar, foreign, multipliers)),
     ("add!(dest, a, b)",               add!,        physical,    :one,  foreign -> add!(similar_field(physical, Val(0)), physical, foreign)),
     ("interpolate(f, pts, NUFFT)",     interpolate, NUFFT(scalar), :one, foreign -> interpolate(foreign, points, NUFFT(scalar))),
-    ("anterpolate(f, pts, q, NUFFT)",  anterpolate, NUFFT(scalar), :one, foreign -> anterpolate(scalar, points, foreign, NUFFT(scalar))),
+    ("anterpolate(f, pts, q, NUFFT)",  anterpolate, NUFFT(scalar), :one, foreign -> anterpolate(field_grid(scalar), points, foreign, NUFFT(scalar))),
     # FIBER-GENERIC: the grid-taking allocating form builds a field of the values' own tensor order
     # (its docstring: "allocate a new field of `quantities`' tensor order"), so every order is a legal
     # call. It was declared `:one` while this entry passed a field first, which matched no method;

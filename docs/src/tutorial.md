@@ -24,7 +24,7 @@ julia> using GBGPeriodicFields
 
 julia> grid = Grid3D((16, 16, 16), (2π, 2π, 2π));
 
-julia> u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid);
+julia> u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid);
 
 julia> field_tensor_order(u)
 1
@@ -71,7 +71,7 @@ representation through a [`FieldSpectralMultipliers`](@ref)
 `-sin(x)`:
 
 ```jldoctest tutorial
-julia> φ = ScalarFieldPhysical((x, y, z) -> sin(x), grid);
+julia> φ = ScalarFieldPhysical(Array, (x, y, z) -> sin(x), grid);
 
 julia> scalar_shape = field_spectral_shape(grid, layout, Val(0));
 

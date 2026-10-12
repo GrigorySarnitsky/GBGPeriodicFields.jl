@@ -165,7 +165,7 @@ once into an `SMatrix` that the kernels take by value. It is one of
 the two families of [`AbstractTransferScheme`](@ref); the spectral-domain [`DirectDFT`](@ref) /
 [`NUFFT`](@ref) are the other. Only the spline family has a shared supertype, its members differing in
 their weights alone. In the signature `T`
-is the coefficient type and `L` the matrix length `N2 * M2`.
+is the coefficient type, `Float64`; `L` the matrix length `N2 * M2`.
 
 # References
 
@@ -175,7 +175,7 @@ abstract type AbstractSplineScheme{N2, M2, T<:AbstractFloat, L} <: AbstractTrans
 
 
 """
-    LalescuSpline(stencil_width; smoothness = stencil_width ÷ 2 - 1, T = Float64)
+    LalescuSpline(stencil_width; smoothness = stencil_width ÷ 2 - 1)
 
 Smooth (``C^m``) local spline interpolation follows Lalescu, Teaca & Carati (2010), pinned to
 1e-12 against
@@ -208,7 +208,6 @@ use [`LagrangeSpline`](@ref). Used by [`interpolate`](@ref) (grid → point) and
 - `stencil_width` — the number of nodes per axis, an even integer ``2n{+}2 \\ge 2``.
 - `smoothness` — a keyword: the continuity order ``m``, with ``0 \\le m \\le 2n``, defaulting to
   ``n``, half the width less one.
-- `T` — a keyword: the element type the weight coefficients are stored in, `Float64` by default.
 
 # References
 
@@ -241,8 +240,10 @@ function _stencil_neighbours(stencil_width::Integer, scheme::AbstractString)
 end
 
 
-function LalescuSpline(stencil_width::Integer; smoothness::Integer = stencil_width ÷ 2 - 1,
-                       T::Type{<:AbstractFloat} = Float64)
+function LalescuSpline(stencil_width::Integer; smoothness::Integer = stencil_width ÷ 2 - 1)
+  # The weights are stored in Float64 and converted to the field's element type at each launch, so
+  # the stored precision is not a choice a caller has to make.
+  T = Float64
   n = _stencil_neighbours(stencil_width, "LalescuSpline")
   m = Int(smoothness)
   0 ≤ m ≤ 2n || throw(ArgumentError(
@@ -257,7 +258,7 @@ end
 
 
 """
-    LagrangeSpline(stencil_width; T = Float64)
+    LagrangeSpline(stencil_width)
 
 This is local, ``C^0`` Lagrange interpolation: the unique polynomial through the nearest grid
 nodes per axis, ``2n{+}2`` of them, the `stencil_width` (the stencil offsets ``\\{-n, \\dots, n{+}1\\}``,
@@ -274,11 +275,8 @@ instead. `LagrangeSpline(2)` is linear interpolation over the two bracketing nod
 `Lagrange_polys` of TurTLE, the reference pseudospectral turbulence solver with Lagrangian particle
 tracking.
 
-# Arguments
-
-- `stencil_width` — the number of nodes per axis, an even integer ``2n{+}2 \\ge 2``; the
-  interpolant has degree ``2n{+}1``.
-- `T` — a keyword: the element type the weight coefficients are stored in, `Float64` by default.
+The `stencil_width` is the number of nodes per axis, an even integer ``2n{+}2 \\ge 2``; the
+interpolant has degree ``2n{+}1``.
 
 # References
 
@@ -297,7 +295,8 @@ struct LagrangeSpline{N2, M2, T<:AbstractFloat, L} <: AbstractSplineScheme{N2, M
 end
 
 
-function LagrangeSpline(stencil_width::Integer; T::Type{<:AbstractFloat} = Float64)
+function LagrangeSpline(stencil_width::Integer)
+  T = Float64   # converted to the field's element type at each launch, as for LalescuSpline
   n = _stencil_neighbours(stencil_width, "LagrangeSpline")
   number_of_nodes = 2n + 2
   coefficients = _lagrange_weight_matrix(n)
@@ -1330,23 +1329,23 @@ anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities::Abstrac
 
 
 """
-    anterpolate(grid::Grid3D, points, quantities, scheme::AbstractSplineScheme;
-                traversal = nothing)
-    anterpolate(reference::AbstractFieldSpectral, points, quantities, scheme::DirectDFT)
-    anterpolate(reference::AbstractFieldSpectral, points, quantities, scheme::NUFFT;
-                traversal = nothing)
+    anterpolate(grid::Grid3D, points, quantities, scheme;
+                layout = RealFourierLayout(), traversal = nothing)
 
-Allocating form of [`anterpolate!`](@ref): allocate a new field of `quantities`' tensor order, deposit
-(scatter) the per-point `quantities` from the positions in `points` onto it, and return it. The spline
-schemes deposit onto a physical-space field on `grid`; the spectral schemes deposit into a field in
-spectral representation like `reference` (same grid and layout). See `anterpolate!` for the schemes and
+Allocating form of [`anterpolate!`](@ref): allocate a new field of `quantities`' tensor order on `grid`,
+deposit (scatter) the per-point `quantities` from the positions in `points` onto it, and return it.
+The spline schemes deposit onto a field in physical representation, the spectral schemes into one in
+spectral representation; the field takes its array family from `quantities` and its Fourier layout
+from `layout`, which for a [`NUFFT`](@ref) scheme defaults to the layout the scheme was built for. The
+`traversal` keyword is taken by the spline and `NUFFT` schemes. See `anterpolate!` for the schemes and
 the ``\\alpha``/``\\beta`` accumulate form.
 """
 function anterpolate(grid::Grid3D{T}, points::PointSet, quantities::AbstractPointValues,
-                     scheme::AbstractSplineScheme; traversal = nothing) where {T<:AbstractFloat}
+                     scheme::AbstractSplineScheme; layout::RealFourierLayout = RealFourierLayout(),
+                     traversal = nothing) where {T<:AbstractFloat}
   R = point_value_tensor_order(quantities)
   data = similar(point_values(quantities), T, field_physical_shape(grid, Val(R)))
-  return anterpolate!(_wrap_field(data, grid, Val(R)), points, quantities, scheme; traversal)
+  return anterpolate!(_wrap_field(data, grid, layout, Val(R)), points, quantities, scheme; traversal)
 end
 
 
@@ -1599,9 +1598,11 @@ function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities
 end
 
 
-function anterpolate(reference::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues, scheme::DirectDFT)
-  out = similar_field(reference, Val(point_value_tensor_order(quantities)))
-  return anterpolate!(out, points, quantities, scheme)
+function anterpolate(grid::Grid3D{T}, points::PointSet, quantities::AbstractPointValues, scheme::DirectDFT;
+                     layout::RealFourierLayout = RealFourierLayout()) where {T<:AbstractFloat}
+  R = point_value_tensor_order(quantities)
+  data = similar(point_values(quantities), Complex{T}, field_spectral_shape(grid, layout, Val(R)))
+  return anterpolate!(_wrap_field_spectral(data, grid, layout, Val(R)), points, quantities, scheme)
 end
 
 
@@ -1710,7 +1711,7 @@ end
 
 """
     NUFFT(reference::AbstractFieldSpectral;
-          tol = 1e-10, oversampling = 2, width = 0, beta = 0)
+          tol = 1e-10, oversampling = 2, width = nothing, beta = nothing)
 
 The **fast, approximate** spectral-domain transfer scheme: the ``O(N\\log N + M)`` windowed-gridding
 (nonuniform FFT) counterpart of [`DirectDFT`](@ref) for evaluating a field in spectral representation at
@@ -1736,9 +1737,9 @@ like the reference.
   - `oversampling` — the linear oversampling factor ``\\sigma`` of the work grid (default `2`); must be **at least 2**. That is an implementation bound rather than a
     theoretical one — lower upsampling is standard with a correspondingly wider window — because the
     width and shape formulas here are fitted for ``\\sigma \\ge 2``; a value of 1 leaves no spectral guard band, so the gridding breaks down.
-  - `width` — the gridding stencil width in nodes; `0` (default) picks it from `tol`.
+  - `width` — the gridding stencil width in nodes; derived from `tol` by default.
   - `beta` — the window shape parameter, unrelated to the accumulation weight ``\\beta`` the transfer
-    verbs take; `0` (default) picks it from the width.
+    verbs take; derived from the width by default.
 
 It agrees with `DirectDFT` (hence [`to_physical`](@ref) / [`to_spectral`](@ref) at the grid nodes) to
 `tol` on the resolved band (the rfft Nyquist plane is projected out), shares its adjoint
@@ -1788,7 +1789,8 @@ end
 
 
 function NUFFT(reference::AbstractFieldSpectral{T, R}; tol::Real = 1e-10, oversampling::Integer = 2,
-               width::Integer = 0, beta::Real = 0) where {T<:AbstractFloat, R}
+               width::Union{Nothing, Integer} = nothing,
+               beta::Union{Nothing, Real} = nothing) where {T<:AbstractFloat, R}
   # `tol` sets the window width through `-log10(tol)`, so a non-positive or non-finite value produced a
   # nonsense width (or a fallback one) while the docstring still promised agreement "to `tol`". It is a
   # TARGET, not a guaranteed bound: a tolerance below the element type's own resolution simply widens
@@ -1798,8 +1800,13 @@ function NUFFT(reference::AbstractFieldSpectral{T, R}; tol::Real = 1e-10, oversa
     throw(ArgumentError("NUFFT tol must be finite and positive; got $tol"))
   σ = Int(oversampling)
   σ ≥ 2 || throw(ArgumentError("NUFFT oversampling must be at least 2 (got $σ): with no oversampling the work grid has no spectral guard band, so the windowed gridding aliases across the whole resolved band and cannot reach the requested tolerance."))
-  w = width > 0 ? Int(width) : _nufft_width(tol)
-  β = beta > 0 ? T(beta) : _nufft_beta(w, T)
+  # Not given means derived from `tol`; a given value must be usable, never silently replaced.
+  width === nothing || width > 0 ||
+    throw(ArgumentError("NUFFT width must be a positive number of nodes; got $width"))
+  beta === nothing || (isfinite(beta) && beta > 0) ||
+    throw(ArgumentError("NUFFT beta must be finite and positive; got $beta"))
+  w = width === nothing ? _nufft_width(tol) : Int(width)
+  β = beta === nothing ? _nufft_beta(w, T) : T(beta)
   grid = field_grid(reference)
   layout = field_layout(reference)
   data = field_data(reference)
@@ -2025,10 +2032,14 @@ function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities
 end
 
 
-function anterpolate(reference::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
-                     scheme::NUFFT; traversal = nothing)
-  out = similar_field(reference, Val(point_value_tensor_order(quantities)))
-  return anterpolate!(out, points, quantities, scheme; traversal)
+# The layout defaults to the one the plan was built for, so leaving it out cannot produce a field the
+# plan then refuses.
+function anterpolate(grid::Grid3D{T}, points::PointSet, quantities::AbstractPointValues, scheme::NUFFT;
+                     layout::RealFourierLayout = scheme.reference_layout,
+                     traversal = nothing) where {T<:AbstractFloat}
+  R = point_value_tensor_order(quantities)
+  data = similar(point_values(quantities), Complex{T}, field_spectral_shape(grid, layout, Val(R)))
+  return anterpolate!(_wrap_field_spectral(data, grid, layout, Val(R)), points, quantities, scheme; traversal)
 end
 
 
@@ -2147,36 +2158,13 @@ end
 # that matrix (747 characters for `LalescuSpline(3, 2)`), so it shows the derived quantity at length
 # and the two numbers it was derived from not at all. The constructor call is the honest form, and it
 # round-trips.
-"""
-    _show_spline_eltype(io, scheme)
-
-Print a spline scheme's element type as the `T` keyword its constructor takes, and only when it is
-not the default `Float64`.
-
-Both halves are deliberate. Printing it keeps two schemes that differ only in precision — which
-are refused against each other — from rendering as one string. Omitting it at the default
-keeps the ordinary display a bare constructor call, and writing it as the keyword rather than as a
-type parameter keeps both forms valid Julia that reconstructs the scheme.
-"""
-function _show_spline_eltype(io::IO, scheme::AbstractSplineScheme)
-  T = eltype(scheme.coefficients)
-  T === Float64 || print(io, "; T = ", T)
-  return nothing
-end
-
-
 function Base.show(io::IO, scheme::LalescuSpline)
-  print(io, "LalescuSpline(", scheme.stencil_width, "; smoothness = ", scheme.smoothness)
-  T = eltype(scheme.coefficients)
-  T === Float64 || print(io, ", T = ", T)
-  print(io, ")")
+  print(io, "LalescuSpline(", scheme.stencil_width, "; smoothness = ", scheme.smoothness, ")")
 end
 
 
 function Base.show(io::IO, scheme::LagrangeSpline)
-  print(io, "LagrangeSpline(", scheme.stencil_width)
-  _show_spline_eltype(io, scheme)
-  print(io, ")")
+  print(io, "LagrangeSpline(", scheme.stencil_width, ")")
 end
 
 

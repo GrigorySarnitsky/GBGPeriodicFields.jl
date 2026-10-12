@@ -159,17 +159,16 @@ has_display(type) = any(m -> m.module in MODULES, methods(Base.show, Tuple{IO, t
     @test repr(spectral_cutoff(FieldSpectralMultipliers(ScalarFieldSpectral(Array, grid; layout)), T(4))) !=
           repr(spectral_cutoff(FieldSpectralMultipliers(ScalarFieldSpectral(Array, other_grid; layout)), T(4)))
 
-    # The same property for the transfer schemes, which invariant 14 refuses across precisions.
-    @test repr(LalescuSpline(8; smoothness = 2)) != repr(LalescuSpline(8; smoothness = 2, T = Float32))
+    # The same property for the transfer schemes: two that differ print differently.
     @test repr(LalescuSpline(8; smoothness = 2)) != repr(LalescuSpline(8; smoothness = 1))
-    @test repr(LagrangeSpline(6)) != repr(LagrangeSpline(6; T = Float32))
+    @test repr(LagrangeSpline(6)) != repr(LagrangeSpline(4))
   end
 
   @testset "the parameter records round-trip" begin
     # A spline scheme's weight matrix is derived from `(n, m)`, so the constructor call is a complete
     # description of it — the same property decision 75 persists it by.
-    for scheme in (CatmullRom, LalescuSpline(8; smoothness = 2), LalescuSpline(6; smoothness = 0, T = Float32),
-                   LagrangeSpline(6), LagrangeSpline(4; T = Float32))
+    for scheme in (CatmullRom, LalescuSpline(8; smoothness = 2), LalescuSpline(6; smoothness = 0),
+                   LagrangeSpline(6), LagrangeSpline(4))
       @test eval(Meta.parse(repr(scheme))) === scheme
     end
   end

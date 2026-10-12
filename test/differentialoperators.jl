@@ -14,7 +14,7 @@ const F = GBGPeriodicFields.Fields
 
 comp(data, i) = data[:, :, :, i]
 tcomp(data, i, j) = data[:, :, :, i, j]
-scalar_field(f) = ScalarFieldPhysical(f, grid)
+scalar_field(f) = ScalarFieldPhysical(Array, f, grid)
 
 # Forward+inverse plans matching the tensor order of `physical`.
 function plans_for(physical)
@@ -48,7 +48,7 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
   @testset "divergence (tensor -> vector): (∇·A)ᵢ = ∂ⱼAᵢⱼ, against a closed form" begin
     # A₁₂ = sin y and A₂₃ = sin z are the only non-zero entries, so (∇·A) = (cos y, cos z, 0) exactly,
     # and the transposed contraction ∂ⱼAⱼᵢ would give (0, 0, 0) instead.
-    A = TensorFieldPhysical{2}((x, y, z) -> [0.0 sin(y) 0.0; 0.0 0.0 sin(z); 0.0 0.0 0.0], grid)
+    A = TensorFieldPhysical{2}(Array, (x, y, z) -> [0.0 sin(y) 0.0; 0.0 0.0 sin(z); 0.0 0.0 0.0], grid)
     As = to_spectral(A, plans_for(A))
     m = FieldSpectralMultipliers(As)
     d = to_physical(divergence(As, m), plans_for(zero_vector()))
@@ -56,19 +56,19 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     @test comp(field_data(d), 2) ≈ field_data(scalar_field((x, y, z) -> cos(z)))
     @test maximum(abs, comp(field_data(d), 3)) < 1e-12
     # and the convention is not the transpose's: ∇·A ≠ ∇·Aᵀ for this A
-    At = to_spectral(TensorFieldPhysical{2}((x, y, z) -> [0.0 0.0 0.0; sin(y) 0.0 0.0; 0.0 sin(z) 0.0], grid),
+    At = to_spectral(TensorFieldPhysical{2}(Array, (x, y, z) -> [0.0 0.0 0.0; sin(y) 0.0 0.0; 0.0 sin(z) 0.0], grid),
                      plans_for(A))
     dt = to_physical(divergence(At, m), plans_for(zero_vector()))
     @test !isapprox(field_data(d), field_data(dt))
     # ∇·(∇u) = Δu componentwise, an independent route through two operators
-    u = VectorFieldPhysical((x, y, z) -> (sin(y), sin(z), sin(x)), grid)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(y), sin(z), sin(x)), grid)
     us = to_spectral(u, plans_for(u))
     mu = FieldSpectralMultipliers(us)
     @test field_data(divergence(gradient(us, mu), mu)) ≈ field_data(laplacian(us, mu))
   end
 
   @testset "gradient (vector -> tensor): (∇u)ᵢⱼ = ∂ⱼuᵢ" begin
-    u = VectorFieldPhysical((x, y, z) -> (sin(x), sin(y), sin(z)), grid)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), sin(y), sin(z)), grid)
     m = FieldSpectralMultipliers(to_spectral(u, plans_for(u)))
     G = to_physical(gradient(to_spectral(u, plans_for(u)), m), plans_for(zero_tensor()))
     @test tcomp(field_data(G), 1, 1) ≈ field_data(scalar_field((x, y, z) -> cos(x)))
@@ -78,7 +78,7 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     # u = (sin x, sin y, sin z) every off-diagonal entry is zero, so (∇u)₁₂ and (∇u)₂₁ are
     # indistinguishable and transposing the whole operator passes silently. Pin it with a fixture whose
     # gradient is genuinely off-diagonal (decision 52).
-    ushift = VectorFieldPhysical((x, y, z) -> (sin(y), sin(z), sin(x)), grid)
+    ushift = VectorFieldPhysical(Array, (x, y, z) -> (sin(y), sin(z), sin(x)), grid)
     Gs = to_physical(gradient(to_spectral(ushift, plans_for(ushift)), m), plans_for(zero_tensor()))
     @test tcomp(field_data(Gs), 1, 2) ≈ field_data(scalar_field((x, y, z) -> cos(y)))   # ∂_y u₁
     @test tcomp(field_data(Gs), 2, 3) ≈ field_data(scalar_field((x, y, z) -> cos(z)))   # ∂_z u₂
@@ -91,14 +91,14 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
   end
 
   @testset "divergence (vector -> scalar)" begin
-    u = VectorFieldPhysical((x, y, z) -> (sin(x), sin(y), sin(z)), grid)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), sin(y), sin(z)), grid)
     m = FieldSpectralMultipliers(to_spectral(u, plans_for(u)))
     d = to_physical(divergence(to_spectral(u, plans_for(u)), m), plans_for(scalar_field((x, y, z) -> 0.0)))
     @test field_data(d) ≈ field_data(scalar_field((x, y, z) -> cos(x) + cos(y) + cos(z)))
   end
 
   @testset "curl" begin
-    u = VectorFieldPhysical((x, y, z) -> (0.0, 0.0, sin(x)), grid)   # ∇ × u = (0, -cos x, 0)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (0.0, 0.0, sin(x)), grid)   # ∇ × u = (0, -cos x, 0)
     m = FieldSpectralMultipliers(to_spectral(u, plans_for(u)))
     c = to_physical(curl(to_spectral(u, plans_for(u)), m), plans_for(zero_vector()))
     @test maximum(abs, comp(field_data(c), 1)) < 1e-12
@@ -107,7 +107,7 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
   end
 
   @testset "symmetric_gradient: sym(∇u), formed fused" begin
-    u = VectorFieldPhysical((x, y, z) -> (sin(x) + cos(2y), sin(y) * cos(z), cos(x) + sin(3z)), grid)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x) + cos(2y), sin(y) * cos(z), cos(x) + sin(3z)), grid)
     us = to_spectral(u, plans_for(u))
     m = FieldSpectralMultipliers(us)
     S = symmetric_gradient(us, m)
@@ -142,7 +142,7 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
   end
 
   @testset "helmholtz projection yields a divergence-free field" begin
-    u = VectorFieldPhysical((x, y, z) -> (sin(x), sin(y), 0.0), grid)   # ∇·u = cos x + cos y ≠ 0
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), sin(y), 0.0), grid)   # ∇·u = cos x + cos y ≠ 0
     m = FieldSpectralMultipliers(to_spectral(u, plans_for(u)))
     projected = helmholtz_projection(to_spectral(u, plans_for(u)), m)
     div_after = to_physical(divergence(projected, m), plans_for(scalar_field((x, y, z) -> 0.0)))
@@ -150,7 +150,7 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
   end
 
   @testset "kernel-composed operators: a convolution fused into ℙ and ∇· (decision 32)" begin
-    u = VectorFieldPhysical((x, y, z) -> (sin(x) + cos(2y), sin(y) * cos(z), cos(x) + sin(3z)), grid)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x) + cos(2y), sin(y) * cos(z), cos(x) + sin(3z)), grid)
     us = to_spectral(u, plans_for(u))
     m = FieldSpectralMultipliers(us)
     g = spectral_cutoff(m, 2.5)                     # nontrivial: removes the |k| > 2.5 shells
@@ -160,7 +160,7 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     @test field_data(helmholtz_projection(us, m, g)) == field_data(convolve(helmholtz_projection(us, m), g))
     @test field_data(divergence(us, m, g)) == field_data(convolve(divergence(us, m), g))
 
-    A = TensorFieldPhysical{2}((x, y, z) -> fill(sin(x) * cos(y), 3, 3), grid)
+    A = TensorFieldPhysical{2}(Array, (x, y, z) -> fill(sin(x) * cos(y), 3, 3), grid)
     As = to_spectral(A, plans_for(A))
     @test field_data(divergence(As, m, g)) == field_data(convolve(divergence(As, m), g))
 
@@ -199,7 +199,7 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
                           TensorFieldSpectral{R}(data, aniso)
       return FieldTransformPlans(physical, spectral)
     end
-    aniso_scalar(f) = ScalarFieldPhysical(f, aniso)
+    aniso_scalar(f) = ScalarFieldPhysical(Array, f, aniso)
 
     phi = aniso_scalar((x, y, z) -> sin(x) + sin(y) + sin(z))
     m = FieldSpectralMultipliers(to_spectral(phi, aplans(phi)))
@@ -215,7 +215,7 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
 
     # symmetric_gradient on the anisotropic box: the diagonal Sᵢᵢ = ∂_{xᵢ}uᵢ picks up the per-axis
     # 2π/L, so a dropped Ly = 4π / Lz = 6π factor corrupts S₂₂ / S₃₃ while leaving S₁₁ correct.
-    ua = VectorFieldPhysical((x, y, z) -> (sin(x), sin(y), sin(z)), aniso)
+    ua = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), sin(y), sin(z)), aniso)
     ma = FieldSpectralMultipliers(to_spectral(ua, aplans(ua)))
     Sa = to_physical(symmetric_gradient(to_spectral(ua, aplans(ua)), ma),
                      aplans(TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), aniso)))
@@ -226,7 +226,7 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
   end
 
   @testset "in-place operators and alias guards" begin
-    u = VectorFieldPhysical((x, y, z) -> (sin(x) + cos(y), sin(y) + cos(z), sin(z) + cos(x)), grid)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x) + cos(y), sin(y) + cos(z), sin(z) + cos(x)), grid)
     m = FieldSpectralMultipliers(to_spectral(u, plans_for(u)))
     us = to_spectral(u, plans_for(u))
 
@@ -268,7 +268,7 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
   end
 
   @testset "vector-calculus identities: div(curl u) = 0, curl(grad φ) = 0" begin
-    u = VectorFieldPhysical((x, y, z) -> (sin(x) + cos(y), sin(y) + cos(z), sin(z) + cos(x)), grid)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x) + cos(y), sin(y) + cos(z), sin(z) + cos(x)), grid)
     m = FieldSpectralMultipliers(to_spectral(u, plans_for(u)))
     us = to_spectral(u, plans_for(u))
     div_curl = to_physical(divergence(curl(us, m), m), plans_for(scalar_field((x, y, z) -> 0.0)))
@@ -286,7 +286,7 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     # absences in test/fieldalgebra.jl: those assert nonlinear products are absent in
     # spectral, these assert the differential operators are absent in physical.
     phi = scalar_field((x, y, z) -> sin(x))
-    u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+    u = VectorFieldPhysical(Array, (x, y, z) -> (sin(x), cos(y), sin(z)), grid)
     m = FieldSpectralMultipliers(to_spectral(phi, plans_for(phi)))
     @test_throws MethodError gradient(phi, m)
     @test_throws MethodError gradient(u, m)
@@ -576,8 +576,8 @@ end
     layout = RealFourierLayout()
     u_exact(x, y, z) = (sin(y), sin(z), sin(x))
     w_exact(x, y, z) = (-cos(z), -cos(x), -cos(y))
-    u_phys = VectorFieldPhysical(u_exact, grid)
-    w_phys = VectorFieldPhysical(w_exact, grid)
+    u_phys = VectorFieldPhysical(Array, u_exact, grid)
+    w_phys = VectorFieldPhysical(Array, w_exact, grid)
     spec(f) = to_spectral(f, FieldTransformPlans(f, VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid; layout)))
     w_hat = spec(w_phys)
     multipliers = FieldSpectralMultipliers(w_hat)

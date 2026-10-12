@@ -350,10 +350,10 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
     audit(() -> convolve!(d, f, separable, 0.5, 2.0), "convolve! α/β ∘ separable kernel",
       Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (3M, 3M)))
 
-    audit(() -> exponential_convolve!(d, f, multipliers, -0.1), "exponential_convolve!",
+    audit(() -> exponential_convolve!(d, f, multipliers; coefficient = -0.1), "exponential_convolve!",
       Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))
     w = ScalarFieldSpectral(counting(ones(ComplexF64, shape0)), grid)   # ŵ is a field, not a kernel
-    audit(() -> exponential_convolve!(d, f, multipliers, -0.1, 0.01, w), "exponential_convolve! ŵ offset",
+    audit(() -> exponential_convolve!(d, f, multipliers; coefficient = -0.1, offset = w, offset_scale = 0.01), "exponential_convolve! ŵ offset",
       Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)),
       # 3M → M on 2026-08-30: the fiber hoist (IT item 2) retired this ledger's LAST holder — the
       # mode-loop now reads the offset field once per mode and reuses the factor across components,
@@ -361,10 +361,10 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
       Traffic("ŵ", carr(w), (M, 0)))
     # A radial offset (2026-10-01) is evaluated, not read: the source and destination are the whole
     # traffic, the same as the plain form, where the stored offset adds M reads.
-    audit(() -> exponential_convolve!(d, f, multipliers, -0.1, 0.01, spectral_band(multipliers, 1, 3)),
+    audit(() -> exponential_convolve!(d, f, multipliers; coefficient = -0.1, offset = spectral_band(multipliers, 1, 3), offset_scale = 0.01),
       "exponential_convolve! radial offset",
       Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))
-    audit(() -> exponential_convolve!(d, 0.3, a, 0.7, b, multipliers, -0.1),
+    audit(() -> exponential_convolve!(d, 0.3, a, 0.7, b, multipliers; coefficient = -0.1),
       "exponential_convolve! two-operand",
       Traffic("a", carr(a), (3M, 0)), Traffic("b", carr(b), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))
     audit(() -> combine!(d, 0.3, a, 0.7, b, g), "combine!∘kernel",

@@ -1570,16 +1570,110 @@ _offset_mode_data(offset::RadialKernel) = _RadialOffset(offset.sigma)
 
 
 """
-    exponential_convolve!(destination, field, multipliers, coefficient::Real)
-    exponential_convolve!(destination, field, multipliers, coefficient::Real, α, β)
-    exponential_convolve!(destination, field, multipliers, coefficient::Real,
-                          offset_scale::Real, offset)
-    exponential_convolve!(destination, field, multipliers, coefficient::Real,
-                          offset_scale::Real, offset, α, β)
-    exponential_convolve!(destination, α::Real, a, β::Real, b, multipliers,
-                          coefficient::Real)
-    exponential_convolve!(destination, α::Real, a, β::Real, b, multipliers,
-                          coefficient::Real, offset_scale::Real, offset)
+    _exponential_convolve!(destination, field, multipliers, coefficient, α, β)
+    _exponential_convolve!(destination, field, multipliers, coefficient, offset_scale,
+                           offset, α, β)
+    _exponential_convolve!(destination, α, a, β, b, multipliers, coefficient[,
+                           offset_scale, offset])
+
+The engine behind [`exponential_convolve!`](@ref): the same operation with the exponent passed
+positionally, one method per operand shape and offset class, so the offset's storage class (a stored
+field or a [`RadialKernel`](@ref)) is resolved by dispatch here rather than in the public method.
+"""
+function _exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
+    multipliers::FieldSpectralMultipliers, coefficient::Real, α::Real, β::Real) where {T<:AbstractFloat, R}
+  _check_field_compatibility(destination, field)
+  _check_multipliers_compatibility(field, multipliers)
+  if R == 0
+    _apply_exponential_convolution!(field_data(destination), field_data(field),
+      _squared_wavenumber_broadcast(multipliers), T(coefficient), T(α), T(β))
+  else
+    # The fiber hoist: exp once per mode, reused across the 3^R components (bitwise identical —
+    # see the kernel-pair block above). The scalar case stays on the broadcast, having no fiber.
+    data = field_data(destination)
+    _exponential_convolution_modes!(get_backend(data), data, field_data(field), multipliers,
+      T(coefficient), nothing, nothing, T(α), T(β), 3^R, size(data)[1:3])
+  end
+  return destination
+end
+
+
+function _exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
+    multipliers::FieldSpectralMultipliers, coefficient::Real) where {T<:AbstractFloat, R}
+  return _exponential_convolve!(destination, field, multipliers, coefficient, one(T), zero(T))
+end
+
+
+function _exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
+    multipliers::FieldSpectralMultipliers, coefficient::Real, offset_scale::Real,
+    offset::_ExponentOffset{T}, α::Real, β::Real) where {T<:AbstractFloat, R}
+  _check_field_compatibility(destination, field)
+  _check_offset_compatibility(field, offset)
+  _check_multipliers_compatibility(field, multipliers)
+  if R == 0
+    _apply_exponential_convolution!(field_data(destination), field_data(field),
+      _squared_wavenumber_broadcast(multipliers), T(coefficient), T(offset_scale),
+      _offset_broadcast_data(offset), T(α), T(β))
+  else
+    data = field_data(destination)
+    _exponential_convolution_modes!(get_backend(data), data, field_data(field), multipliers,
+      T(coefficient), T(offset_scale), _offset_mode_data(offset), T(α), T(β), 3^R, size(data)[1:3])
+  end
+  return destination
+end
+
+
+function _exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
+    multipliers::FieldSpectralMultipliers, coefficient::Real, offset_scale::Real,
+    offset::_ExponentOffset{T}) where {T<:AbstractFloat, R}
+  return _exponential_convolve!(destination, field, multipliers, coefficient, offset_scale, offset, one(T), zero(T))
+end
+
+
+function _exponential_convolve!(destination::AbstractFieldSpectral{T, R}, α::Real, a::AbstractFieldSpectral{T, R},
+    β::Real, b::AbstractFieldSpectral{T, R}, multipliers::FieldSpectralMultipliers,
+    coefficient::Real) where {T<:AbstractFloat, R}
+  _check_field_compatibility(destination, a)
+  _check_field_compatibility(destination, b)
+  _check_multipliers_compatibility(a, multipliers)
+  if R == 0
+    _apply_exponential_combination!(field_data(destination), field_data(a), field_data(b),
+      _squared_wavenumber_broadcast(multipliers), T(coefficient), T(α), T(β))
+  else
+    data = field_data(destination)
+    _exponential_combination_modes!(get_backend(data), data, field_data(a), field_data(b),
+      multipliers, T(coefficient), nothing, nothing, T(α), T(β), 3^R, size(data)[1:3])
+  end
+  return destination
+end
+
+
+function _exponential_convolve!(destination::AbstractFieldSpectral{T, R}, α::Real, a::AbstractFieldSpectral{T, R},
+    β::Real, b::AbstractFieldSpectral{T, R}, multipliers::FieldSpectralMultipliers,
+    coefficient::Real, offset_scale::Real, offset::_ExponentOffset{T}) where {T<:AbstractFloat, R}
+  _check_field_compatibility(destination, a)
+  _check_field_compatibility(destination, b)
+  _check_offset_compatibility(a, offset)
+  _check_multipliers_compatibility(a, multipliers)
+  if R == 0
+    _apply_exponential_combination!(field_data(destination), field_data(a), field_data(b),
+      _squared_wavenumber_broadcast(multipliers), T(coefficient), T(offset_scale),
+      _offset_broadcast_data(offset), T(α), T(β))
+  else
+    data = field_data(destination)
+    _exponential_combination_modes!(get_backend(data), data, field_data(a), field_data(b),
+      multipliers, T(coefficient), T(offset_scale), _offset_mode_data(offset), T(α), T(β), 3^R,
+      size(data)[1:3])
+  end
+  return destination
+end
+
+
+"""
+    exponential_convolve!(destination, field, multipliers[, α::Real, β::Real];
+                          coefficient::Real, offset = nothing, offset_scale::Real = 1)
+    exponential_convolve!(destination, α::Real, a, β::Real, b, multipliers;
+                          coefficient::Real, offset = nothing, offset_scale::Real = 1)
 
 Convolve a field with an exponential kernel, given by its transfer function
 ``\\exp(c |k|^2 + s \\hat w(k))``, and write the result into `destination`, which is returned. For
@@ -1604,21 +1698,19 @@ comparable.
 - `destination` — the field written with the result; it may alias `field` (or `a`, `b`, `offset`),
   since the product is coefficientwise.
 - `field` — the field to filter, in spectral representation.
-- `α`, `β` — in the single-operand forms, where they trail the argument list, the accumulation
-  weights, as in `LinearAlgebra.mul!(C, A, B, α, β)`: the formula below.
-- `α`, `a`, `β`, `b` — in the two-operand forms, where they lead it, the real weights and fields of
-  the combination ``\\alpha a + \\beta b`` the kernel is applied to, exactly as [`combine!`](@ref)
-  takes them; with `b === destination` the filtered accumulate runs in place.
-- `multipliers` — the wavenumber arrays for the field's grid; the kernel is evaluated from their
-  squared-wavenumber family.
-- `coefficient` — the real factor ``c`` on ``|k|^2`` in the exponent, dimensionless as received (the
-  caller folds its own physical factors before the call).
-- `offset_scale`, `offset` — the real scale ``s`` and the per-mode values ``\\hat w`` of the optional
-  exponent term ``s \\hat w``. The `offset` is either a scalar field in spectral representation holding
-  real values, or a [`RadialKernel`](@ref) when ``\\hat w`` depends on ``|k|^2`` alone (a band, for
-  instance), which is evaluated per mode where the exponent is formed and stores nothing; the two
-  give bitwise the same result. The pair enters as scale times values so a changed scale costs
-  nothing.
+- `α`, `β` — trailing, in the single-operand forms: the accumulation weights of the formula below.
+- `α`, `a`, `β`, `b` — leading, in the two-operand forms: the weights and fields of the combination
+  ``\\alpha a + \\beta b``, as [`combine!`](@ref) takes them.
+- `multipliers` — the wavenumber arrays for the field's grid.
+- `coefficient` — a keyword: the real factor ``c`` on ``|k|^2`` in the exponent, into which the caller
+  folds its own physical factors.
+- `offset`, `offset_scale` — keywords: the per-mode values ``\\hat w`` and the real scale ``s`` of the
+  optional exponent term ``s \\hat w``, absent with no `offset`.
+
+The `offset` is either a scalar field in spectral representation holding real values, or a
+[`RadialKernel`](@ref) when ``\\hat w`` depends on ``|k|^2`` alone (a band, for instance), which is
+evaluated per mode where the exponent is formed and stores nothing; the two give bitwise the same
+result. The scale enters separately from the values, so a changed scale costs nothing.
 
 The single-operand accumulate form computes, with ``\\hat d`` the coefficients of `destination`,
 
@@ -1653,99 +1745,38 @@ computed in place.
 function exponential_convolve! end
 
 
+# The public forms take the exponent by keyword; the positional methods above are the engine. The
+# offset's type (a stored field or a radial kernel) is resolved by the engine's own dispatch, so the
+# public method stays one per operand shape.
 function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
-    multipliers::FieldSpectralMultipliers, coefficient::Real, α::Real, β::Real) where {T<:AbstractFloat, R}
-  _check_field_compatibility(destination, field)
-  _check_multipliers_compatibility(field, multipliers)
-  if R == 0
-    _apply_exponential_convolution!(field_data(destination), field_data(field),
-      _squared_wavenumber_broadcast(multipliers), T(coefficient), T(α), T(β))
-  else
-    # The fiber hoist: exp once per mode, reused across the 3^R components (bitwise identical —
-    # see the kernel-pair block above). The scalar case stays on the broadcast, having no fiber.
-    data = field_data(destination)
-    _exponential_convolution_modes!(get_backend(data), data, field_data(field), multipliers,
-      T(coefficient), nothing, nothing, T(α), T(β), 3^R, size(data)[1:3])
-  end
-  return destination
+    multipliers::FieldSpectralMultipliers, α::Real, β::Real; coefficient::Real,
+    offset::Union{Nothing, _ExponentOffset{T}} = nothing, offset_scale::Real = one(T)) where {T<:AbstractFloat, R}
+  return offset === nothing ?
+    _exponential_convolve!(destination, field, multipliers, coefficient, α, β) :
+    _exponential_convolve!(destination, field, multipliers, coefficient, offset_scale, offset, α, β)
 end
 
 
 function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
-    multipliers::FieldSpectralMultipliers, coefficient::Real) where {T<:AbstractFloat, R}
-  return exponential_convolve!(destination, field, multipliers, coefficient, one(T), zero(T))
-end
-
-
-function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
-    multipliers::FieldSpectralMultipliers, coefficient::Real, offset_scale::Real,
-    offset::_ExponentOffset{T}, α::Real, β::Real) where {T<:AbstractFloat, R}
-  _check_field_compatibility(destination, field)
-  _check_offset_compatibility(field, offset)
-  _check_multipliers_compatibility(field, multipliers)
-  if R == 0
-    _apply_exponential_convolution!(field_data(destination), field_data(field),
-      _squared_wavenumber_broadcast(multipliers), T(coefficient), T(offset_scale),
-      _offset_broadcast_data(offset), T(α), T(β))
-  else
-    data = field_data(destination)
-    _exponential_convolution_modes!(get_backend(data), data, field_data(field), multipliers,
-      T(coefficient), T(offset_scale), _offset_mode_data(offset), T(α), T(β), 3^R, size(data)[1:3])
-  end
-  return destination
-end
-
-
-function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
-    multipliers::FieldSpectralMultipliers, coefficient::Real, offset_scale::Real,
-    offset::_ExponentOffset{T}) where {T<:AbstractFloat, R}
-  return exponential_convolve!(destination, field, multipliers, coefficient, offset_scale, offset, one(T), zero(T))
+    multipliers::FieldSpectralMultipliers; coefficient::Real,
+    offset::Union{Nothing, _ExponentOffset{T}} = nothing, offset_scale::Real = one(T)) where {T<:AbstractFloat, R}
+  return exponential_convolve!(destination, field, multipliers, one(T), zero(T);
+    coefficient, offset, offset_scale)
 end
 
 
 function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, α::Real, a::AbstractFieldSpectral{T, R},
-    β::Real, b::AbstractFieldSpectral{T, R}, multipliers::FieldSpectralMultipliers,
-    coefficient::Real) where {T<:AbstractFloat, R}
-  _check_field_compatibility(destination, a)
-  _check_field_compatibility(destination, b)
-  _check_multipliers_compatibility(a, multipliers)
-  if R == 0
-    _apply_exponential_combination!(field_data(destination), field_data(a), field_data(b),
-      _squared_wavenumber_broadcast(multipliers), T(coefficient), T(α), T(β))
-  else
-    data = field_data(destination)
-    _exponential_combination_modes!(get_backend(data), data, field_data(a), field_data(b),
-      multipliers, T(coefficient), nothing, nothing, T(α), T(β), 3^R, size(data)[1:3])
-  end
-  return destination
-end
-
-
-function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, α::Real, a::AbstractFieldSpectral{T, R},
-    β::Real, b::AbstractFieldSpectral{T, R}, multipliers::FieldSpectralMultipliers,
-    coefficient::Real, offset_scale::Real, offset::_ExponentOffset{T}) where {T<:AbstractFloat, R}
-  _check_field_compatibility(destination, a)
-  _check_field_compatibility(destination, b)
-  _check_offset_compatibility(a, offset)
-  _check_multipliers_compatibility(a, multipliers)
-  if R == 0
-    _apply_exponential_combination!(field_data(destination), field_data(a), field_data(b),
-      _squared_wavenumber_broadcast(multipliers), T(coefficient), T(offset_scale),
-      _offset_broadcast_data(offset), T(α), T(β))
-  else
-    data = field_data(destination)
-    _exponential_combination_modes!(get_backend(data), data, field_data(a), field_data(b),
-      multipliers, T(coefficient), T(offset_scale), _offset_mode_data(offset), T(α), T(β), 3^R,
-      size(data)[1:3])
-  end
-  return destination
+    β::Real, b::AbstractFieldSpectral{T, R}, multipliers::FieldSpectralMultipliers; coefficient::Real,
+    offset::Union{Nothing, _ExponentOffset{T}} = nothing, offset_scale::Real = one(T)) where {T<:AbstractFloat, R}
+  return offset === nothing ?
+    _exponential_convolve!(destination, α, a, β, b, multipliers, coefficient) :
+    _exponential_convolve!(destination, α, a, β, b, multipliers, coefficient, offset_scale, offset)
 end
 
 
 """
-    exponential_convolve(field, multipliers, coefficient::Real)
-    exponential_convolve(field, multipliers, coefficient::Real,
-                         offset_scale::Real, offset)
+    exponential_convolve(field, multipliers; coefficient::Real, offset = nothing,
+                         offset_scale::Real = 1)
 
 Allocating form of [`exponential_convolve!`](@ref): allocate the result and return the field smoothed
 by the exponential radial kernel, which for a non-positive coefficient is a periodic Gaussian blur. See
@@ -1755,17 +1786,11 @@ representation and tensor order are preserved.
 function exponential_convolve end
 
 
-function exponential_convolve(field::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
-    coefficient::Real)
+function exponential_convolve(field::AbstractFieldSpectral{T}, multipliers::FieldSpectralMultipliers;
+    coefficient::Real, offset::Union{Nothing, _ExponentOffset{T}} = nothing,
+    offset_scale::Real = one(T)) where {T<:AbstractFloat}
   destination = similar_field(field, Val(field_tensor_order(field)))
-  return exponential_convolve!(destination, field, multipliers, coefficient)
-end
-
-
-function exponential_convolve(field::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
-    coefficient::Real, offset_scale::Real, offset::Union{ScalarFieldSpectral, RadialKernel})
-  destination = similar_field(field, Val(field_tensor_order(field)))
-  return exponential_convolve!(destination, field, multipliers, coefficient, offset_scale, offset)
+  return exponential_convolve!(destination, field, multipliers; coefficient, offset, offset_scale)
 end
 
 

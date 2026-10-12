@@ -100,15 +100,15 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       xs = PointSet(coords)
 
       linear(x, y, z) = T(0.3) + T(0.7) * x - T(0.4) * y + T(0.2) * z
-      values = interpolate(ScalarFieldPhysical(linear, grid), xs, CatmullRom)
+      values = interpolate(ScalarFieldPhysical(Array, linear, grid), xs, CatmullRom)
       @test point_values(values) ≈ [linear(coords[p, :]...) for p in 1:M] rtol = poly_tol
 
       quadratic(x, y, z) = T(1) + x - T(0.5) * y^2 + T(0.3) * x * z
-      vq = interpolate(ScalarFieldPhysical(quadratic, grid), xs, CatmullRom)
+      vq = interpolate(ScalarFieldPhysical(Array, quadratic, grid), xs, CatmullRom)
       @test point_values(vq) ≈ [quadratic(coords[p, :]...) for p in 1:M] rtol = poly_tol
 
       # Vector field: each component interpolated independently.
-      vf = VectorFieldPhysical((x, y, z) -> (linear(x, y, z), -quadratic(x, y, z), T(2) * linear(x, y, z)), grid)
+      vf = VectorFieldPhysical(Array, (x, y, z) -> (linear(x, y, z), -quadratic(x, y, z), T(2) * linear(x, y, z)), grid)
       vv = interpolate(vf, xs, CatmullRom)
       @test vv isa VectorPointValues
       for p in 1:M
@@ -119,7 +119,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       cubic(x, y, z) = T(0.2) + x - T(0.1) * y^3 + T(0.4) * x * y * z
       inner = T(0.4 * 2π) .+ T(0.2 * 2π) .* rand(T, M, 3)
       xs_inner = PointSet(inner)
-      vc = interpolate(ScalarFieldPhysical(cubic, grid), xs_inner, LagrangeSpline(8))
+      vc = interpolate(ScalarFieldPhysical(Array, cubic, grid), xs_inner, LagrangeSpline(8))
       @test point_values(vc) ≈ [cubic(inner[p, :]...) for p in 1:M] rtol = (T == Float64 ? 1e-8 : 1e-2)
     end
 
@@ -181,7 +181,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
 
     @testset "periodicity ($T)" begin
       # The interpolant is periodic: evaluating at x and x + L gives the same value.
-      field = ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) + sin(3z), grid)
+      field = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) + cos(2y) + sin(3z), grid)
       base = T.([1.1, 2.2, 0.7])
       shifted = base .+ T(2π) .* [1, -1, 2]
       @test field(base) ≈ field(shifted) rtol = (T == Float64 ? 1e-12 : 1e-4)
@@ -208,7 +208,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       coords = hcat((origin[d] .+ Δ[d] .* (1.5 .+ ((10, 8, 12)[d] - 4) .* rand(M)) for d in 1:3)...)
       xs = PointSet(coords)
       lin(x, y, z) = 0.5 + 0.3x - 1.1y + 0.02z
-      v = interpolate(ScalarFieldPhysical(lin, grid), xs, CatmullRom)
+      v = interpolate(ScalarFieldPhysical(Array, lin, grid), xs, CatmullRom)
       @test point_values(v) ≈ [lin(coords[p, :]...) for p in 1:M] rtol = 1e-9   # per-axis origin/spacing correct
       q = ScalarPointValues(rand(M))
       whole = PointSet(hcat((origin[d] .+ ((2π, 0.5, 40.0)[d]) .* rand(M) for d in 1:3)...))
@@ -219,7 +219,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
     @testset "points exactly on grid nodes (t = 0)" begin
       grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
       Δ = 2π / 8
-      field = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + sin(z), grid)
+      field = ScalarFieldPhysical(Array, (x, y, z) -> sin(x) * cos(y) + sin(z), grid)
       node_index = [(1, 1, 1), (3, 4, 5), (8, 8, 8), (1, 8, 4)]
       coords = [Δ * (idx[d] - 1) for idx in node_index, d in 1:3]
       v = interpolate(field, PointSet(coords), CatmullRom)
@@ -266,7 +266,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       whole = PointSet(2π .* rand(M, 3))
       q = ScalarPointValues(rand(M))
       for scheme in (LalescuSpline(6; smoothness = 1), LalescuSpline(8; smoothness = 2))
-        vq = interpolate(ScalarFieldPhysical(cubic, grid), xs, scheme)
+        vq = interpolate(ScalarFieldPhysical(Array, cubic, grid), xs, scheme)
         @test point_values(vq) ≈ [cubic(coords[p, :]...) for p in 1:M] rtol = 1e-8
         @test adjoint(ScalarFieldPhysical(rand(20, 20, 20), grid), whole, q, scheme)
         @test conserves(grid, whole, q, scheme)
@@ -276,7 +276,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
     @testset "single point (M = 1)" begin
       grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
       xs = PointSet(reshape([1.1, 2.2, 0.7], 1, 3))
-      @test length(point_values(interpolate(ScalarFieldPhysical((x, y, z) -> sin(x), grid), xs, CatmullRom))) == 1
+      @test length(point_values(interpolate(ScalarFieldPhysical(Array, (x, y, z) -> sin(x), grid), xs, CatmullRom))) == 1
       q = ScalarPointValues([2.5])
       @test sum(field_data(anterpolate(grid, xs, q, CatmullRom))) ≈ 2.5 rtol = 1e-12
     end

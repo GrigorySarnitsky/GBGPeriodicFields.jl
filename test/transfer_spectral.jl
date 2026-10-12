@@ -43,8 +43,8 @@ using Random: MersenneTwister
     nodes = PointSet(node_coordinates)
 
     @testset "interpolate == to_physical at the grid nodes ($T)" begin
-      for phys in (ScalarFieldPhysical((x, y, z) -> cos(2x) + T(3) / 10, grid),
-                   VectorFieldPhysical((x, y, z) -> (sin(y), cos(z), sin(x)), grid))
+      for phys in (ScalarFieldPhysical(Array, (x, y, z) -> cos(2x) + T(3) / 10, grid),
+                   VectorFieldPhysical(Array, (x, y, z) -> (sin(y), cos(z), sin(x)), grid))
         fh, plans = tospec(phys)
         at_nodes = interpolate(fh, nodes, DirectDFT())
         back = to_physical(fh, plans)
@@ -56,13 +56,13 @@ using Random: MersenneTwister
       # Exact reconstruction (to round-off) is the divergence-free-reference property the local
       # splines lack: DirectDFT evaluates the true band-limited field.
       analytic(x, y, z) = cos(2x) + T(1) / 2 * sin(y) * cos(3z) + T(3) / 10
-      fh, _ = tospec(ScalarFieldPhysical(analytic, grid))
+      fh, _ = tospec(ScalarFieldPhysical(Array, analytic, grid))
       got = Array(point_values(interpolate(fh, points, DirectDFT())))
       want = T[analytic(P[r, 1], P[r, 2], P[r, 3]) for r in 1:size(P, 1)]
       @test isapprox(got, want; rtol = rtol, atol = atol)
       # a solenoidal vector field stays exact componentwise
       solenoidal(x, y, z) = (sin(y) + cos(z), sin(z) + cos(2x), sin(2x) + cos(y))   # ∇· = 0
-      uh, _ = tospec(VectorFieldPhysical(solenoidal, grid))
+      uh, _ = tospec(VectorFieldPhysical(Array, solenoidal, grid))
       got_u = Array(point_values(interpolate(uh, points, DirectDFT())))
       want_u = reduce(vcat, [reshape(collect(T, solenoidal(P[r, 1], P[r, 2], P[r, 3])), 1, 3) for r in 1:size(P, 1)])
       @test isapprox(got_u, want_u; rtol = rtol, atol = atol)
@@ -70,10 +70,10 @@ using Random: MersenneTwister
 
     @testset "anterpolate == to_spectral from node samples ($T)" begin
       analytic(x, y, z) = cos(x) + sin(2y)
-      phys = ScalarFieldPhysical(analytic, grid)
+      phys = ScalarFieldPhysical(Array, analytic, grid)
       fh, _ = tospec(phys)
       node_values = T[analytic(node_coordinates[n, 1], node_coordinates[n, 2], node_coordinates[n, 3]) for n in 1:512]
-      deposited = anterpolate(fh, nodes, ScalarPointValues(node_values), DirectDFT())
+      deposited = anterpolate(field_grid(fh), nodes, ScalarPointValues(node_values), DirectDFT(); layout = field_layout(fh))
       @test isapprox(Array(field_data(deposited)), Array(field_data(fh)); rtol = rtol, atol = atol)
     end
 
@@ -87,7 +87,7 @@ using Random: MersenneTwister
             R == 1 ? VectorPointValues(randn(rng, T, 5, 3)) :
                      TensorPointValues{2}(randn(rng, T, 5, 3, 3))
         gathered = interpolate(fh, points, DirectDFT())
-        deposited = anterpolate(fh, points, q, DirectDFT())
+        deposited = anterpolate(field_grid(fh), points, q, DirectDFT(); layout = field_layout(fh))
         left = dot(vec(Array(point_values(gathered))), vec(Array(point_values(q))))   # = M·inner_pts (raw Σ)
         right = prod(grid.grid_size) * inner(fh, deposited)
         @test isapprox(left, right; rtol = rtol, atol = atol)
@@ -98,7 +98,7 @@ using Random: MersenneTwister
       phys = ScalarFieldPhysical(randn(rng, T, 8, 8, 8), grid)
       fh, _ = tospec(phys)
       q = ScalarPointValues(randn(rng, T, 5))
-      once = anterpolate(fh, points, q, DirectDFT())
+      once = anterpolate(field_grid(fh), points, q, DirectDFT(); layout = field_layout(fh))
       twice = ScalarFieldSpectral(copy(field_data(once)), grid)
       anterpolate!(twice, points, q, DirectDFT(), T(1), T(1))          # accumulate onto an existing deposit
       @test isapprox(Array(field_data(twice)), 2 .* Array(field_data(once)); rtol = rtol, atol = atol)
@@ -131,7 +131,7 @@ end
     vector(x, y, z) = (sin(y) + cos(2z), sin(2x) + cos(z), sin(x) + cos(2y))
 
     @testset "NUFFT == DirectDFT (the oracle) to tol ($T)" begin
-      for phys in (ScalarFieldPhysical(scalar, grid), VectorFieldPhysical(vector, grid))
+      for phys in (ScalarFieldPhysical(Array, scalar, grid), VectorFieldPhysical(Array, vector, grid))
         fh, plans = tospec(phys)
         nufft = NUFFT(fh; tol = tol)
         fast = Array(point_values(interpolate(fh, points, nufft)))
@@ -146,12 +146,12 @@ end
     end
 
     @testset "NUFFT adjoint pair M·⟨Wf̂,q⟩ = N·⟨f̂,Wᵀq⟩ ($T)" begin
-      for (phys, q) in ((ScalarFieldPhysical(scalar, grid), ScalarPointValues(randn(rng, T, 8))),
-                        (VectorFieldPhysical(vector, grid), VectorPointValues(randn(rng, T, 8, 3))))
+      for (phys, q) in ((ScalarFieldPhysical(Array, scalar, grid), ScalarPointValues(randn(rng, T, 8))),
+                        (VectorFieldPhysical(Array, vector, grid), VectorPointValues(randn(rng, T, 8, 3))))
         fh, _ = tospec(phys)
         nufft = NUFFT(fh; tol = tol)
         gathered = interpolate(fh, points, nufft)
-        deposited = anterpolate(fh, points, q, nufft)
+        deposited = anterpolate(field_grid(fh), points, q, nufft)
         left = sum(vec(Array(point_values(gathered))) .* vec(Array(point_values(q))))   # = M·inner_pts
         right = prod(grid.grid_size) * inner(fh, deposited)
         @test isapprox(left, right; rtol = atol, atol = atol)
@@ -159,10 +159,10 @@ end
     end
 
     @testset "NUFFT α/β accumulate + tunable width ($T)" begin
-      phys = ScalarFieldPhysical(scalar, grid); fh, _ = tospec(phys)
+      phys = ScalarFieldPhysical(Array, scalar, grid); fh, _ = tospec(phys)
       nufft = NUFFT(fh; width = 8, beta = 18)            # explicit ES parameters
       q = ScalarPointValues(randn(rng, T, 8))
-      once = anterpolate(fh, points, q, nufft)
+      once = anterpolate(field_grid(fh), points, q, nufft)
       twice = ScalarFieldSpectral(copy(field_data(once)), grid)
       anterpolate!(twice, points, q, nufft, T(1), T(1))
       @test isapprox(Array(field_data(twice)), 2 .* Array(field_data(once)); rtol = atol, atol = atol)
@@ -264,7 +264,7 @@ end
   # origin on both sides — a one-sided origin error breaks it
   q = ScalarPointValues(rand(MersenneTwister(12), TP, 30))
   left = 30 * inner(interpolate(bh, points, DirectDFT()), q)
-  right = 8 * 6 * 4 * inner(bh, anterpolate(bh, points, q, DirectDFT()))
+  right = 8 * 6 * 4 * inner(bh, anterpolate(field_grid(bh), points, q, DirectDFT(); layout = field_layout(bh)))
   @test isapprox(left, right; rtol = TP === Float64 ? 1e-10 : 2e-3)
 end
 
@@ -300,7 +300,7 @@ end
                  rtol = tol, atol = tol)
   # scatter: the forward DFT of the node samples IS to_spectral — an independent oracle for
   # anterpolate on the same hostile base
-  deposited = anterpolate(fh, nodes, ScalarPointValues(node_values), DirectDFT())
+  deposited = anterpolate(field_grid(fh), nodes, ScalarPointValues(node_values), DirectDFT(); layout = field_layout(fh))
   @test isapprox(field_data(deposited), field_data(fh); rtol = 100 * tol, atol = 100 * tol)
 
   # band-limited analytic reconstruction off-grid, and genuine out-of-box periodicity (whole
@@ -338,7 +338,7 @@ end
                  rtol = 50 * nufft_tol, atol = 50 * nufft_tol)
   q = ScalarPointValues(rand(MersenneTwister(22), TP, 20))
   left = 20 * inner(interpolate(bh, points, fast), q)
-  right = 8 * 7 * 6 * inner(bh, anterpolate(bh, points, q, fast))
+  right = 8 * 7 * 6 * inner(bh, anterpolate(field_grid(bh), points, q, fast))
   @test isapprox(left, right; rtol = TP === Float64 ? 1e-6 : 5e-3)
 
   # α = 0, β ≠ 0 for the spectral-scheme scatters (the pure β-rescale branch)
@@ -390,13 +390,13 @@ end
 
     scalar_plan = NUFFT(scalar_reference; tol = TP === Float64 ? 1e-8 : 1.0f-4)
     # a plan of lower order than the transfer is refused, not silently wrong
-    @test_throws ArgumentError anterpolate(scalar_reference, points, vector_values, scalar_plan)
+    @test_throws ArgumentError anterpolate(field_grid(scalar_reference), points, vector_values, scalar_plan)
     @test_throws ArgumentError anterpolate!(vector_reference, points, vector_values, scalar_plan)
     @test_throws ArgumentError interpolate(vector_reference, points, scalar_plan)
 
     # the matching plan still works and is finite everywhere
     vector_plan = NUFFT(vector_reference; tol = TP === Float64 ? 1e-8 : 1.0f-4)
-    deposited = anterpolate(vector_reference, points, vector_values, vector_plan)
+    deposited = anterpolate(field_grid(vector_reference), points, vector_values, vector_plan)
     @test all(isfinite, field_data(deposited))
     @test field_tensor_order(deposited) == 1
   end

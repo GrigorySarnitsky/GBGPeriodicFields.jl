@@ -74,12 +74,12 @@ tensor_divergence(i) = (x, y, z) -> sum((n = tslot(i, j, j); amplitude(n) * freq
       (shape = field_spectral_shape(g, layout, Val(R));
        R == 0 ? ScalarFieldSpectral(zeros(Complex{TP}, shape), g) :
        R == 1 ? VectorFieldSpectral(zeros(Complex{TP}, shape), g) : TensorFieldSpectral(zeros(Complex{TP}, shape), g)))
-    scalar_of(f) = ScalarFieldPhysical(f, g)
-    reference(f) = field_data(ScalarFieldPhysical(f, g))
+    scalar_of(f) = ScalarFieldPhysical(Array, f, g)
+    reference(f) = field_data(ScalarFieldPhysical(Array, f, g))
 
     s = scalar_of(scalar_value)
-    u = VectorFieldPhysical((x, y, z) -> ntuple(i -> vector_value(i)(x, y, z), 3), g)
-    T = TensorFieldPhysical{2}((x, y, z) -> [tensor_value(i, j)(x, y, z) for i in 1:3, j in 1:3], g)
+    u = VectorFieldPhysical(Array, (x, y, z) -> ntuple(i -> vector_value(i)(x, y, z), 3), g)
+    T = TensorFieldPhysical{2}(Array, (x, y, z) -> [tensor_value(i, j)(x, y, z) for i in 1:3, j in 1:3], g)
     ŝ, û, T̂ = to_spectral(s, plans(0)), to_spectral(u, plans(1)), to_spectral(T, plans(2))
     m = FieldSpectralMultipliers(ŝ)
 

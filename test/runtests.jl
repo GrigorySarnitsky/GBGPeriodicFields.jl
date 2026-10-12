@@ -29,6 +29,7 @@ module CallerCountsTests;          include("caller_counts.jl");         end
 module InterpolationTransferTests; include("interpolation_transfer.jl"); end
 module PointTraversalOrderTests;         include("point_traversal_order.jl");       end
 module SpectralTransferTests;      include("transfer_spectral.jl");     end
+module ArgumentShapesTests;        include("argument_shapes.jl");       end
 module ReductionsTests;            include("reductions.jl");            end
 module RDFTests;                   include("rdf.jl");                   end
 module EltypeGenericityTests;      include("eltype_genericity.jl");     end
