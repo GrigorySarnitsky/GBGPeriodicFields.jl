@@ -204,6 +204,10 @@ function canonical_pool(config; device = identity)
   # configuration and is printed with every finding, so a cell stays reproducible.
   Random.seed!(config.seed)
   rand(args...) = device(Base.rand(args...))
+  # `randn` too. Only `rand` went through `device`, so on a GPU run every spectral field in the pool —
+  # drawn with `randn` — stayed on the host while the physical ones moved, and no spectral operation
+  # was ever swept on a device: the backend axis was silently host-only for half the surface.
+  randn(args...) = device(Base.randn(args...))
   P(R) = (grid.grid_size..., ntuple(_ -> 3, R)...)
   S(R) = GBGI.Fields.field_spectral_shape(grid, layout, Val(R))
   physical = (ScalarFieldPhysical(rand(T, P(0)...), grid; layout),

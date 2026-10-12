@@ -15,7 +15,10 @@
 using GBGPeriodicFields
 using Statistics
 using LinearAlgebra
-using Adapt
+# `adapt_structure` through the package, which imports it from `Adapt`: a direct `using Adapt` needs
+# `Adapt` in the running environment, which the GPU environments do not declare, so the survey could not
+# load from `test/gpu/cuda` or `test/gpu/rocm` at all — the backend axis it claims to cross.
+using GBGPeriodicFields.Fields: adapt_structure
 using Random
 
 
@@ -637,7 +640,7 @@ function run_value_lane(configs)
                                                                   PointTraversalOrderScratch(grid, points)).indices)],
                                 sort(ref_traversal_keys(raw_coordinates, grid, 4))),
       (:length,                 length(point_traversal_order(grid, points)), npoints(points)),
-      (:adapt_structure,        Array(Adapt.adapt_structure(Array, point_traversal_order(grid, points)).indices),
+      (:adapt_structure,        Array(adapt_structure(Array, point_traversal_order(grid, points)).indices),
                                 Array(point_traversal_order(grid, points).indices)),
       # Zero here, where FFTW is exact at this power-of-two size — elsewhere a fresh transform satisfies
       # the condition only to round-off (PERFORMANCE finding (ar)) — and exactly twice the imaginary
@@ -678,7 +681,7 @@ function run_value_lane(configs)
       # consumer's unconditional `adapt(Array, x)` free on the host — so the values must come back
       # untouched. `adapt_structure` is the hook `adapt` dispatches through, checked at the same bar.
       (:adapt,            field_data(adapt(Array, u)),                             du),
-      (:adapt_structure,  field_data(Adapt.adapt_structure(Array, u)),             du),
+      (:adapt_structure,  field_data(adapt_structure(Array, u)),             du),
       (:set_fft_threads!, begin
                             set_fft_threads!(1)
                             observed = field_data(to_spectral(s, plans))
@@ -1048,11 +1051,11 @@ function run_value_lane(configs)
       # `adapt_structure` is the hook `adapt` dispatches through, one method per carrier. Adapting to
       # the family a section already occupies is the documented identity, so the values must return
       # untouched — which is exactly what a consumer's unconditional `adapt(Array, x)` relies on.
-      push!(generated, (:adapt_structure, field_data(Adapt.adapt_structure(Array, sh)), field_data(sh)))
-      push!(generated, (:adapt_structure, point_values(Adapt.adapt_structure(Array, qa)), point_values(qa)))
-      push!(generated, (:adapt_structure, point_positions(Adapt.adapt_structure(Array, points)),
+      push!(generated, (:adapt_structure, field_data(adapt_structure(Array, sh)), field_data(sh)))
+      push!(generated, (:adapt_structure, point_values(adapt_structure(Array, qa)), point_values(qa)))
+      push!(generated, (:adapt_structure, point_positions(adapt_structure(Array, points)),
                         point_positions(points)))
-      push!(generated, (:adapt_structure, Adapt.adapt_structure(Array, multipliers).wavenumber_1,
+      push!(generated, (:adapt_structure, adapt_structure(Array, multipliers).wavenumber_1,
                         multipliers.wavenumber_1))
       radial_k = spectral_cutoff(multipliers, cutoff)
       separable_k = assignment_window(multipliers)
@@ -1060,7 +1063,7 @@ function run_value_lane(configs)
       product_k = convolve(radial_k, separable_k)
       for (name, kernel) in ((:radial, radial_k), (:separable, separable_k), (:stored, stored_k), (:product, product_k))
         push!(generated, (:adapt_structure,
-                          Array(kernel_data(Adapt.adapt_structure(Array, kernel))),
+                          Array(kernel_data(adapt_structure(Array, kernel))),
                           Array(kernel_data(kernel))))
       end
 
