@@ -258,11 +258,16 @@ const _RETURN_TYPE_CACHE = Dict{Any, Any}()
 # `Base.return_types(adapt_structure, (Type{Array}, ScalarPointValues))` gives
 # `ScalarPointValues{Float64, Vector{Float64}}`. Asking about the type actually dispatched on is not a
 # widening of the check; it is the check the operation deserves.
-function _inferred_type(operation, arguments)
-  key = (operation, map(a -> a isa Type ? Type{a} : typeof(a), arguments))
+#
+# A call with keywords is inferred through `Core.kwcall`, the entry a keyword call lowers to: asking about
+# the positional signature alone would infer the method called WITHOUT them, which for a required
+# keyword is a call that provably throws.
+function _inferred_type(operation, arguments, keywords = (;))
+  key = (operation, map(a -> a isa Type ? Type{a} : typeof(a), arguments), typeof(keywords))
   return get!(_RETURN_TYPE_CACHE, key) do
     try
-      only(Base.return_types(operation, Tuple{key[2]...}))
+      isempty(keywords) ? only(Base.return_types(operation, Tuple{key[2]...})) :
+        only(Base.return_types(Core.kwcall, Tuple{key[3], typeof(operation), key[2]...}))
     catch
       Any
     end
@@ -287,8 +292,11 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
    arguments = Any[get!(() -> _refresh(a), seen, a) for a in invocation.arguments]
    before = map(_snapshot, arguments)
    result = try
-     invocation.operation(arguments...)
-   catch
+     invocation.operation(arguments...; invocation_keywords(invocation)...)
+   catch exception
+     # A missing required keyword is the HARNESS's omission, not a refusal by the package: rethrown so
+     # the lane counts it as a harness error by name instead of skipping the call as inapplicable.
+     exception isa UndefKeywordError && rethrow()
      return false
    end
    after = map(_snapshot, arguments)
@@ -385,13 +393,13 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
          Base.push!(second, get!(() -> _refresh(original), local_seen, original))
        end
        try
-         invocation.operation(second...)
+         invocation.operation(second...; invocation_keywords(invocation)...)
          second[_destination_index(invocation.operation, second)]
        catch exception
          exception
        end
      else
-       try invocation.operation(arguments...) catch exception; exception end
+       try invocation.operation(arguments...; invocation_keywords(invocation)...) catch exception; exception end
      end
      # A call that SUCCEEDED once and throws on an identical second call is the strongest reproducibility
      # failure the lane can observe, and it was being discarded as "not applicable". The operations with a
@@ -446,7 +454,7 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
    # down forces every caller to dynamic dispatch, which is a real defect and is what `@inferred`
    # asserts. `Union{}` means the call provably throws and is not an instability.
    count!(:type_stability)
-   inferred = _inferred_type(invocation.operation, arguments)
+   inferred = _inferred_type(invocation.operation, arguments, invocation_keywords(invocation))
    if !_precise_type(inferred)
      record!(:type_stability, "$(invocation.label) infers $(_shorten(inferred)), which is not concrete")
    end
@@ -633,6 +641,12 @@ function run_invocation_lane(configs)
     println("  ", unfillable, " methods NOT REACHED — a parameter slot no pool object can fill")
   unbuilt_pools == 0 ||
     println("  ", unbuilt_pools, " (configuration, backend) pairs NOT REACHED — the pool would not build")
+
+  # A stale required-keyword entry is a harness gap of the same kind, counted with the lane's errors.
+  for line in check_required_keywords()
+    println("  STALE REQUIRED KEYWORD: ", line)
+    lane_errors["stale required keyword"] = get(lane_errors, "stale required keyword", 0) + 1
+  end
 
   if !isempty(lane_errors)
     println("\n  THE LANE ITSELF FAILED ON SOME CELLS — not package findings, gaps in this sweep:")

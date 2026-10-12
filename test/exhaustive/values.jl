@@ -558,6 +558,10 @@ function run_value_lane(configs)
                                            grid.grid_size[d], 3)..., 3]),
       (:similar_field,       collect(size(field_data(similar_field(s, Val(1))))), [grid.grid_size..., 3]),
       (:similar_point_values, npoints(similar_point_values(q, Val(0))), 9),
+      # The one-argument forms (decision 101) take the reference's own order: a vector field gives a
+      # vector field's shape, and scalar point values a scalar's, against shapes written down here.
+      (:similar_field,       collect(size(field_data(similar_field(u)))), [grid.grid_size..., 3]),
+      (:similar_point_values, collect(size(point_values(similar_point_values(q)))), [9]),
       (:axes,                collect(first(axes(u))),           collect(1:grid.grid_size[1])),
       # Through the package's own `getindex` on the FIELD; reading the raw array on both sides never
       # called the method under test.
@@ -708,6 +712,9 @@ function run_value_lane(configs)
         write_scheme(file, "scheme", written_scheme)
         write_scheme(file, "lagrange", written_lagrange)
         write_scheme(file, "direct", DirectDFT())
+        # A group recording single-precision weights, as a scheme written before decision 101 could:
+        # its attribute rewritten through the raw API, since the package can no longer write one.
+        HDF5.attrs(write_scheme(file, "single", written_scheme))["eltype"] = "Float32"
       end
       raw_datasets(name) = begin
         found = Array[]
@@ -726,6 +733,9 @@ function run_value_lane(configs)
       end
       recovered_scheme, recovered_lagrange, recovered_direct = HDF5.h5open(path, "r") do file
         (read_scheme(file, "scheme"), read_scheme(file, "lagrange"), read_scheme(file, "direct"))
+      end
+      recovered_single = HDF5.h5open(path, "r") do file
+        read_scheme(file, "single")
       end
       stored_field = argmax(length, raw_datasets("field"))
       stored_points = argmax(length, raw_datasets("points"))
@@ -774,7 +784,11 @@ function run_value_lane(configs)
        (:read_scheme,  [typeof(recovered_scheme) === typeof(written_scheme),
                         typeof(recovered_lagrange) === typeof(written_lagrange),
                         typeof(recovered_direct) === typeof(DirectDFT())],
-                       [true, true, true]))
+                       [true, true, true]),
+       # Decision 101: weights are stored in `Float64`, so a group recording `Float32` reads as the
+       # `Float64` scheme of the same parameters, compared by value and by type.
+       (:read_scheme,  [recovered_single == written_scheme, typeof(recovered_single) === typeof(written_scheme)],
+                       [true, true]))
     else
       ()
     end
@@ -1085,6 +1099,14 @@ function run_value_lane(configs)
                           band(field_data(anterpolate!(ScalarFieldSpectral(copy(seeded), grid; layout), points, q, scheme, α, β))),
                           band(ref_spectral_anterpolate(seeded, point_positions(points), point_values(q),
                                                         grid, layout, 0, α, β))))
+        # The ALLOCATING scatter (decision 101): a grid and a layout, every scheme. A `NUFFT` plan is
+        # called with no layout, so the row also checks it defaults to the layout the plan was built for.
+        allocated = scheme isa NUFFT ? anterpolate(grid, points, q, scheme) :
+                                       anterpolate(grid, points, q, scheme; layout)
+        push!(generated, (:anterpolate,
+                          band(field_data(allocated)),
+                          band(ref_spectral_anterpolate(base, point_positions(points), point_values(q),
+                                                        grid, layout, 0, one(T), zero(T)))))
       end
     end
 

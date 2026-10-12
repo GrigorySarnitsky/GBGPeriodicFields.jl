@@ -28,6 +28,16 @@ const SEQUENCE_STEPS = 64
 _double_fiber(fiber) = 2 * fiber
 
 
+# `exponential_convolve!` takes its coefficient by keyword (decision 101), and the loop passes its
+# arguments positionally, so the call is carried by a callable holding the coefficient: a concrete
+# type the loop specializes on, adding nothing to the bytes it measures.
+struct _ExponentialStep{T}
+  coefficient::T
+end
+(step::_ExponentialStep)(destination, field, multipliers) =
+  exponential_convolve!(destination, field, multipliers; coefficient = step.coefficient)
+
+
 """
     loop_allocated(operation!, steps, arguments...) -> Int
 
@@ -181,7 +191,7 @@ function run_sequence_lane(configs)
                     ("curl!",                 loop_allocated(curl!, SEQUENCE_STEPS, vh, uh, m)),
                     ("helmholtz_projection!", loop_allocated(helmholtz_projection!, SEQUENCE_STEPS, vh, uh, m)),
                     ("convolve!",             loop_allocated(convolve!, SEQUENCE_STEPS, vh, uh, kernel)),
-                    ("exponential_convolve!", loop_allocated(exponential_convolve!, SEQUENCE_STEPS, vh, uh, m, decay)),
+                    ("exponential_convolve!", loop_allocated(_ExponentialStep(decay), SEQUENCE_STEPS, vh, uh, m)),
                     ("to_spectral!",          loop_allocated(to_spectral!, SEQUENCE_STEPS, uh, u, serial_plans)))
     # The bound is a FRACTION OF A FIELD, because that is what invariant 13 is about: a per-call
     # device temporary that escapes the GC and grows the pool every step. Measured at top level the way

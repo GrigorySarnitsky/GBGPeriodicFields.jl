@@ -117,6 +117,49 @@ struct PoolEntry
 end
 
 
+# The keywords a method REQUIRES, which the engine cannot fill from a slot: `applicable` ignores
+# keywords, so a call built without one passes the filter and then throws `UndefKeywordError` on every
+# invocation. Decision 101 made `exponential_convolve!`'s coefficient a required keyword, and without
+# this table its whole family left the universal checks silently, every built call failing before it
+# returned. Each entry maps the operation to the keywords it is called with, drawn from the pool where
+# the pool has the value. A required keyword missing from here is not dropped: `check_invocation!`
+# rethrows `UndefKeywordError`, so it reaches the lane's harness-error count by name.
+_pool_object(pool, label) = only(e.object for e in pool if e.label == label)
+const REQUIRED_KEYWORDS = Dict{Symbol, Function}(
+  :exponential_convolve! => pool -> (coefficient = _pool_object(pool, "decay coefficient"),),
+  :exponential_convolve  => pool -> (coefficient = _pool_object(pool, "decay coefficient"),),
+  :with_threading        => pool -> (enabled = nothing,),
+)
+
+_required_keywords(operation, pool) =
+  haskey(REQUIRED_KEYWORDS, nameof(operation)) ? REQUIRED_KEYWORDS[nameof(operation)](pool) : (;)
+
+"""
+    invocation_keywords(invocation) -> NamedTuple
+
+The keywords an invocation is called with: empty for one built without any, as the self-check's are.
+"""
+invocation_keywords(invocation) = haskey(invocation, :keywords) ? invocation.keywords : (;)
+
+"""
+    check_required_keywords() -> Vector{String}
+
+Every keyword `REQUIRED_KEYWORDS` names, checked against the method table: a keyword no method of its
+operation declares is a stale entry, reported rather than passed silently to a call that would refuse it.
+"""
+function check_required_keywords()
+  stale = String[]
+  for (name, provide) in REQUIRED_KEYWORDS
+    operation = getfield(GBGPeriodicFields, name)
+    declared = Set(Iterators.flatten(Base.kwarg_decl(m) for m in methods(operation)))
+    for keyword in keys(provide(PoolEntry[PoolEntry("decay coefficient", -0.1)]))
+      keyword in declared || push!(stale, "$(name): `$(keyword)` is declared by no method")
+    end
+  end
+  return stale
+end
+
+
 _concrete_subtypes(T) = isabstracttype(T) ?
   reduce(vcat, (_concrete_subtypes(S) for S in InteractiveUtils.subtypes(T)); init = Type[]) : Type[T]
 
@@ -440,7 +483,8 @@ function invocations(operation::Function, pool; cap::Int = 400)
     if isempty(parameters)
       applicable(operation) &&
         Base.push!(built, (operation = operation, label = "$(nameof(operation))()",
-                           arguments = Any[], entries = PoolEntry[]))
+                           arguments = Any[], entries = PoolEntry[],
+                           keywords = _required_keywords(operation, pool)))
       continue
     end
     # A variadic tail has no finite product, but it does have a shortest meaningful expansion: one
@@ -495,7 +539,8 @@ function invocations(operation::Function, pool; cap::Int = 400)
           Base.push!(built, (operation = operation,
                              label = "$(nameof(operation))(" *
                                      join((e.label for e in combination), ", ") * ")",
-                             arguments = arguments, entries = collect(combination)))
+                             arguments = arguments, entries = collect(combination),
+                             keywords = _required_keywords(operation, pool)))
         end
       end
       continue
@@ -545,7 +590,8 @@ function invocations(operation::Function, pool; cap::Int = 400)
                          label = "$(nameof(operation))(" *
                                  join((e.label for e in combination), ", ") * ")",
                          arguments = arguments,
-                         entries = collect(combination)))
+                         entries = collect(combination),
+                         keywords = _required_keywords(operation, pool)))
     end
   end
   return (built = built, dropped = dropped, oversized = oversized, unfillable = unfillable)

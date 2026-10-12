@@ -518,6 +518,11 @@ function run_property_lanes(configs)
          ("NUFFT with a non-positive tolerance", () -> NUFFT(z; tol = zero(b.T))),
 
          ("NUFFT with a negative tolerance", () -> NUFFT(z; tol = -b.T(1))),
+         # Decision 101: an absent width or beta is derived from the tolerance; a given one must be positive.
+         ("NUFFT with a zero width", () -> NUFFT(z; width = 0)),
+         ("NUFFT with a negative width", () -> NUFFT(z; width = -2)),
+         ("NUFFT with a zero beta", () -> NUFFT(z; beta = zero(b.T))),
+         ("NUFFT with a negative beta", () -> NUFFT(z; beta = -b.T(1))),
          # CROSSED OVER THE AXIS. Both fixtures corrupted axis 1 only, so per-axis validation that
          # checked the first extent and skipped the rest — an ordinary loop-bound slip — would have
          # accepted a zero or NaN extent on axes 2 and 3 with nothing here to notice.

@@ -108,7 +108,10 @@ gets the universal checks. The rest needs a hand:
    `LEDGER_REASONS` in `method_reasons.jl` instead, keyed by its signature and citing its assertion.
 3. **A new kind of argument**, one the pool cannot supply, gets an entry in `canonical_pool` in
    `invocations.jl`. A new kernel class or transfer scheme must be added to its pool; the `subtypes`
-   audit reports the omission.
+   audit reports the omission. A **required keyword** gets an entry in `REQUIRED_KEYWORDS` in the same
+   file, because the engine fills only positional slots; one left out is reported by name as an
+   `UndefKeywordError` among the lane's own failures, and an entry naming a keyword no method declares
+   is reported as stale.
 4. **A relation to another operation** (an adjoint, an identity, a round trip) is declared in
    `RELATIONS` in `ledger.jl` and evaluated in `run_relations_lane` in `properties.jl`.
 5. **An entry point that validates a context argument** gets a row in the mismatch entries in `pools.jl`,
