@@ -117,22 +117,33 @@ struct PoolEntry
 end
 
 
-# The keywords a method REQUIRES, which the engine cannot fill from a slot: `applicable` ignores
-# keywords, so a call built without one passes the filter and then throws `UndefKeywordError` on every
-# invocation. Decision 101 made `exponential_convolve!`'s coefficient a required keyword, and without
-# this table its whole family left the universal checks silently, every built call failing before it
-# returned. Each entry maps the operation to the keywords it is called with, drawn from the pool where
-# the pool has the value. A required keyword missing from here is not dropped: `check_invocation!`
-# rethrows `UndefKeywordError`, so it reaches the lane's harness-error count by name.
+# The keywords the engine calls a method with, which it cannot fill from a slot: `applicable` ignores
+# keywords, so a call built without a required one passes the filter and then throws `UndefKeywordError`
+# on every invocation. Decision 101 made `exponential_convolve!`'s coefficient a required keyword and
+# its offset an optional one; without this table the family left the universal checks silently, every
+# built call failing before it returned. Each entry gives one or more KEYWORD SETS, and every built
+# call is made once per set, so an optional keyword that selects a different path (the offset's two
+# storage classes) is swept as the positional slot it replaced was. Values come from the pool where it
+# has them. A required keyword missing from here is not dropped: `check_invocation!` rethrows
+# `UndefKeywordError`, so it reaches the lane's harness-error count by name.
 _pool_object(pool, label) = only(e.object for e in pool if e.label == label)
+_exponential_keyword_sets(pool) =
+  [(coefficient = _pool_object(pool, "decay coefficient"),),
+   (coefficient = _pool_object(pool, "decay coefficient"),
+    offset = _pool_object(pool, "exponent offset: field"), offset_scale = 1 // 100),
+   (coefficient = _pool_object(pool, "decay coefficient"),
+    offset = _pool_object(pool, "kernel: band"), offset_scale = 1 // 100)]
 const REQUIRED_KEYWORDS = Dict{Symbol, Function}(
-  :exponential_convolve! => pool -> (coefficient = _pool_object(pool, "decay coefficient"),),
-  :exponential_convolve  => pool -> (coefficient = _pool_object(pool, "decay coefficient"),),
-  :with_threading        => pool -> (enabled = nothing,),
+  :exponential_convolve! => _exponential_keyword_sets,
+  :exponential_convolve  => _exponential_keyword_sets,
+  :with_threading        => pool -> [(enabled = nothing,)],
 )
 
-_required_keywords(operation, pool) =
-  haskey(REQUIRED_KEYWORDS, nameof(operation)) ? REQUIRED_KEYWORDS[nameof(operation)](pool) : (;)
+_keyword_sets(operation, pool) =
+  haskey(REQUIRED_KEYWORDS, nameof(operation)) ? REQUIRED_KEYWORDS[nameof(operation)](pool) : [(;)]
+
+_keyword_label(keywords) = isempty(keywords) ? "" :
+  "; " * join(("$(k) = $(v isa Number ? v : nameof(typeof(v)))" for (k, v) in pairs(keywords)), ", ")
 
 """
     invocation_keywords(invocation) -> NamedTuple
@@ -152,7 +163,9 @@ function check_required_keywords()
   for (name, provide) in REQUIRED_KEYWORDS
     operation = getfield(GBGPeriodicFields, name)
     declared = Set(Iterators.flatten(Base.kwarg_decl(m) for m in methods(operation)))
-    for keyword in keys(provide(PoolEntry[PoolEntry("decay coefficient", -0.1)]))
+    stand_in = PoolEntry[PoolEntry(label, nothing)
+                         for label in ("decay coefficient", "exponent offset: field", "kernel: band")]
+    for keyword in unique(Iterators.flatten(keys.(provide(stand_in))))
       keyword in declared || push!(stale, "$(name): `$(keyword)` is declared by no method")
     end
   end
@@ -328,6 +341,10 @@ function canonical_pool(config; device = identity)
   # was a positive integer, which makes exp(c·|k|²) overflow rather than filter — so the whole
   # exponential family was swept only in the regime it is not for.
   push("decay coefficient", -T(1) / 10)
+  # The exponential kernel's per-mode OFFSET, a keyword since decision 101: a field holding real values
+  # in its complex storage, drawn like the spectral pool. Its radial sibling is "kernel: band".
+  push("exponent offset: field",
+       ScalarFieldSpectral(complex.(real.(randn(Complex{T}, S(0)...))), grid; layout))
   push("fiber vector", FiberVector{T}(1, 2, 3))
   push("fiber tensor", FiberTensor2{T}(1, 2, 3, 4, 5, 6, 7, 8, 9))
   push("offset", offset)
@@ -482,9 +499,10 @@ function invocations(operation::Function, pool; cap::Int = 400)
     # and skipping empty parameter lists reported it as unbuildable.
     if isempty(parameters)
       applicable(operation) &&
-        Base.push!(built, (operation = operation, label = "$(nameof(operation))()",
-                           arguments = Any[], entries = PoolEntry[],
-                           keywords = _required_keywords(operation, pool)))
+        for keywords in _keyword_sets(operation, pool)
+          Base.push!(built, (operation = operation, label = "$(nameof(operation))($(_keyword_label(keywords)))",
+                             arguments = Any[], entries = PoolEntry[], keywords = keywords))
+        end
       continue
     end
     # A variadic tail has no finite product, but it does have a shortest meaningful expansion: one
@@ -536,11 +554,12 @@ function invocations(operation::Function, pool; cap::Int = 400)
           seen_count > cap && break
           arguments = [e.object for e in combination]
           applicable(operation, arguments...) || continue
-          Base.push!(built, (operation = operation,
-                             label = "$(nameof(operation))(" *
-                                     join((e.label for e in combination), ", ") * ")",
-                             arguments = arguments, entries = collect(combination),
-                             keywords = _required_keywords(operation, pool)))
+          for keywords in _keyword_sets(operation, pool)
+            Base.push!(built, (operation = operation,
+                               label = "$(nameof(operation))(" *
+                                       join((e.label for e in combination), ", ") * _keyword_label(keywords) * ")",
+                               arguments = arguments, entries = collect(combination), keywords = keywords))
+          end
         end
       end
       continue
@@ -586,12 +605,14 @@ function invocations(operation::Function, pool; cap::Int = 400)
       count > cap && break
       arguments = [e.object for e in combination]
       applicable(operation, arguments...) || continue
-      Base.push!(built, (operation = operation,
-                         label = "$(nameof(operation))(" *
-                                 join((e.label for e in combination), ", ") * ")",
-                         arguments = arguments,
-                         entries = collect(combination),
-                         keywords = _required_keywords(operation, pool)))
+      for keywords in _keyword_sets(operation, pool)
+        Base.push!(built, (operation = operation,
+                           label = "$(nameof(operation))(" *
+                                   join((e.label for e in combination), ", ") * _keyword_label(keywords) * ")",
+                           arguments = arguments,
+                           entries = collect(combination),
+                           keywords = keywords))
+      end
     end
   end
   return (built = built, dropped = dropped, oversized = oversized, unfillable = unfillable)
