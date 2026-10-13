@@ -512,6 +512,9 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       shift_h = translation_kernel(mult_h, offset)
       shift_d = translation_kernel(mult_d, offset)
       @test kernel_matches(shift_d, shift_h)
+      # The in-place rebuild refuses a REAL window before launching anything: on a device the
+      # conversion failure it replaced surfaced as a KernelException from inside the broadcast.
+      @test_throws ArgumentError translation_kernel!(assignment_window(mult_d), mult_d, offset)
       # M2: a compressed kernel through the OPERATORS' kernel arity, on device — the lazy per-axis
       # product crossing a KA launch inside helmholtz/divergence, not only inside convolve!
       @test matches(helmholtz_projection(u_spec_d, mult_d, shift_d),
@@ -795,6 +798,18 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test eq(mean(vpd), mean(vp))
       @test eq(inner(vpd, vpd), inner(vp, vp)) && eq(l2norm(vpd), l2norm(vp))
       @test eq(maximum(spd), maximum(sp))
+
+      # Type-stable on the device. CUDA.jl's `dot` and GPUArrays' `==` infer `Any`, which made every
+      # reduction built on them — and the equality — dynamic for its caller; the package asserts the
+      # result type at those two calls, and these hold it there.
+      @test @inferred(inner(vfd, vfd)) isa T
+      @test @inferred(l2norm(vfd)) isa T
+      @test @inferred(lpnorm(vfd)) isa T
+      @test @inferred(inner(vf_spec_d, wf_spec_d)) isa T
+      @test @inferred(inner(vpd, vpd)) isa T
+      @test @inferred(vfd == vfd)
+      @test @inferred(isequal(vf_spec_d, vf_spec_d))
+      @test @inferred(spd == spd)
     end
 
     @testset "caller-controlled counts past the group size (decision 88)" begin

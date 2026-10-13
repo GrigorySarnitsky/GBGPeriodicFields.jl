@@ -2098,21 +2098,30 @@ end
 
 Rebuild and return `kernel` for a new displacement `offset`, overwriting its per-axis factors.
 Use this
-in-place form when a displacement changes and the kernel is already allocated; the allocating
-[`translation_kernel`](@ref) returns a fresh kernel instead. The cost is three ``O(N)`` axis passes,
-not a field, so rebuilding per call is cheap.
+in-place form when the kernel is already allocated; the allocating
+[`translation_kernel`](@ref) returns a fresh kernel instead. It costs three ``O(N)`` axis passes,
+not a field.
 
 # Arguments
 
-- `kernel` — the [`SeparableKernel`](@ref) whose per-axis factors are overwritten.
+- `kernel` — the translation kernel, a [`SeparableKernel`](@ref), whose factors are overwritten; a
+  real-valued window is refused.
 - `multipliers` — the wavenumber arrays, supplying both families (the derivative wavenumbers and
   the true squared ones), checked against `kernel`'s grid and layout.
 - `offset` — the physical displacement ``h`` as a three-tuple.
 
 The displacement convention and the Nyquist treatment are `translation_kernel`'s.
 """
-function translation_kernel!(kernel::SeparableKernel{T}, multipliers::FieldSpectralMultipliers,
-    offset::NTuple{3, Real}) where {T}
+function translation_kernel!(kernel::SeparableKernel{T, V}, multipliers::FieldSpectralMultipliers,
+    offset::NTuple{3, Real}) where {T, V}
+  # A translation is a complex phase, so only a kernel with complex factors can hold one. A real
+  # window (`assignment_window`, `tophat_window`) was accepted and failed by conversion part-way
+  # through the write — an `InexactError` on the host, a `KernelException` on a device. The check is
+  # on the type, so it folds away for the kernels this function exists for.
+  eltype(V) <: Complex || throw(ArgumentError(
+    "translation_kernel! rebuilds a translation kernel, whose factors are complex; this " *
+    "SeparableKernel holds real factors ($(eltype(V))), as a window does. Build a translation " *
+    "kernel with translation_kernel(multipliers, offset)."))
   # The allocating builder derives its context from the multipliers; this one is handed a kernel
   # and a multiplier set that were built independently, so it has to check they agree. Without the
   # check, multipliers from another domain of the same axis lengths rewrote the kernel with the wrong

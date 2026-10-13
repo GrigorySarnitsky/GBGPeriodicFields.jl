@@ -843,7 +843,10 @@ function inner(f::ReducibleSection, g::ReducibleSection)
     isempty(a) && return zero(eltype(a)) / _base_count(f)
     return _indexed_tree_reduce(index -> (@inbounds a[index] * b[index]), +, 1, length(a)) / _base_count(f)
   end
-  return LinearAlgebra.dot(a, b) / _base_count(f)
+  # The element type is asserted because CUDA.jl's `dot` infers `Any`, which made `inner` — and
+  # `l2norm`, `lpnorm`, `std` and `var` through it — type-unstable on a device, every caller then
+  # paying dynamic dispatch and a boxed result. A real `dot` of two `T` arrays is a `T`.
+  return (LinearAlgebra.dot(a, b)::eltype(a)) / _base_count(f)
 end
 
 
@@ -912,7 +915,7 @@ function inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}) where {
   # as `inner(f, f)` (the fused branch above) or uses the physical `inner` (a contiguous `dot`), not this.
   total = (KernelAbstractions.get_backend(data_g) isa KernelAbstractions.CPU ?
       _indexed_tree_reduce(index -> (@inbounds conj(data_g[index]) * data_f[index]), +, 1, length(data_g)) :
-      LinearAlgebra.dot(data_g, data_f))                       # Σ_stored f̂ conj(ĝ) (contiguous ⇒ BLAS dot)
+      LinearAlgebra.dot(data_g, data_f)::eltype(data_g))       # Σ_stored f̂ conj(ĝ) (contiguous ⇒ BLAS dot; typed, the device `dot` inferring `Any`)
   correction = _folded_cross_plane(data_g, data_f, folded_dimension, 1)
   even_fold && (correction += _folded_cross_plane(data_g, data_f, folded_dimension,
                                                   size(data_f, folded_dimension)))

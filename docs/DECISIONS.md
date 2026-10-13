@@ -4133,3 +4133,28 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
        type at every launch, so the stored precision changed nothing a caller could observe beyond the
        display; they are stored in `Float64`. A scheme group recording `Float32` weights still reads, as
        the `Float64` scheme.
+
+102. **Two device findings of the first GPU survey** (2026-10-13, owner-approved). The exhaustive
+     survey had never crossed a device: it could not load in a GPU environment, and its spectral fixtures
+     never reached one. Its first real CUDA run found two package defects, both now fixed.
+
+     - **`translation_kernel!` refuses a real-valued kernel.** It accepted any `SeparableKernel`,
+       including the real windows `assignment_window` and `tophat_window` build, and wrote complex phases
+       into their real factors. The call failed only by Julia's number conversion: an `InexactError` on
+       the host, possibly after part of the kernel was written, and a `KernelException` inside the
+       broadcast on a device. A refusal must be the package's decision (invariant 14's first property), so
+       it now throws an `ArgumentError` before writing anything. The check is on the factor type, so it
+       costs nothing for the complex kernels the function exists for. Witness:
+       `test/regressions/translation-kernel-real-separable-kernel.jl`, failing before the fix.
+
+     - **The device reductions and the equality are type-stable.** CUDA.jl's `dot` and GPUArrays' `==`
+       infer `Any`, so `inner`, and `l2norm`, `lpnorm`, `std` and `var` through it, and `==` and
+       `isequal` on device sections, returned a value of unknown type: each caller paid dynamic dispatch
+       and a boxed result. The package now asserts the result type at those calls, the element type on
+       the `dot` and `Bool` on the comparison, which are what both return. The values are unchanged; the
+       GPU suite holds the inference with `@inferred`.
+
+     The survey's third device observation, that a permuted `RealFourierLayout` cannot be planned on CUDA,
+     is not a defect: cuFFT requires the folded axis first, as `docs/src/gpu.md` and `docs/TESTING.md`
+     record. The survey now leaves the plans out of a permuted layout's device fixtures, rather than
+     losing the whole configuration's device leg.

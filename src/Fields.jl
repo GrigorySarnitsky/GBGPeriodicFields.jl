@@ -2772,7 +2772,9 @@ function _section_equality(compare, a, b)
   _same_backend(a, b) ||
     throw(ArgumentError("fields in different array families are not compared: move one with `adapt` first"))
   _same_tensor_order(a, b) && _same_grid(a, b) && _same_layout(a, b) || return false
-  return compare(field_data(a), field_data(b))
+  # Asserted: GPUArrays' `==` over two device arrays infers `Any`, which left `==` and `isequal` on
+  # device fields type-unstable for every caller.
+  return compare(field_data(a), field_data(b))::Bool
 end
 
 

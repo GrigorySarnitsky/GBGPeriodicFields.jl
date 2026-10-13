@@ -294,8 +294,17 @@ function canonical_pool(config; device = identity)
   push("grid", grid)
   push("layout", layout)
   push("multipliers", multipliers)
-  for R in 0:2
-    push("plans R=$R", FieldTransformPlans(physical[R + 1], spectral[R + 1]))
+  # A device transform needs the default layout: cuFFT cannot plan a real transform whose folded axis is
+  # not first, which `docs/src/gpu.md` and `docs/TESTING.md` record. Building the plans there threw, and
+  # the whole pool with them, so every OTHER operation of a permuted-layout configuration was kept off
+  # the device too (16 of 24 configurations in the first device run). The plans and the `NUFFT` scheme,
+  # which owns plans, are left out instead; the operations that need them are then counted as unfillable
+  # for that configuration, and everything else crosses the device.
+  plannable = device === identity || layout.fft_dims == (1, 2, 3)
+  if plannable
+    for R in 0:2
+      push("plans R=$R", FieldTransformPlans(physical[R + 1], spectral[R + 1]))
+    end
   end
   # Every kernel storage class, so a kernel-taking operation is swept over all of them rather than
   # over whichever one someone reached for. The list is checked against `subtypes` below — the design
@@ -329,7 +338,7 @@ function canonical_pool(config; device = identity)
   push("scheme: Lalescu21",  LalescuSpline(6; smoothness = 1))
   push("scheme: Lagrange1",  LagrangeSpline(4))
   push("scheme: DirectDFT",  DirectDFT())
-  push("scheme: NUFFT",      NUFFT(spectral[1]))
+  plannable && push("scheme: NUFFT", NUFFT(spectral[1]))
   # The audit result is RETURNED, not pushed into the pool. Pushing it made a `Vector{Symbol}` a live
   # candidate for any loosely-typed slot, and nothing ever read it back — so the guard the docstring
   # promised was computed and discarded.

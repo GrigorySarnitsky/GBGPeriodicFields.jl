@@ -1549,7 +1549,7 @@ function _point_section_equality(compare, a_values, b_values)
   _array_family(a_values) === _array_family(b_values) ||
     throw(ArgumentError("point sections in different array families are not compared: move one with `adapt` first"))
   size(a_values) == size(b_values) || return false
-  return compare(a_values, b_values)
+  return compare(a_values, b_values)::Bool        # asserted: the device `==` infers `Any`
 end
 
 ==(a::AbstractPointValues, b::AbstractPointValues) =
