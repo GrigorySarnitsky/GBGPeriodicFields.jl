@@ -48,6 +48,12 @@ function _array_leaves(x, found = Any[], seen = Base.IdSet{Any}())
   x in seen && return found
   x isa AbstractArray && return (Base.push!(found, x); found)
   (x isa Symbol || x isa AbstractString || x isa Function) && return found
+  # A transform library's PLAN is the library's state, not the package's: CUDA.jl's inverse real plan
+  # carries a `buffer` it overwrites on every execution, to spare the c2r transform's input. Watching
+  # it reported every `to_physical`, `radial_correlation` and `NUFFT` call on a device as modifying its
+  # plans argument (102 cells in one configuration), and FFTW's plans hold no arrays, which is why the
+  # host never showed it. The package's own buffers beside the plan are still watched.
+  x isa GBGI.Fields.AbstractFFTs.Plan && return found
   # A NUMBER, TYPE or TUPLE is a comparable leaf in its own right. Collecting only arrays left
   # `Grid3D`, `RealFourierLayout` and a bare `Type` with no leaves at all — `isstructtype` excludes
   # `Tuple`, so the recursion stopped immediately — which made determinism and finiteness vacuous for
@@ -115,6 +121,20 @@ _finite(x) =
 
 # A leaf is an array, a number or a type; each needs its own comparable and finiteness form.
 _leaf_value(l) = l isa AbstractArray ? copy(Array(l)) : l
+
+# The floating-point type a comparable result is computed in: its first real number or real array
+# element type, `Float64` when it holds none (an integer index, a flag), so `_value_tolerance` applies
+# the precision the operation actually ran at.
+_result_precision(x::AbstractFloat) = typeof(x)
+_result_precision(x::Complex{<:AbstractFloat}) = real(typeof(x))
+_result_precision(x::AbstractArray{<:Union{AbstractFloat, Complex{<:AbstractFloat}}}) = real(eltype(x))
+# A container of mixed leaves — the field list `_comparable` builds for a kernel or a point set — takes
+# the narrowest precision any leaf carries, so one `Float32` array among integers sets the tolerance.
+function _result_precision(x::Union{AbstractArray, Tuple})
+  narrower = filter(!=(Float64), Any[_result_precision(element) for element in x])
+  return isempty(narrower) ? Float64 : first(narrower)
+end
+_result_precision(x) = Float64
 _finite_leaf(l) = l isa AbstractArray ? all(isfinite, Array(l)) : (l isa Number ? isfinite(l) : true)
 
 
@@ -433,7 +453,12 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
          # `approximates`, not `isapprox`: the tolerance branch must accept every shape the bitwise
          # branch does, and `isapprox` has no `Tuple` method, so the tuple-returning radial reductions
          # — which are exactly the atomic family this branch exists for — threw here.
-         a === nothing ? true : (exact ? reproduces(a, b) : approximates(a, b; rtol = 1e-10))
+         # The tolerance tracks the result's PRECISION. A fixed `1e-10` sits a thousand times below
+         # `Float32`'s own resolution, so on a device every `Float32` atomic reduction and the R=2 `dot`
+         # read as irreproducible (96 cells in one configuration) where `Float64` passed — the summation
+         # order differing by launch, which this branch exists to allow.
+         a === nothing ? true :
+           (exact ? reproduces(a, b) : approximates(a, b; rtol = _value_tolerance(_result_precision(a))))
        end
        same isa Symbol && (record!(:determinism,
          "$(invocation.label) — the reproducibility comparison threw $(same)"); same = true)
@@ -593,7 +618,9 @@ function run_invocation_lane(configs)
     unbuildable = sort(union(unbuildable, result.unbuildable); by = String)
     hook_extended = sort(union(hook_extended, result.hook_extended); by = String)
     for (kind, messages) in result.findings
-      append!(get!(totals, kind, String[]), ("[$(config.name)] " * m for m in messages))
+      # The BACKEND in the tag: on a device run each configuration is swept twice, and a finding
+      # tagged with the configuration alone could not say which leg produced it.
+      append!(get!(totals, kind, String[]), ("[$(config.name)/$(backend_name)] " * m for m in messages))
     end
     for (kind, n) in result.attempted
       attempted[kind] = get(attempted, kind, 0) + n

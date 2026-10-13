@@ -146,7 +146,7 @@ function _run_value_lane_under_coverage(directory, fixtures_only::Bool; here = @
     for f in ("shared.jl", "aliasing.jl", "references.jl", "invocations.jl", "values.jl")
       include(joinpath(raw"$here", f))
     end
-    run_value_lane(configurations()[1:2])
+    run_value_lane(first(configurations(), 2))
     """
   environment = copy(ENV)
   environment["GBG_LEDGER_FIXTURES_ONLY"] = fixtures_only ? "1" : ""

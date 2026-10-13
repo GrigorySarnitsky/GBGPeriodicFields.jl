@@ -61,6 +61,15 @@ function configurations(; seeds = (20260731, 815))
                        T, grid, layout, threaded, seed))
     end
   end
+  # An opt-in SUBSET, for staging a run before the full product: `SURVEY_CONFIGURATIONS` holds a regular
+  # expression matched against each name, so a first device run can measure its time and memory on a
+  # few cells. Unset, every configuration runs; the report names how many there were, so a filtered run
+  # cannot pass for the complete one.
+  if haskey(ENV, "SURVEY_CONFIGURATIONS")
+    pattern = Regex(ENV["SURVEY_CONFIGURATIONS"])
+    filter!(c -> occursin(pattern, c.name), cs)
+    isempty(cs) && error("SURVEY_CONFIGURATIONS=$(ENV["SURVEY_CONFIGURATIONS"]) matches no configuration")
+  end
   return cs
 end
 

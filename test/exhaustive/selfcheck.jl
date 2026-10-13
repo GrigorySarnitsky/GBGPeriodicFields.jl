@@ -29,12 +29,19 @@ function _defect_preservation!(destination, source)
   return destination
 end
 
-_defect_structural(field) = ScalarFieldPhysical(fill(NaN, size(field_data(field))), field_grid(field); layout = field_layout(field))
+# Both defects build their result at the field's OWN element type. They were written with `Float64`
+# literals, which a `Float32` first configuration — reachable once `SURVEY_CONFIGURATIONS` can select one
+# — turned into a refused construction, so the self-check died before its first check instead of firing.
+_defect_structural(field) =
+  ScalarFieldPhysical(fill(field_scalar_type(field)(NaN), size(field_data(field))), field_grid(field);
+                      layout = field_layout(field))
 
 # Returns a field on a DIFFERENT grid and layout: the metadata-propagation defect that broke `map` for
 # every permuted layout from the day it shipped (decision 48).
 _defect_metadata(field) =
-  ScalarFieldPhysical(copy(field_data(field)), Grid3D(field_grid(field).grid_size, (4π, 4π, 4π)); layout = RealFourierLayout((2, 1, 3)))
+  ScalarFieldPhysical(copy(field_data(field)),
+                      Grid3D(field_grid(field).grid_size, ntuple(_ -> field_scalar_type(field)(4π), 3));
+                      layout = RealFourierLayout((2, 1, 3)))
 
 _defect_determinism(field) = sum(field_data(field)) + rand()
 
