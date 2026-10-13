@@ -52,8 +52,13 @@ function _array_leaves(x, found = Any[], seen = Base.IdSet{Any}())
   # carries a `buffer` it overwrites on every execution, to spare the c2r transform's input. Watching
   # it reported every `to_physical`, `radial_correlation` and `NUFFT` call on a device as modifying its
   # plans argument (102 cells in one configuration), and FFTW's plans hold no arrays, which is why the
-  # host never showed it. The package's own buffers beside the plan are still watched.
+  # host never showed it.
   x isa GBGI.Fields.AbstractFFTs.Plan && return found
+  # And the package's own transform plans hold nothing but those library plans and `component_scratch`,
+  # the documented component-sized buffer a device grid with misaligned component offsets transforms
+  # through: overwriting it is its purpose. Watched, every transform on the odd grid read as modifying
+  # its plans (111 cells across four device configurations).
+  x isa FieldTransformPlans && return found
   # A NUMBER, TYPE or TUPLE is a comparable leaf in its own right. Collecting only arrays left
   # `Grid3D`, `RealFourierLayout` and a bare `Type` with no leaves at all — `isstructtype` excludes
   # `Tuple`, so the recursion stopped immediately — which made determinism and finiteness vacuous for

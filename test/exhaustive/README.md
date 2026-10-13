@@ -21,6 +21,12 @@ julia -t4 --project=test/gpu/rocm test/exhaustive/runtests.jl     # CPU and ROCm
   persistence operations. A GPU environment adds its device to the universal-checks lane alone; every
   other lane builds host fixtures and runs on the CPU in every environment.
 - **It takes about 1.5 hours** on an idle machine. Anything else running inflates it.
+- **A device run cannot take the whole product in one process.** Measured on CUDA (2026-10-13): about
+  7 minutes and 3.5 GB of host memory per configuration, the memory not returned until the process
+  ends, so the 96 configurations need about 16 hours and more memory than a 123 GB host has. Run it in
+  processes of a dozen configurations, selected with `SURVEY_CONFIGURATIONS`, a regular expression on
+  the configuration names (`Float32/cubic/fold1/serial/seed815`); unset, every configuration runs. The
+  report states how many configurations it ran.
 
 ## Reading the output
 
