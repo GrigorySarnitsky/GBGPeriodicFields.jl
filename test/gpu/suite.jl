@@ -668,6 +668,10 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
         device_nufft = NUFFT(device_spectral; tolerance = tol)
         host_nufft = NUFFT(host_spectral; tolerance = tol)
         @test matches(interpolate(device_spectral, device_points, device_nufft), interpolate(host_spectral, host_points, host_nufft))
+        # Decision 103: the plan from the device array family alone, equal to the reference form's.
+        family_nufft = NUFFT(device_array_family(), field_grid(device_spectral), Val(R); layout = field_layout(device_spectral), tolerance = tol)
+        @test family_nufft.deconvolution == device_nufft.deconvolution
+        @test matches(interpolate(device_spectral, device_points, family_nufft), interpolate(host_spectral, host_points, host_nufft))
         @test matches(anterpolate(field_grid(device_spectral), device_points, device_q, device_nufft), anterpolate(field_grid(host_spectral), host_points, host_q, host_nufft))
       end
     end

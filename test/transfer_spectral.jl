@@ -445,3 +445,35 @@ end
   # pins WHICH modes are dropped rather than being satisfied by any implementation.
   @test !isapprox(exact_projected, exact_full; atol = 1e-3)
 end
+
+
+# Decision 103: the plan from the array family alone, the decision-74 pattern. The reference form reads
+# nothing from its field but the grid, layout, element type, tensor order and array family, so the
+# family form naming them must build the same plan to the bit.
+@testset "NUFFT from an array family ($TP)" for TP in (Float64, Float32)
+  grid = Grid3D((8, 7, 6), TP.((2π, 4π, 6π)))
+  layout = RealFourierLayout((3, 1, 2))
+  tolerance = TP === Float64 ? 1e-8 : 1.0f-4
+  points = PointSet(TP.(rand(11, 3)) .* reshape(TP.([2π, 4π, 6π]), 1, 3))
+  for R in 0:1
+    reference = R == 0 ? ScalarFieldSpectral(Array, grid; layout) : VectorFieldSpectral(Array, grid; layout)
+    copyto!(field_data(reference), rand(Complex{TP}, size(field_data(reference))))
+    from_field = NUFFT(reference; tolerance)
+    from_family = NUFFT(Array, grid, Val(R); layout, tolerance)
+    @test typeof(from_family) === typeof(from_field)
+    @test (from_family.width, from_family.beta) == (from_field.width, from_field.beta)
+    @test from_family.reference_grid == grid && from_family.reference_layout == layout
+    @test from_family.oversampled_grid == from_field.oversampled_grid
+    @test from_family.deconvolution == from_field.deconvolution
+    @test point_values(interpolate(reference, points, from_family)) ==
+          point_values(interpolate(reference, points, from_field))
+    # The explicit window parameters pass through the family form as they do the reference form.
+    @test NUFFT(Array, grid, Val(R); layout, window_width = 7, window_shape = 15).width == 7
+  end
+  # The layout defaults to the standard one, and the family's element type must agree with the grid.
+  @test NUFFT(Array, grid, Val(0)).reference_layout == RealFourierLayout()
+  other = TP === Float64 ? Float32 : Float64
+  @test_throws ArgumentError NUFFT(Array{other}, grid, Val(0))
+  @test_throws ArgumentError NUFFT(Array{Complex{TP}}, grid, Val(0))
+  @test_throws ArgumentError NUFFT(Array, grid, Val(0); tolerance = zero(TP))
+end

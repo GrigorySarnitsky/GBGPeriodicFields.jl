@@ -83,7 +83,8 @@ using StaticArrays: SVector, SMatrix
 using LinearAlgebra: \, I
 using ..FiberSections: _assign!, @_assign!, _use_threads
 import ..Fields: _context_grid, _context_layout      # extended for the NUFFT plan below
-using ..Fields: _check_matching_context, _array_family, _approx, _show_domain, _show_extent
+using ..Fields: _check_matching_context, _array_family, _approx, _show_domain, _show_extent,
+                _check_array_family_element_type, _allocated_field_storage
 using ..Fields: AbstractFieldPhysical, ScalarFieldPhysical, VectorFieldPhysical, TensorFieldPhysical,
                 AbstractFieldSpectral, ScalarFieldSpectral, VectorFieldSpectral, TensorFieldSpectral,
                 Grid3D, RealFourierLayout, field_data, field_grid, field_layout, field_scalar_type,
@@ -1681,12 +1682,11 @@ _nufft_beta(width::Integer, ::Type{T}) where {T} = T(23) / 10 * width
 # The coefficientwise deconvolution ∏_a 1/ψ̂_a(ω) on the coarse (N) spectral grid, a real (Nkx,Ny,Nz)
 # device array (mirrors `Convolution.assignment_window`: per-axis host build, reshape, broadcast,
 # copy). ω_a = 2π·freq/(σ N_a) is the cell-frequency of the stored mode on the oversampled grid.
-function _nufft_deconvolution(reference::AbstractFieldSpectral{T}, oversampling::Int, width::Int, beta::T) where {T<:AbstractFloat}
-  grid = field_grid(reference)
-  half_dimension = field_layout(reference).fft_dims[1]
-  data = field_data(reference)
+function _nufft_deconvolution(prototype::AbstractArray, grid::Grid3D{T}, layout::RealFourierLayout, oversampling::Int, width::Int, beta::T) where {T<:AbstractFloat}
+  half_dimension = layout.fft_dims[1]
+  stored_shape = field_spectral_shape(grid, layout, Val(0))
   axis(d) = begin
-    stored = size(data, d)
+    stored = stored_shape[d]
     number_of_points = grid.grid_size[d]
     is_half = d == half_dimension
     host = Vector{T}(undef, stored)
@@ -1703,12 +1703,12 @@ function _nufft_deconvolution(reference::AbstractFieldSpectral{T}, oversampling:
     if iseven(number_of_points)
       host[is_half ? stored : number_of_points ÷ 2 + 1] = zero(T)
     end
-    device = similar(data, T, stored); copyto!(device, host); device
+    device = similar(prototype, T, stored); copyto!(device, host); device
   end
   reciprocal_1 = reshape(axis(1), :, 1, 1)
   reciprocal_2 = reshape(axis(2), 1, :, 1)
   reciprocal_3 = reshape(axis(3), 1, 1, :)
-  deconvolution = similar(data, T, size(data, 1), size(data, 2), size(data, 3))
+  deconvolution = similar(prototype, T, stored_shape)
   @_assign! deconvolution .= reciprocal_1 .* reciprocal_2 .* reciprocal_3
   return deconvolution
 end
@@ -1717,6 +1717,10 @@ end
 """
     NUFFT(reference::AbstractFieldSpectral{T};
           tolerance = 1e-10, oversampling = 2, window_width = _nufft_width(tolerance),
+          window_shape = _nufft_beta(window_width, T))
+    NUFFT(array_family::Type{<:AbstractArray}, grid::Grid3D{T}, ::Val{R};
+          layout = RealFourierLayout(), tolerance = 1e-10, oversampling = 2,
+          window_width = _nufft_width(tolerance),
           window_shape = _nufft_beta(window_width, T))
 
 The **fast, approximate** spectral-domain transfer scheme: the ``O(N\\log N + M)`` windowed-gridding
@@ -1727,22 +1731,24 @@ coefficients before the transform and gathering through the window after it — 
 it is far cheaper than the exact ``O(NM)`` sum once the point and mode counts grow; for a few points or
 modes, `DirectDFT` is simpler and exact.
 
-Build a plan once from a `reference` field in spectral representation, which fixes the grid, layout, element type, and
-tensor order, then pass it as the `scheme` to [`interpolate`](@ref) / [`anterpolate`](@ref) on fields
-like the reference.
+Build a plan once, then pass it as the `scheme` to [`interpolate`](@ref) / [`anterpolate`](@ref) on
+fields like the reference.
 
 # Arguments
 
   - `reference` — a field in spectral representation, fixing the grid, layout, element type and tensor
-    order the plan is built for. The order is fixed with the rest because the plan stores oversampled
-    field templates, which carry the fiber; a plan built at one order does not serve another.
-  - `tolerance` — the target accuracy; the window width and shape default to the values that reach
-    it. It is a **target**, not a guaranteed bound: it must be finite and positive, and a value finer
-    than the element type can resolve widens the window as far as the formula goes and then saturates
-    at that resolution rather than erroring.
-  - `oversampling` — the linear oversampling factor ``\\sigma`` of the work grid (default `2`); must be **at least 2**. That is an implementation bound rather than a
-    theoretical one — lower upsampling is standard with a correspondingly wider window — because the
-    width and shape formulas here are fitted for ``\\sigma \\ge 2``; a value of 1 leaves no spectral guard band, so the gridding breaks down.
+    order the plan is built for; its values are never read. The order is part of it because the plan
+    stores oversampled field templates, which carry the fiber, so a plan at one order does not serve
+    another.
+  - `array_family`, `grid`, `Val(R)` — in place of the reference: the array family (`Array`, `CuArray`,
+    `ROCArray`), the [`Grid3D`](@ref) and the tensor order; `layout`, a keyword of that form, is the
+    [`RealFourierLayout`](@ref), the standard one by default.
+  - `tolerance` — the target accuracy the window's width and shape are chosen to reach: a **target**,
+    not a bound. It must be finite and positive; one finer than the element type resolves widens the
+    window as far as the formula goes and saturates there.
+  - `oversampling` — the linear oversampling factor ``\\sigma`` of the work grid, at least 2: the width
+    and shape formulas are fitted for ``\\sigma \\ge 2``, and a work grid with no guard band aliases
+    across the resolved band.
   - `window_width` — the gridding stencil width in nodes; by default the width that reaches `tolerance`.
   - `window_shape` — the window's shape parameter; by default proportional to the width.
 
@@ -1796,6 +1802,35 @@ end
 function NUFFT(reference::AbstractFieldSpectral{T, R}; tolerance::Real = 1e-10, oversampling::Integer = 2,
                window_width::Integer = _nufft_width(tolerance),
                window_shape::Real = _nufft_beta(window_width, T)) where {T<:AbstractFloat, R}
+  return _nufft_plan(field_data(reference), field_grid(reference), field_layout(reference), Val(R),
+                     tolerance, oversampling, window_width, window_shape)
+end
+
+
+# From the array family alone (decision 103, the decision-74 pattern): the reference form reads from
+# its field only the grid, the layout, the element type, the tensor order and the array family, so a
+# caller holding no field names them directly. The prototype is an empty array of the family, which
+# `similar` needs to name it.
+function NUFFT(array_family::Type{<:AbstractArray}, grid::Grid3D{T}, ::Val{R};
+               layout::RealFourierLayout = RealFourierLayout(), tolerance::Real = 1e-10,
+               oversampling::Integer = 2, window_width::Integer = _nufft_width(tolerance),
+               window_shape::Real = _nufft_beta(window_width, T)) where {T<:AbstractFloat, R}
+  _check_array_family_element_type(array_family, grid)
+  return _nufft_plan(_allocated_field_storage(array_family, T, (0,)), grid, layout, Val(R),
+                     tolerance, oversampling, window_width, window_shape)
+end
+
+
+"""
+    _nufft_plan(prototype, grid, layout, ::Val{R},
+                tolerance, oversampling, window_width, window_shape)
+
+Validate the window parameters and build the [`NUFFT`](@ref) plan on `prototype`'s array family,
+the shared body of its two constructors.
+"""
+function _nufft_plan(prototype::AbstractArray, grid::Grid3D{T}, layout::RealFourierLayout, ::Val{R},
+                     tolerance::Real, oversampling::Integer, window_width::Integer,
+                     window_shape::Real) where {T<:AbstractFloat, R}
   # `tolerance` sets the window width through `-log10(tolerance)`, so a non-positive or non-finite
   # value produced a nonsense width (or a fallback one) while the docstring still promised agreement
   # "to `tolerance`". It is a TARGET, not a guaranteed bound: a tolerance below the element type's own
@@ -1814,15 +1849,12 @@ function NUFFT(reference::AbstractFieldSpectral{T, R}; tolerance::Real = 1e-10, 
     throw(ArgumentError("NUFFT window_shape must be finite and positive; got $window_shape"))
   w = Int(window_width)
   β = T(window_shape)
-  grid = field_grid(reference)
-  layout = field_layout(reference)
-  data = field_data(reference)
   oversampled_size = ntuple(d -> σ * grid.grid_size[d], 3)
   oversampled_grid = Grid3D(oversampled_size, grid.domain_size; origin = grid.origin)
-  physical_template = _wrap_field(similar(data, T, field_physical_shape(oversampled_grid, Val(R))), oversampled_grid, layout, Val(R))
-  spectral_template = _wrap_field_spectral(similar(data, Complex{T}, field_spectral_shape(oversampled_grid, layout, Val(R))), oversampled_grid, layout, Val(R))
+  physical_template = _wrap_field(similar(prototype, T, field_physical_shape(oversampled_grid, Val(R))), oversampled_grid, layout, Val(R))
+  spectral_template = _wrap_field_spectral(similar(prototype, Complex{T}, field_spectral_shape(oversampled_grid, layout, Val(R))), oversampled_grid, layout, Val(R))
   plans = FieldTransformPlans(physical_template, spectral_template)
-  deconvolution = _nufft_deconvolution(reference, σ, w, β)
+  deconvolution = _nufft_deconvolution(prototype, grid, layout, σ, w, β)
   total_oversampling = T(prod(oversampled_size) / prod(grid.grid_size))
   return NUFFT(w, β, total_oversampling, grid, layout, oversampled_grid, plans, deconvolution,
                physical_template, spectral_template)

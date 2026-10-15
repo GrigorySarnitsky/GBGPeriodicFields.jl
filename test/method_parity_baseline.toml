@@ -564,7 +564,9 @@ Points = 243
   # 149 → 148: decision 101 (2026-10-12). The spline element-type keyword went, and with it the
   # display helper `_show_spline_eltype`; the allocating `anterpolate` changed shape (a grid and a
   # layout for every scheme), not number.
-Interpolation = 148
+  # 148 → 149: decision 103 (2026-10-15). `NUFFT` gains its array-family form beside the reference
+  # form, the two sharing the body `_nufft_plan`; `_nufft_deconvolution` changed shape, not number.
+Interpolation = 149
   # 177 → 179: the threaded running total (decision 81). `_scan_offsets!` has two methods — the
   # generic one, which is `cumsum!` and stays the device path since GPUArrays already scans in
   # parallel, and the host one that threads. On a CPU this was the only stage of the traversal build
