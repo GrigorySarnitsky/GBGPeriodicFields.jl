@@ -93,6 +93,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 100",530,122,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 101",417,100,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 102",281,100,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 103",685,91,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 11",159,159,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 12",113,113,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 13",189,189,0
@@ -241,7 +242,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: FiberVector{T}",21,11,0
 "FiberSections.jl :: _MapValues(φ, orders, stride)",160,101,0
 "FiberSections.jl :: _SERIAL_CUTOFF",41,40,0
-"FiberSections.jl :: _THREADING_OVERRIDE",31,30,0
+"FiberSections.jl :: _THREADING_OVERRIDE",29,28,0
 "FiberSections.jl :: _accumulate_values!(targets, values, α, β, n)",30,25,0
 "FiberSections.jl :: _assemble_fiber(::Val{R}, scalars, offset)",53,50,0
 "FiberSections.jl :: _assign!(destination, broadcasted)",56,54,0
@@ -293,7 +294,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: fiber_shape(::Val{R}) where {R}",39,27,0
 "FiberSections.jl :: set_threading_cutoff!(n::Integer)",69,41,0
 "FiberSections.jl :: threading_cutoff()",139,138,0
-"FiberSections.jl :: with_threading(f; enabled::Union{Nothing, Bool})",197,61,1
+"FiberSections.jl :: with_threading(f; mode::Symbol)",196,61,1
 "FiberSections.md § Internal API",50,50,0
 "FieldAlgebra.jl :: *(a, b)",81,79,0
 "FieldAlgebra.jl :: +(a, b, fields...)",41,38,0
@@ -338,7 +339,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: FieldPhysicalBroadcastStyle{N}",38,37,0
 "Fields.jl :: FieldSpectralBroadcastStyle{N}",36,35,0
 "Fields.jl :: FieldSpectralMultipliers(",646,189,0
-"Fields.jl :: FieldTransformPlans(",505,145,1
+"Fields.jl :: FieldTransformPlans(",502,144,1
 "Fields.jl :: Fields",494,443,0
 "Fields.jl :: Grid3D(",232,66,0
 "Fields.jl :: RealFourierLayout()",73,33,0
@@ -439,7 +440,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: Interpolation",818,238,0
 "Interpolation.jl :: LagrangeSpline(stencil_width)",259,78,0
 "Interpolation.jl :: LalescuSpline(stencil_width; smoothness = stencil_width ÷ 2 ",415,119,0
-"Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral{T};",613,192,1
+"Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral{T};",612,189,1
 "Interpolation.jl :: PointTraversalOrder(indices)",219,58,1
 "Interpolation.jl :: PointTraversalOrderScratch(grid::Grid3D, points::PointSet; t",282,81,1
 "Interpolation.jl :: _axis_weights(coefficients, t)",43,41,0
@@ -449,6 +450,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: _hermite_weight_matrix(n, m)",77,75,0
 "Interpolation.jl :: _lagrange_weight_matrix(n)",55,54,0
 "Interpolation.jl :: _locate(coordinate, origin, spacing, number_of_grid_points)",42,38,0
+"Interpolation.jl :: _nufft_plan(prototype, grid, layout, ::Val{R},",28,20,0
 "Interpolation.jl :: _scan_offsets!(offsets, counts)",96,82,0
 "Interpolation.jl :: _scan_offsets!(offsets::Vector, counts::Vector)",177,90,0
 "Interpolation.jl :: anterpolate!(field::AbstractFieldPhysical, points::PointSet,",394,209,0
