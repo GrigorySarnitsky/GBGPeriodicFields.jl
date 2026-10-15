@@ -1702,10 +1702,9 @@ comparable.
 - `α`, `a`, `β`, `b` — leading, in the two-operand forms: the weights and fields of the combination
   ``\\alpha a + \\beta b``, as [`combine!`](@ref) takes them.
 - `multipliers` — the wavenumber arrays for the field's grid.
-- `coefficient` — a keyword: the real factor ``c`` on ``|k|^2`` in the exponent, into which the caller
-  folds its own physical factors.
+- `coefficient` — a keyword: the real factor ``c`` on ``|k|^2`` in the exponent.
 - `offset`, `offset_scale` — keywords: the per-mode values ``\\hat w`` and the real scale ``s`` of the
-  optional exponent term ``s \\hat w``, absent with no `offset`.
+  optional exponent term ``s \\hat w``, absent with no `offset` whatever ``s`` is.
 
 The `offset` is either a scalar field in spectral representation holding real values, or a
 [`RadialKernel`](@ref) when ``\\hat w`` depends on ``|k|^2`` alone (a band, for instance), which is
@@ -2011,9 +2010,9 @@ end
 
 """
     translation_kernel(multipliers::FieldSpectralMultipliers,
-                       offset::NTuple{3, Real}) -> SeparableKernel
+                       displacement::NTuple{3, Real}) -> SeparableKernel
 
-Build the kernel that translates a field by the physical displacement ``h`` = `offset`, returned as a
+Build the kernel that translates a field by the physical displacement ``h`` = `displacement`, returned as a
 [`SeparableKernel`](@ref) on the multipliers' grid and array family: convolving a field ``f``
 with it gives the displaced field ``f(x - h)``, the position ``x`` reduced onto the periodic box.
 
@@ -2023,7 +2022,7 @@ relocation of a probe, or the displaced evaluation of a phase-shift de-aliasing 
 multiplies every fiber component, one call translates a whole vector or tensor field, and because the
 kernel depends on nothing but the displacement, one kernel serves every field it is applied to (and
 it is separable, so building it costs three ``O(N)`` axis passes, not a field). To *sample* the field at the displaced positions
-``x + h`` instead, pass the negated offset — the two are inverse translations. This is the package's
+``x + h`` instead, pass the negated displacement — the two are inverse translations. This is the package's
 one complex kernel: on every **sub-Nyquist** mode it is a pure phase of unit modulus, so it moves the
 field without touching any amplitude, unlike the real and even [`spectral_cutoff`](@ref) or
 [`assignment_window`](@ref). At the **Nyquist frequency** — the highest wavenumber a grid stores, ``\\pi/\\Delta x_a``, which an
@@ -2032,7 +2031,7 @@ number ``\\cos(\\pi h_a / \\Delta x_a)``, which attenuates rather than translate
 half-cell shift — the reality condition demands it, and the warning below gives the detail.
 
 Here `multipliers` is the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
-and array family the kernel takes as its own, and `offset` is the displacement
+and array family the kernel takes as its own, and `displacement` is the displacement
 ``h = (h_1, h_2, h_3)`` — a physical length per axis in the units of the box rather than a count of
 cells, so a half-cell displacement is `0.5 .* grid.grid_spacing` on the [`Grid3D`](@ref GBGPeriodicFields.Fields.Grid3D) the field lives on.
 
@@ -2072,7 +2071,7 @@ applies.
     never meets the caveat at all.
 """
 function translation_kernel(multipliers::FieldSpectralMultipliers,
-                            offset::NTuple{3, Real})
+                            displacement::NTuple{3, Real})
   T = _multipliers_scalar_type(multipliers)
   # exp(-i k h) = cos(k h) - i·sin(k h) splits into an even and an odd function of k, and the two
   # wavenumber families the multipliers carry (invariant 5) are precisely what each half needs: the
@@ -2084,9 +2083,9 @@ function translation_kernel(multipliers::FieldSpectralMultipliers,
   axis_phase(squared_wavenumber, derivative_wavenumber, displacement) =
     (d = T(displacement);
      Complex{T}.(cos.(sqrt.(squared_wavenumber) .* d), .-sin.(derivative_wavenumber .* d)))
-  phase_1 = reshape(axis_phase(multipliers.squared_wavenumber_1, multipliers.wavenumber_1, offset[1]), :, 1, 1)
-  phase_2 = reshape(axis_phase(multipliers.squared_wavenumber_2, multipliers.wavenumber_2, offset[2]), 1, :, 1)
-  phase_3 = reshape(axis_phase(multipliers.squared_wavenumber_3, multipliers.wavenumber_3, offset[3]), 1, 1, :)
+  phase_1 = reshape(axis_phase(multipliers.squared_wavenumber_1, multipliers.wavenumber_1, displacement[1]), :, 1, 1)
+  phase_2 = reshape(axis_phase(multipliers.squared_wavenumber_2, multipliers.wavenumber_2, displacement[2]), 1, :, 1)
+  phase_3 = reshape(axis_phase(multipliers.squared_wavenumber_3, multipliers.wavenumber_3, displacement[3]), 1, 1, :)
   # The three factors ARE the kernel: their product is evaluated per mode, never materialized.
   return SeparableKernel{T}(phase_1, phase_2, phase_3, multipliers.grid, multipliers.fourier_layout)
 end
@@ -2094,9 +2093,9 @@ end
 
 """
     translation_kernel!(kernel::SeparableKernel, multipliers::FieldSpectralMultipliers,
-                        offset::NTuple{3, Real})
+                        displacement::NTuple{3, Real})
 
-Rebuild and return `kernel` for a new displacement `offset`, overwriting its per-axis factors.
+Rebuild and return `kernel` for a new displacement `displacement`, overwriting its per-axis factors.
 Use this
 in-place form when the kernel is already allocated; the allocating
 [`translation_kernel`](@ref) returns a fresh kernel instead. It costs three ``O(N)`` axis passes,
@@ -2108,12 +2107,12 @@ not a field.
   real-valued window is refused.
 - `multipliers` — the wavenumber arrays, supplying both families (the derivative wavenumbers and
   the true squared ones), checked against `kernel`'s grid and layout.
-- `offset` — the physical displacement ``h`` as a three-tuple.
+- `displacement` — the physical displacement ``h`` as a three-tuple.
 
 The displacement convention and the Nyquist treatment are `translation_kernel`'s.
 """
 function translation_kernel!(kernel::SeparableKernel{T, V}, multipliers::FieldSpectralMultipliers,
-    offset::NTuple{3, Real}) where {T, V}
+    displacement::NTuple{3, Real}) where {T, V}
   # A translation is a complex phase, so only a kernel with complex factors can hold one. A real
   # window (`assignment_window`, `tophat_window`) was accepted and failed by conversion part-way
   # through the write — an `InexactError` on the host, a `KernelException` on a device. The check is
@@ -2121,7 +2120,7 @@ function translation_kernel!(kernel::SeparableKernel{T, V}, multipliers::FieldSp
   eltype(V) <: Complex || throw(ArgumentError(
     "translation_kernel! rebuilds a translation kernel, whose factors are complex; this " *
     "SeparableKernel holds real factors ($(eltype(V))), as a window does. Build a translation " *
-    "kernel with translation_kernel(multipliers, offset)."))
+    "kernel with translation_kernel(multipliers, displacement)."))
   # The allocating builder derives its context from the multipliers; this one is handed a kernel
   # and a multiplier set that were built independently, so it has to check they agree. Without the
   # check, multipliers from another domain of the same axis lengths rewrote the kernel with the wrong
@@ -2131,9 +2130,9 @@ function translation_kernel!(kernel::SeparableKernel{T, V}, multipliers::FieldSp
   axis_phase!(destination, squared_wavenumber, derivative_wavenumber, displacement) =
     (d = T(displacement);
      destination .= Complex{T}.(cos.(sqrt.(squared_wavenumber) .* d), .-sin.(derivative_wavenumber .* d)))
-  axis_phase!(vec(kernel.factor_1), multipliers.squared_wavenumber_1, multipliers.wavenumber_1, offset[1])
-  axis_phase!(vec(kernel.factor_2), multipliers.squared_wavenumber_2, multipliers.wavenumber_2, offset[2])
-  axis_phase!(vec(kernel.factor_3), multipliers.squared_wavenumber_3, multipliers.wavenumber_3, offset[3])
+  axis_phase!(vec(kernel.factor_1), multipliers.squared_wavenumber_1, multipliers.wavenumber_1, displacement[1])
+  axis_phase!(vec(kernel.factor_2), multipliers.squared_wavenumber_2, multipliers.wavenumber_2, displacement[2])
+  axis_phase!(vec(kernel.factor_3), multipliers.squared_wavenumber_3, multipliers.wavenumber_3, displacement[3])
   return kernel
 end
 

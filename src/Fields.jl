@@ -1336,10 +1336,10 @@ Forward and inverse FFT plans connecting compatible fields represented in physic
   template.
 - `array_family`, `grid` — in place of the two fields: the array family (`Array`, `CuArray`,
   `ROCArray`) and the [`Grid3D`](@ref).
-- `layout` — a keyword of that form: the [`RealFourierLayout`](@ref), defaulting to the standard one. This form needs no fields at all, the plans being built on one-component arrays of their own
-  either way.
+- `layout` — a keyword of that form: the [`RealFourierLayout`](@ref), defaulting to the standard one.
 - `fft_flags` — an optional backend-specific FFT planner flag.
-- `fft_timelimit` — the planner time limit, used when `fft_flags` is given.
+- `fft_timelimit` — the time limit on the search a flag such as `FFTW.MEASURE` requests; `FFTW.ESTIMATE`
+  searches nothing, so there it has no effect.
 Only the spatial dimensions, the layout's `fft_dims`, are transformed; tensor-fiber dimensions are left untransformed.
 
 The plans are backend-, array-type- and scalar-type-specific, and **carry no tensor order**: a real
@@ -1795,7 +1795,7 @@ function _check_kernel_compatibility end
 """
     FieldSpectralMultipliers(
       grid::Grid3D{T},
-      fourier_layout::RealFourierLayout,
+      layout::RealFourierLayout,
       wavenumber_1, wavenumber_2, wavenumber_3,
       squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3,
     ) where {T<:AbstractFloat}
@@ -1816,7 +1816,7 @@ representation — derivatives, the Laplacian, and the Helmholtz projection.
 
 # Arguments
 
-- `grid`, `fourier_layout` — the [`Grid3D`](@ref) and [`RealFourierLayout`](@ref) the multipliers are
+- `grid`, `layout` — the [`Grid3D`](@ref) and [`RealFourierLayout`](@ref) the multipliers are
   built for. The forms taking `field` read them from it instead.
 - `wavenumber_1`, `wavenumber_2`, `wavenumber_3` — the per-axis **derivative** wavenumbers, written
   ``a`` where the operators' formulas need to name them apart from the true wavenumber ``k``. They are
@@ -1946,11 +1946,11 @@ end
 # validates the arrays' LENGTHS and not their values: a caller may legitimately supply coordinates that
 # are not the grid's (a sheared, time-dependent set), and a kernel built on those must not be merged
 # with one built on the grid's own wavenumbers.
-FieldSpectralMultipliers(grid::Grid3D{T}, fourier_layout::RealFourierLayout,
+FieldSpectralMultipliers(grid::Grid3D{T}, layout::RealFourierLayout,
     wavenumber_1::AbstractArray{T, 1}, wavenumber_2::AbstractArray{T, 1}, wavenumber_3::AbstractArray{T, 1},
     squared_wavenumber_1::AbstractArray{T, 1}, squared_wavenumber_2::AbstractArray{T, 1},
     squared_wavenumber_3::AbstractArray{T, 1}) where {T<:AbstractFloat} =
-  FieldSpectralMultipliers(Val(false), grid, fourier_layout, wavenumber_1, wavenumber_2, wavenumber_3,
+  FieldSpectralMultipliers(Val(false), grid, layout, wavenumber_1, wavenumber_2, wavenumber_3,
                            squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
 
 
