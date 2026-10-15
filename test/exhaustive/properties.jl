@@ -412,8 +412,8 @@ function run_property_lanes(configs)
     #
     # THE CUTOFF HAS TO COME DOWN FIRST. `_use_threads` returns false when the element count is below
     # `threading_cutoff` BEFORE it consults the `with_threading` override, and the largest fixture here
-    # is 8·8·8·9 = 4608 elements against a default cutoff of 16384. Without this the `enabled = true`
-    # and `enabled = false` runs both take the serial branch and the lane compares a path against
+    # is 8·8·8·9 = 4608 elements against a default cutoff of 16384. Without this the `mode = :threaded`
+    # and `mode = :serial` runs both take the serial branch and the lane compares a path against
     # itself — decision 47's vacuous threading assertion, reproduced.
     # AND THE PROCESS MUST HAVE MORE THAN ONE THREAD. Lowering the cutoff makes `_use_threads` return
     # the override, but the threaded path then partitions by `Threads.nthreads()` — at `-t1` that is a
@@ -440,8 +440,8 @@ function run_property_lanes(configs)
       end
       count!(:invariance)
       record_coverage!(Symbol(name), :invariance)
-      serial = with_threading(run; enabled = false)
-      threaded = with_threading(run; enabled = true)
+      serial = with_threading(run; mode = :serial)
+      threaded = with_threading(run; mode = :threaded)
       results_identical(serial, threaded) ||
         record!(:invariance, "$(name) is not bitwise thread-invariant [$(config.name)]")
     end

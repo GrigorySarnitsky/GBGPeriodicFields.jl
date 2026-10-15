@@ -144,11 +144,12 @@ end
 """
     _THREADING_OVERRIDE
 
-This task-local value overrides the threading decision. A value of `nothing` follows
-`Threads.nthreads()`, while `true` or `false` forces threaded or serial.
+This task-local value overrides the threading decision. The mode `:automatic` follows
+`Threads.nthreads()`, while `:threaded` or `:serial` forces that path.
 The setter [`with_threading`](@ref) sets it in a dynamic scope.
 """
-const _THREADING_OVERRIDE = ScopedValue{Union{Nothing, Bool}}(nothing)
+const _THREADING_OVERRIDE = ScopedValue{Symbol}(:automatic)
+const _THREADING_MODES = (:automatic, :threaded, :serial)
 
 
 """
@@ -162,18 +163,18 @@ const _SERIAL_CUTOFF = Ref(1 << 14)
 
 
 """
-    with_threading(f; enabled::Union{Nothing, Bool})
+    with_threading(f; mode::Symbol)
 
-Run `f()` with the CPU-threading decision forced to `enabled`, restore the previous setting, and return
+Run `f()` with the CPU-threading decision set to `mode`, restore the previous setting, and return
 `f()`'s value. The override is dynamically scoped and task-local, affecting only `f()`, and is restored
 even on an exception.
 
 # Arguments
 
 - `f` — the zero-argument function to run under the override.
-- `enabled` — `true` or `false` to force the threaded or serial path, or `nothing` to follow the
-  automatic `nthreads()`-based policy. Pass `false` around a region already parallel at a higher
-  level, avoiding oversubscription.
+- `mode` — `:threaded` or `:serial` to force that path, or `:automatic` to follow the
+  `nthreads()`-based policy, clearing an enclosing override. Pass `:serial` around a region already
+  parallel at a higher level, avoiding oversubscription.
 
 !!! warning "Not every operation is governed by this override"
     The override (and the cutoff) governs the fused broadcast assignments, the fused CPU loops
@@ -188,8 +189,11 @@ even on an exception.
     is something a loop consulting this setting cannot serve. To run those
     serially, start Julia with one thread.
 """
-with_threading(f; enabled::Union{Nothing, Bool}) =
-  Base.ScopedValues.with(f, _THREADING_OVERRIDE => enabled)
+function with_threading(f; mode::Symbol)
+  mode in _THREADING_MODES ||
+    throw(ArgumentError("with_threading: mode must be one of $(_THREADING_MODES); got :$mode"))
+  return Base.ScopedValues.with(f, _THREADING_OVERRIDE => mode)
+end
 
 
 """
@@ -239,7 +243,7 @@ automatic policy, `Threads.nthreads() > 1`.
 @inline function _use_threads(element_count::Integer)
   element_count < _SERIAL_CUTOFF[] && return false
   override = _THREADING_OVERRIDE[]
-  return override === nothing ? Threads.nthreads() > 1 : override
+  return override === :automatic ? Threads.nthreads() > 1 : override === :threaded
 end
 
 

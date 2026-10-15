@@ -669,7 +669,7 @@ SIMD kernel the serial path uses (decision 38; its per-element predecessor ran ~
 core and *inverted* at low thread counts — [`PERFORMANCE.md`](performance.md) §4 finding (l)). A serial cutoff (`_SERIAL_CUTOFF`, default ``2^{14}``) keeps small ops — including
 the one-element zero-mode views — serial. Policy is **hybrid**: threaded when
 `nthreads() > 1` and above the cutoff, with a task-local `ScopedValue` override
-(`with_threading(enabled = …)`) for nested-parallel callers.
+(`with_threading(mode = …)`) for nested-parallel callers.
 
 Two plug points route work through `_assign!`: the field broadcast style's `copyto!` (all
 whole-field dotted ops and the field-level algebra), and the kernel assignments — the

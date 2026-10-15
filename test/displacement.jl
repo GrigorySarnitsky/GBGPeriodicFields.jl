@@ -161,8 +161,8 @@ end
         serial = PointSet(copy(X0))
         threaded = PointSet(copy(X0))
         terms = map(tuple, coefficients, Tuple(sections))
-        with_threading(() -> displace!(serial, grid, terms...); enabled = false)
-        with_threading(() -> displace!(threaded, grid, terms...); enabled = true)
+        with_threading(() -> displace!(serial, grid, terms...); mode = :serial)
+        with_threading(() -> displace!(threaded, grid, terms...); mode = :threaded)
         @test point_positions(serial) == point_positions(threaded)   # bitwise (decision 38 discipline)
       end
     end

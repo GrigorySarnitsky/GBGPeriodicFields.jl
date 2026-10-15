@@ -597,7 +597,7 @@ function run_value_lane(configs)
                                end, 4096),
       # The enabled/disabled choice is a KEYWORD, and the threaded path must compute the same value
       # as the reference — which is the property threading exists to preserve.
-      (:with_threading,  with_threading(enabled = true) do
+      (:with_threading,  with_threading(mode = :threaded) do
                            field_data(add!(similar_field(u, Val(1)), u, v))
                          end, ref_add(du, field_data(v))),
       # Restored to the package's own load-time default. The package exposes `set_fft_threads!` and no

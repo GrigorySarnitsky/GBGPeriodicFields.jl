@@ -2256,7 +2256,7 @@ count into each plan, so this runs at package load, before any `FieldTransformPl
 Retune afterwards with [`set_fft_threads!`](@ref).
 """
 function _init_fft_threads()
-  count = _THREADING_OVERRIDE[] === false ? 1 : max(1, Threads.nthreads())
+  count = _THREADING_OVERRIDE[] === :serial ? 1 : max(1, Threads.nthreads())
   FFTW.set_num_threads(count)
   return count
 end

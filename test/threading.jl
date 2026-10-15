@@ -1,7 +1,7 @@
 # CPU threading. The threaded assignment path must be **bitwise-identical** to serial — these
 # are non-reducing maps, so each output index is written once from the same fused expression —
 # and the gate / cutoff / override must behave. Runs in both lanes: the default single-threaded
-# `Pkg.test()` (where `with_threading(enabled=true)` forces the threaded code path to run
+# `Pkg.test()` (where `with_threading(mode = :threaded)` forces the threaded code path to run
 # inline, exercising the chunking logic) and a threaded lane (`JULIA_NUM_THREADS>1`, real
 # parallelism). See docs/TESTING.md.
 
@@ -20,8 +20,8 @@ const T = Float64
 const grid = Grid3D((32, 31, 30), (2π, 2π, 2π))     # 29760 elements ≥ the default 2^14 cutoff
 
 # serial vs forced-threaded results of the same field op, compared bitwise
-ser(f) = with_threading(enabled = false) do; f(); end
-thr(f) = with_threading(enabled = true) do; f(); end
+ser(f) = with_threading(mode = :serial) do; f(); end
+thr(f) = with_threading(mode = :threaded) do; f(); end
 bitwise(f) = field_data(ser(f)) == field_data(thr(f))
 
 # --- support for the KernelAbstractions reproducibility testset at the foot of this file.
@@ -74,12 +74,12 @@ println(ka_digest(field_data(embed_modes!(ka_embedded, ka_coarse))))
   @testset "config / gate / override" begin
     @test threading_cutoff() == 1 << 14
     @test FS._use_threads(1) == false                                          # below cutoff → serial
-    @test with_threading(enabled = false) do; FS._use_threads(10^9) end == false   # forced serial
-    @test with_threading(enabled = true)  do; FS._use_threads(10^9) end == true    # forced threaded
+    @test with_threading(mode = :serial) do; FS._use_threads(10^9) end == false   # forced serial
+    @test with_threading(mode = :threaded)  do; FS._use_threads(10^9) end == true    # forced threaded
     set_threading_cutoff!(64); @test threading_cutoff() == 64; set_threading_cutoff!(1 << 14)
-    @test FS._THREADING_OVERRIDE[] === nothing                                 # default = auto
-    @test_throws ErrorException with_threading(enabled = false) do; error("boom") end
-    @test FS._THREADING_OVERRIDE[] === nothing                                 # restored after exception
+    @test FS._THREADING_OVERRIDE[] === :automatic                              # default = auto
+    @test_throws ErrorException with_threading(mode = :serial) do; error("boom") end
+    @test FS._THREADING_OVERRIDE[] === :automatic                              # restored after exception
   end
 
   @testset "_assign! threaded == serial (index styles + singleton axes)" begin
@@ -91,7 +91,7 @@ println(ka_digest(field_data(embed_modes!(ka_embedded, ka_coarse))))
     function same(dest1, dest2, makebc)
       fill!(dest1, NaN); fill!(dest2, NaN)
       Base.Broadcast.materialize!(dest1, makebc())
-      with_threading(enabled = true) do; FS._assign!(dest2, makebc()); end
+      with_threading(mode = :threaded) do; FS._assign!(dest2, makebc()); end
       return Array(dest1) == Array(dest2) && !any(isnan, dest2)
     end
 
@@ -116,8 +116,8 @@ println(ka_digest(field_data(embed_modes!(ka_embedded, ka_coarse))))
     @test bitwise(() -> u + v)
 
     d1 = ScalarFieldPhysical(zeros(T, 32, 31, 30), grid); d2 = ScalarFieldPhysical(zeros(T, 32, 31, 30), grid)
-    with_threading(enabled = false) do; @. d1 = a - b + 2.0 * a; end
-    with_threading(enabled = true)  do; @. d2 = a - b + 2.0 * a; end
+    with_threading(mode = :serial) do; @. d1 = a - b + 2.0 * a; end
+    with_threading(mode = :threaded)  do; @. d2 = a - b + 2.0 * a; end
     @test field_data(d1) == field_data(d2)
   end
 
@@ -148,13 +148,13 @@ println(ka_digest(field_data(embed_modes!(ka_embedded, ka_coarse))))
 
     # mul! both branches
     acc_s = 2.0 * (A * u); acc_t = 2.0 * (A * u)
-    with_threading(enabled = false) do; mul!(acc_s, A, u, 3.0, 5.0); end
-    with_threading(enabled = true)  do; mul!(acc_t, A, u, 3.0, 5.0); end
+    with_threading(mode = :serial) do; mul!(acc_s, A, u, 3.0, 5.0); end
+    with_threading(mode = :threaded)  do; mul!(acc_t, A, u, 3.0, 5.0); end
     @test field_data(acc_s) == field_data(acc_t)                                   # accumulate (β ≠ 0)
     ov_s = VectorFieldPhysical(fill(T(NaN), 32, 31, 30, 3), grid)
     ov_t = VectorFieldPhysical(fill(T(NaN), 32, 31, 30, 3), grid)
-    with_threading(enabled = false) do; mul!(ov_s, A, u, 1.0, 0.0); end
-    with_threading(enabled = true)  do; mul!(ov_t, A, u, 1.0, 0.0); end
+    with_threading(mode = :serial) do; mul!(ov_s, A, u, 1.0, 0.0); end
+    with_threading(mode = :threaded)  do; mul!(ov_t, A, u, 1.0, 0.0); end
     @test field_data(ov_s) == field_data(ov_t) && !any(isnan, field_data(ov_t))    # overwrite (β = 0)
   end
 
@@ -198,11 +198,11 @@ println(ka_digest(field_data(embed_modes!(ka_embedded, ka_coarse))))
     # InexactError the real-valued-in-complex-storage fixtures missed).
     @test bitwise(() -> exponential_convolve(us, m; coefficient = -0.03, offset = phis, offset_scale = 1e-4))
     ws = similar_field(us, Val(1))
-    with_threading(enabled = false) do
+    with_threading(mode = :serial) do
       exponential_convolve!(ws, 1.5, us, -0.5, laplacian(us, m), m; coefficient = -0.03)
     end
     ws2 = similar_field(us, Val(1))
-    with_threading(enabled = true) do
+    with_threading(mode = :threaded) do
       exponential_convolve!(ws2, 1.5, us, -0.5, laplacian(us, m), m; coefficient = -0.03)
     end
     @test field_data(ws) == field_data(ws2)
@@ -234,8 +234,8 @@ println(ka_digest(field_data(embed_modes!(ka_embedded, ka_coarse))))
       @test bitwise(() -> convolve(us, separable))                 # threaded == serial, bitwise
       @test bitwise(() -> convolve(phis, separable))
       sep_s = 2.0 * convolve(us, separable); sep_t = 2.0 * convolve(us, separable)   # equal, initialized
-      with_threading(enabled = false) do; convolve!(sep_s, us, separable, 0.5, 2.0); end
-      with_threading(enabled = true)  do; convolve!(sep_t, us, separable, 0.5, 2.0); end
+      with_threading(mode = :serial) do; convolve!(sep_s, us, separable, 0.5, 2.0); end
+      with_threading(mode = :threaded)  do; convolve!(sep_t, us, separable, 0.5, 2.0); end
       @test field_data(sep_s) == field_data(sep_t)                 # the α/β accumulate branch
     end
 
@@ -245,8 +245,8 @@ println(ka_digest(field_data(embed_modes!(ka_embedded, ka_coarse))))
     @test bitwise(() -> convolve(phis, kernel))                     # scalar field ⋆ kernel
     @test bitwise(() -> convolve(us, kernel))                       # vector field ⋆ scalar kernel (over the fiber)
     cacc_s = 2.0 * convolve(phis, kernel); cacc_t = 2.0 * convolve(phis, kernel)
-    with_threading(enabled = false) do; convolve!(cacc_s, phis, kernel, 3.0, 5.0); end
-    with_threading(enabled = true)  do; convolve!(cacc_t, phis, kernel, 3.0, 5.0); end
+    with_threading(mode = :serial) do; convolve!(cacc_s, phis, kernel, 3.0, 5.0); end
+    with_threading(mode = :threaded)  do; convolve!(cacc_t, phis, kernel, 3.0, 5.0); end
     @test field_data(cacc_s) == field_data(cacc_t)                  # α/β accumulate branch (β ≠ 0)
   end
 
@@ -388,7 +388,7 @@ println(ka_digest(field_data(embed_modes!(ka_embedded, ka_coarse))))
                () -> weighted_inner(red_us, red_band), () -> weighted_inner(red_us, red_stored),
                () -> weighted_inner(red_us, (red_band, red_stored)))
     for op in red_ops
-      @test (with_threading(enabled = false) do; op() end) == (with_threading(enabled = true) do; op() end)
+      @test (with_threading(mode = :serial) do; op() end) == (with_threading(mode = :threaded) do; op() end)
     end
 
     # the cross-thread-count half, via the same subprocess mechanism as the KA testset
@@ -537,7 +537,7 @@ end
   threaded = VectorFieldPhysical(zeros(N, N, N, 3), grid)
   serial = VectorFieldPhysical(zeros(N, N, N, 3), grid)
   cross!(threaded, a, b)
-  with_threading(enabled = false) do
+  with_threading(mode = :serial) do
     cross!(serial, a, b)
   end
   @test field_data(serial) == field_data(threaded)

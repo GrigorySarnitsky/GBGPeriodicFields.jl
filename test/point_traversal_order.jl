@@ -403,10 +403,10 @@ end
   T = Float64
   grid = Grid3D((64, 64, 64), (T(2π), T(2π), T(2π)))
   points = PointSet(T(2π) .* rand(T, 5000, 3))
-  serial = with_threading(; enabled = false) do
+  serial = with_threading(; mode = :serial) do
     collect(point_traversal_order(grid, points).indices)
   end
-  threaded = with_threading(; enabled = true) do
+  threaded = with_threading(; mode = :threaded) do
     collect(point_traversal_order(grid, points).indices)
   end
   @test sort(serial) == collect(Int32(1):Int32(5000))

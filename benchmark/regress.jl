@@ -220,8 +220,8 @@ if !USEGPU && Threads.nthreads() > 1
   for (name, streaming, thunk) in CANARIES
     streaming || continue
     thunk()                                              # warm
-    serial = minimum(with_threading(() -> (@elapsed thunk()); enabled = false) for _ in 1:5)
-    threaded = minimum(with_threading(() -> (@elapsed thunk()); enabled = true) for _ in 1:5)
+    serial = minimum(with_threading(() -> (@elapsed thunk()); mode = :serial) for _ in 1:5)
+    threaded = minimum(with_threading(() -> (@elapsed thunk()); mode = :threaded) for _ in 1:5)
     ok = threaded <= 1.1 * serial
     println(rpad(name, 30), rpad(BenchmarkTools.prettytime(1e9 * serial), 14),
             rpad(BenchmarkTools.prettytime(1e9 * threaded), 14), ok ? "ok" : "INVERSION")

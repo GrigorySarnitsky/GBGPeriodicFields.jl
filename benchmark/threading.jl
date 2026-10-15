@@ -45,8 +45,8 @@ for N in (64, 128, 192)
   )
 
   for (name, operation) in operations
-    serial   = best(() -> with_threading(enabled = false) do; operation() end)
-    threaded = best(() -> with_threading(enabled = true) do; operation() end)
+    serial   = best(() -> with_threading(mode = :serial) do; operation() end)
+    threaded = best(() -> with_threading(mode = :threaded) do; operation() end)
     println(rpad(name, 26), rpad("$(N)³", 9),
             rpad(round(serial * 1e3; digits = 3), 12),
             rpad(round(threaded * 1e3; digits = 3), 13),

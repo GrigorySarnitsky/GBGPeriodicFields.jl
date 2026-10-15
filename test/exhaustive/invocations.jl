@@ -136,7 +136,7 @@ _exponential_keyword_sets(pool) =
 const REQUIRED_KEYWORDS = Dict{Symbol, Function}(
   :exponential_convolve! => _exponential_keyword_sets,
   :exponential_convolve  => _exponential_keyword_sets,
-  :with_threading        => pool -> [(enabled = nothing,)],
+  :with_threading        => pool -> [(mode = :automatic,)],
 )
 
 _keyword_sets(operation, pool) =

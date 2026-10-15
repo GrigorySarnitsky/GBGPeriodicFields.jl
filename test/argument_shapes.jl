@@ -53,10 +53,11 @@ using GBGPeriodicFields
     @test derived.beta == NUFFT(reference; tolerance = 1e-6, window_shape = derived.beta).beta
   end
 
-  @testset "with_threading needs its setting named" begin
+  @testset "with_threading needs its mode named, one of three" begin
     @test_throws UndefKeywordError with_threading(() -> 1)
-    @test with_threading(() -> 2; enabled = false) == 2
-    @test with_threading(() -> 3; enabled = nothing) == 3
+    @test with_threading(() -> 2; mode = :serial) == 2
+    @test with_threading(() -> 3; mode = :automatic) == 3
+    @test_throws ArgumentError with_threading(() -> 4; mode = :fast)   # decision 103: a symbol mode
   end
 
   @testset "the sampling constructors take the array family first" begin
