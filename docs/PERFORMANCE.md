@@ -747,7 +747,7 @@ the natural suspect, but each mechanism was tested rather than argued:
     nothing requests it.
   - **Memory fragmentation is not it.** `buddyinfo` shows 26,625 free order-10 blocks after 22 hours
     of uptime, so large allocations are not falling back to scattered pages.
-  - **Plan selection is not it.** With `fft_flags` unset — what every plain row uses — plans are built
+  - **Plan selection is not it.** With default `fft_flags` — what every plain row uses — plans are built
     with FFTW's default `ESTIMATE`, a deterministic heuristic, not the timed search `MEASURE` performs.
     The `measure` twins are the only rows whose plan choice can vary from run to run.
 

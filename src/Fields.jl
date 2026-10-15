@@ -1314,7 +1314,7 @@ end
     FieldTransformPlans(
       physical::AbstractFieldPhysical{T, R},
       spectral::AbstractFieldSpectral{T, R};
-      fft_flags = nothing,
+      fft_flags = FFTW.ESTIMATE,
       fft_timelimit = Inf,
     ) where {T<:AbstractFloat, R}
 
@@ -1322,7 +1322,7 @@ end
       array_family::Type{<:AbstractArray},
       grid::Grid3D{T};
       layout::RealFourierLayout = RealFourierLayout(),
-      fft_flags = nothing,
+      fft_flags = FFTW.ESTIMATE,
       fft_timelimit = Inf,
     ) where {T<:AbstractFloat}
 
@@ -1337,9 +1337,9 @@ Forward and inverse FFT plans connecting compatible fields represented in physic
 - `array_family`, `grid` — in place of the two fields: the array family (`Array`, `CuArray`,
   `ROCArray`) and the [`Grid3D`](@ref).
 - `layout` — a keyword of that form: the [`RealFourierLayout`](@ref), defaulting to the standard one.
-- `fft_flags` — an optional backend-specific FFT planner flag.
+- `fft_flags` — the `FFTW` planner flag, `FFTW.ESTIMATE` by default; a device ignores it.
 - `fft_timelimit` — the time limit on the search a flag such as `FFTW.MEASURE` requests; `FFTW.ESTIMATE`
-  searches nothing, so there it has no effect.
+  searches nothing, so it has no effect.
 Only the spatial dimensions, the layout's `fft_dims`, are transformed; tensor-fiber dimensions are left untransformed.
 
 The plans are backend-, array-type- and scalar-type-specific, and **carry no tensor order**: a real
@@ -1349,7 +1349,7 @@ separate `FieldTransformPlans` object for each CPU/GPU backend and element type,
 tensor order.
 
 !!! warning "The default `ESTIMATE` planner can badly mis-plan single-precision CPU transforms"
-    On the CPU the plans are `FFTW` plans, and with `fft_flags` unset `FFTW` picks the algorithm by its
+    On the CPU the plans are `FFTW` plans, and by default `FFTW` picks the algorithm by its
     built-in `ESTIMATE` heuristic — instant, but a guess. On some CPUs that guess is far off, and a
     `Float32` transform can run several times slower than a timed plan, most of all single-threaded,
     even slower than the same transform in `Float64`. For a
@@ -1368,9 +1368,9 @@ tensor order.
   component**.
 - `plan_inverse_fft::PI` — the plan transforming spectral coefficients to physical values, for one
   component.
-- `fft_flags::Union{Nothing, UInt32}` — the planner flag these plans were built with, or `nothing` for
-  the default. It is retained rather than merely used, so that rebuilding these plans in another
-  array family can replay the intent they were created with — see [`adapt`](@ref).
+- `fft_flags::UInt32` — the planner flag these plans were built with. It is retained rather than
+  merely used, so that rebuilding these plans in another array family can replay the intent they
+  were created with — see [`adapt`](@ref).
 - `fft_timelimit::Float64` — the planner time limit paired with `fft_flags`, retained for the same
   reason.
 - `component_scratch::S` — a component-sized buffer, or `nothing`. It exists only where a device
@@ -1393,7 +1393,7 @@ struct FieldTransformPlans{T<:AbstractFloat, PF, PI, G<:Grid3D{T}, L<:RealFourie
   # single-precision transform badly — a performance regression with no wrong answer, the kind that
   # hides. Two plain fields rather than type parameters: they are read only when rebuilding, never on
   # a transform, so they must not participate in dispatch.
-  fft_flags::Union{Nothing, UInt32}
+  fft_flags::UInt32
   fft_timelimit::Float64
   # A component of a rank-R field begins at element offset `(c-1)*prod(grid_size)`, and a transform
   # library may refuse a pointer whose alignment differs from the one it planned for. On the host
@@ -1427,7 +1427,7 @@ function _component_offsets_align(grid::Grid3D, layout::RealFourierLayout, ::Typ
 end
 
 
-function FieldTransformPlans(physical::AbstractFieldPhysical{T, R}, spectral::AbstractFieldSpectral{T, R}; fft_flags = nothing, fft_timelimit = Inf) where {T<:AbstractFloat, R}
+function FieldTransformPlans(physical::AbstractFieldPhysical{T, R}, spectral::AbstractFieldSpectral{T, R}; fft_flags = FFTW.ESTIMATE, fft_timelimit = Inf) where {T<:AbstractFloat, R}
   field_grid(physical)   == field_grid(spectral)   || throw(ArgumentError("field grids must be equal"))
   field_layout(physical) == field_layout(spectral) || throw(ArgumentError("field Fourier layouts must be equal"))
 
@@ -1444,7 +1444,7 @@ end
 # domain no longer allocates two fields to hand in as templates, the prototypes being one component
 # each and built here either way.
 function FieldTransformPlans(array_family::Type{<:AbstractArray}, grid::Grid3D{T};
-    layout::RealFourierLayout = RealFourierLayout(), fft_flags = nothing, fft_timelimit = Inf) where {T<:AbstractFloat}
+    layout::RealFourierLayout = RealFourierLayout(), fft_flags = FFTW.ESTIMATE, fft_timelimit = Inf) where {T<:AbstractFloat}
   _check_array_family_element_type(array_family, grid)
   physical_prototype = _allocated_field_storage(array_family, T, field_physical_shape(grid, Val(0)))
   spectral_prototype = _allocated_field_storage(array_family, Complex{T}, field_spectral_shape(grid, layout, Val(0)))
@@ -1468,7 +1468,7 @@ function _field_transform_plans(physical_prototype, spectral_prototype, grid::Gr
   # Planner flags are an `FFTW` concept and a device backend rejects them, so the misalignment answer
   # is the flag on the host and the buffer on a device. Requesting `UNALIGNED` keeps the caller's own
   # planner effort: dropping the `ESTIMATE` bit would silently select `MEASURE`, which is zero.
-  requested = isnothing(fft_flags) ? FFTW.ESTIMATE : UInt32(fft_flags)
+  requested = UInt32(fft_flags)
   effective_flags = (on_host && !host_aligned) ? (requested | FFTW.UNALIGNED) : requested
 
   plan_forward_fft, plan_inverse_fft = if on_host
@@ -1483,7 +1483,7 @@ function _field_transform_plans(physical_prototype, spectral_prototype, grid::Gr
 
   return FieldTransformPlans{T, typeof(plan_forward_fft), typeof(plan_inverse_fft), typeof(grid), typeof(layout), typeof(component_scratch)}(
     grid, layout, plan_forward_fft, plan_inverse_fft,
-    isnothing(fft_flags) ? nothing : UInt32(fft_flags), Float64(fft_timelimit), component_scratch)
+    UInt32(fft_flags), Float64(fft_timelimit), component_scratch)
 end
 
 
@@ -2837,21 +2837,12 @@ function adapt_structure(to, plans::FieldTransformPlans{T}) where {T<:AbstractFl
   # Order-0 witnesses suffice: the plans are a property of the base and carry no tensor order.
   physical_witness = similar(physical_prototype, T, field_physical_shape(grid, Val(0)))
   spectral_witness = similar(spectral_prototype, Complex{T}, field_spectral_shape(grid, layout, Val(0)))
-  # Planner flags are an FFTW concept: `cuFFT` rejects them with an unrelated-looking pointer error,
-  # so they are replayed only onto a host target. They stay stored either way, so moving back to the
-  # host restores the intent the plans were built with.
-  replayed_flags = physical_witness isa Array ? plans.fft_flags : nothing
-  rebuilt = FieldTransformPlans(_field_physical_of_order(physical_witness, grid, layout, Val(0)),
-                                _field_spectral_of_order(spectral_witness, grid, layout, Val(0));
-                                fft_flags = replayed_flags, fft_timelimit = plans.fft_timelimit)
-  # Re-stamp the ORIGINAL request rather than the one just replayed. The outer constructor records
-  # what it planned with, which on a device target is `nothing`; storing that would discard the
-  # caller's intent permanently, and a later move back to the host would silently plan with
-  # `ESTIMATE`. The plan objects are taken from `rebuilt` unchanged.
-  return FieldTransformPlans{T, typeof(rebuilt.plan_forward_fft), typeof(rebuilt.plan_inverse_fft),
-                             typeof(grid), typeof(layout), typeof(rebuilt.component_scratch)}(
-    grid, layout, rebuilt.plan_forward_fft, rebuilt.plan_inverse_fft,
-    plans.fft_flags, plans.fft_timelimit, rebuilt.component_scratch)
+  # Planner flags are an FFTW concept: the constructor passes them to the planner on a host target
+  # only (`cuFFT` rejects them with an unrelated-looking pointer error) and stores them either way,
+  # so moving back to the host restores the intent the plans were built with.
+  return FieldTransformPlans(_field_physical_of_order(physical_witness, grid, layout, Val(0)),
+                             _field_spectral_of_order(spectral_witness, grid, layout, Val(0));
+                             fft_flags = plans.fft_flags, fft_timelimit = plans.fft_timelimit)
 end
 
 

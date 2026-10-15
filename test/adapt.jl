@@ -158,7 +158,7 @@ end
 
   # The planner request is recorded and survives the move. `FFTW.MEASURE` is numerically ZERO, so a
   # truthiness test would read it as "unset" — the discriminator has to be `isnothing`.
-  @test plans.fft_flags === nothing
+  @test plans.fft_flags == UInt32(GBGPeriodicFields.Fields.FFTW.ESTIMATE)   # the default, stored as given
   measured = FieldTransformPlans(u, z; fft_flags = MEASURE)
   @test measured.fft_flags == UInt32(MEASURE)
   @test adapt(CopyStorage(), measured).fft_flags == UInt32(MEASURE)
