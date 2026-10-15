@@ -58,13 +58,14 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: _apply_separable_convolution!(destination_data, source_data,",225,107,0
 "Convolution.jl :: _exponential_combination_modes!(backend, destination, a_data",47,35,0
 "Convolution.jl :: _exponential_convolution_modes!(backend, destination, source",59,48,0
+"Convolution.jl :: _exponential_convolve!(destination, field, multipliers, coef",65,42,0
 "Convolution.jl :: _kernel_storage(kernel)",93,79,0
 "Convolution.jl :: _show_kernel(io, kernel)",59,45,0
 "Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",368,107,0
 "Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",661,165,2
 "Convolution.jl :: convolve(field, kernel::SpectralKernel)",78,72,0
-"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",698,209,2
-"Convolution.jl :: exponential_convolve(field, multipliers, coefficient::Real)",54,46,0
+"Convolution.jl :: exponential_convolve!(destination, field, multipliers[, α::R",641,111,2
+"Convolution.jl :: exponential_convolve(field, multipliers; coefficient::Real, ",55,46,0
 "Convolution.jl :: field ⋆ kernel",60,51,0
 "Convolution.jl :: inv(kernel::ProductKernel)",62,33,1
 "Convolution.jl :: inv(kernel::RadialKernel)",61,39,1
@@ -79,7 +80,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: spectral_band(multipliers::FieldSpectralMultipliers,",190,88,0
 "Convolution.jl :: spectral_cutoff(multipliers::FieldSpectralMultipliers,",191,85,0
 "Convolution.jl :: tophat_window(multipliers::FieldSpectralMultipliers, width::",390,94,1
-"Convolution.jl :: translation_kernel!(kernel::SeparableKernel, multipliers::Fi",103,51,0
+"Convolution.jl :: translation_kernel!(kernel::SeparableKernel, multipliers::Fi",99,44,0
 "Convolution.jl :: translation_kernel(multipliers::FieldSpectralMultipliers,",674,198,1
 "Convolution.md § Convolution operations",64,64,0
 "Convolution.md § Internal API",68,68,0
@@ -90,6 +91,8 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 1",11,11,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 10",109,109,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 100",530,122,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 101",417,100,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 102",281,100,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 11",159,159,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 12",113,113,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 13",189,189,0
@@ -290,7 +293,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: fiber_shape(::Val{R}) where {R}",39,27,0
 "FiberSections.jl :: set_threading_cutoff!(n::Integer)",69,41,0
 "FiberSections.jl :: threading_cutoff()",139,138,0
-"FiberSections.jl :: with_threading(f; enabled::Union{Nothing, Bool} = true)",285,137,1
+"FiberSections.jl :: with_threading(f; enabled::Union{Nothing, Bool})",197,61,1
 "FiberSections.md § Internal API",50,50,0
 "FieldAlgebra.jl :: *(a, b)",81,79,0
 "FieldAlgebra.jl :: +(a, b, fields...)",41,38,0
@@ -335,7 +338,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: FieldPhysicalBroadcastStyle{N}",38,37,0
 "Fields.jl :: FieldSpectralBroadcastStyle{N}",36,35,0
 "Fields.jl :: FieldSpectralMultipliers(",646,189,0
-"Fields.jl :: FieldTransformPlans(",512,145,1
+"Fields.jl :: FieldTransformPlans(",505,145,1
 "Fields.jl :: Fields",494,443,0
 "Fields.jl :: Grid3D(",232,66,0
 "Fields.jl :: RealFourierLayout()",73,33,0
@@ -434,9 +437,9 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: CatmullRom",22,21,0
 "Interpolation.jl :: DirectDFT()",403,164,1
 "Interpolation.jl :: Interpolation",818,238,0
-"Interpolation.jl :: LagrangeSpline(stencil_width; T = Float64)",277,78,0
-"Interpolation.jl :: LalescuSpline(stencil_width; smoothness = stencil_width ÷ 2 ",433,119,0
-"Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral;",631,202,1
+"Interpolation.jl :: LagrangeSpline(stencil_width)",259,78,0
+"Interpolation.jl :: LalescuSpline(stencil_width; smoothness = stencil_width ÷ 2 ",415,119,0
+"Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral{T};",613,192,1
 "Interpolation.jl :: PointTraversalOrder(indices)",219,58,1
 "Interpolation.jl :: PointTraversalOrderScratch(grid::Grid3D, points::PointSet; t",282,81,1
 "Interpolation.jl :: _axis_weights(coefficients, t)",43,41,0
@@ -448,9 +451,8 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: _locate(coordinate, origin, spacing, number_of_grid_points)",42,38,0
 "Interpolation.jl :: _scan_offsets!(offsets, counts)",96,82,0
 "Interpolation.jl :: _scan_offsets!(offsets::Vector, counts::Vector)",177,90,0
-"Interpolation.jl :: _show_spline_eltype(io, scheme)",83,59,0
 "Interpolation.jl :: anterpolate!(field::AbstractFieldPhysical, points::PointSet,",394,209,0
-"Interpolation.jl :: anterpolate(grid::Grid3D, points, quantities, scheme::Abstra",81,63,0
+"Interpolation.jl :: anterpolate(grid::Grid3D, points, quantities, scheme;",106,96,0
 "Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",307,194,0
 "Interpolation.jl :: interpolate(field::AbstractFieldPhysical, points, scheme::Ab",41,26,0
 "Interpolation.jl :: point_traversal_order!(traversal::PointTraversalOrder, grid:",629,118,0
@@ -552,7 +554,7 @@ unit,words,longest_paragraph,admonitions
 "Points.jl :: point_value_tensor_order(sampled_values::AbstractPointValues",12,7,0
 "Points.jl :: point_values(sampled_values::AbstractPointValues)",31,30,0
 "Points.jl :: read_points(parent::HDF5.H5DataStore, name::AbstractString)",126,59,0
-"Points.jl :: similar_point_values(reference::AbstractPointValues, data)",114,58,1
+"Points.jl :: similar_point_values(reference::AbstractPointValues, data)",113,57,1
 "Points.jl :: wrap!(points::PointSet, grid::Grid3D)",257,116,1
 "Points.jl :: write_points(parent::HDF5.H5DataStore, name::AbstractString,",263,65,0
 "Points.md § Base-space motion",20,20,0
