@@ -460,9 +460,9 @@ operation's coverage is judged against the full axis list:
     fixed offset only when ``W`` is **even**; for odd ``W`` that set is centred on ``\mathrm{base}``
     while ``t < 1/2`` and on ``\mathrm{base}+1`` after, so a fixed offset sits a whole cell off centre.
 
-    The NUFFT shipped that way, and every `tol` selecting an odd width missed its target by
+    The NUFFT shipped that way, and every tolerance selecting an odd width missed its target by
     ``10^2``–``10^3``, a tighter request returning a worse result than a looser one. It stayed
-    invisible because **every** `NUFFT(…; tol = …)` call in the suite picked an even width, leaving the
+    invisible because **every** `NUFFT(…; tolerance = …)` call in the suite picked an even width, leaving the
     odd branch never numerically exercised — a parameter with two regimes, tested in one.
     `test/regressions/nufft-odd-width-mis-centered.jl` carries the lane.
 

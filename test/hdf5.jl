@@ -341,8 +341,8 @@ end
 
     h5open(path, "w") do io
       # The documented refusal: a NUFFT owns plans and a reference-bound window, not parameters.
-      @test_throws ArgumentError write_scheme(io, "nufft", NUFFT(spectral; tol = 1e-6))
-      @test_throws ArgumentError io["nufft_sugar"] = NUFFT(spectral; tol = 1e-6)
+      @test_throws ArgumentError write_scheme(io, "nufft", NUFFT(spectral; tolerance = 1e-6))
+      @test_throws ArgumentError io["nufft_sugar"] = NUFFT(spectral; tolerance = 1e-6)
 
       write_scheme(io, "impossible", LalescuSpline(4; smoothness = 1))
       attrs(io["impossible"])["smoothness"] = 9        # violates 0 ≤ m ≤ 2n at n = 1

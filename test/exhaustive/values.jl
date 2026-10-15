@@ -400,7 +400,7 @@ function run_value_lane(configs)
                                                          spectral_cutoff(multipliers, cutoff))),
                          ref_helmholtz(field_data(uh), grid, layout) .*
                          ref_spectral_cutoff(grid, layout, shape, cutoff)),
-      (:interpolate,     point_values(interpolate(sh, points, NUFFT(sh; tol = 1e-10))),
+      (:interpolate,     point_values(interpolate(sh, points, NUFFT(sh; tolerance = 1e-10))),
                          ref_spectral_interpolate(ref_project_out_nyquist(field_data(sh), grid, layout),
                                                   grid, layout, point_positions(points), 0)),
       (:radial_spectrum, collect(last(radial_spectrum(sh, multipliers))),
@@ -1091,7 +1091,7 @@ function run_value_lane(configs)
       # adjoints, so the naive sum and the package agree everywhere except those planes, by design:
       # measured here, 55 of 160 cells differ before the projection and none after.
       band(x) = ref_project_out_nyquist(x, grid, layout)
-      for scheme in (DirectDFT(), NUFFT(sh; tol = 1e-10))
+      for scheme in (DirectDFT(), NUFFT(sh; tolerance = 1e-10))
         base = zeros(Complex{T}, size(field_data(sh)))
         push!(generated, (:anterpolate!,
                           band(field_data(anterpolate!(ScalarFieldSpectral(copy(base), grid; layout), points, q, scheme))),

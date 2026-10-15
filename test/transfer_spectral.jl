@@ -133,7 +133,7 @@ end
     @testset "NUFFT == DirectDFT (the oracle) to tol ($T)" begin
       for phys in (ScalarFieldPhysical(Array, scalar, grid), VectorFieldPhysical(Array, vector, grid))
         fh, plans = tospec(phys)
-        nufft = NUFFT(fh; tol = tol)
+        nufft = NUFFT(fh; tolerance = tol)
         fast = Array(point_values(interpolate(fh, points, nufft)))
         oracle = Array(point_values(interpolate(fh, points, DirectDFT())))
         @test isapprox(fast, oracle; rtol = atol, atol = atol)
@@ -149,7 +149,7 @@ end
       for (phys, q) in ((ScalarFieldPhysical(Array, scalar, grid), ScalarPointValues(randn(rng, T, 8))),
                         (VectorFieldPhysical(Array, vector, grid), VectorPointValues(randn(rng, T, 8, 3))))
         fh, _ = tospec(phys)
-        nufft = NUFFT(fh; tol = tol)
+        nufft = NUFFT(fh; tolerance = tol)
         gathered = interpolate(fh, points, nufft)
         deposited = anterpolate(field_grid(fh), points, q, nufft)
         left = sum(vec(Array(point_values(gathered))) .* vec(Array(point_values(q))))   # = M·inner_pts
@@ -160,7 +160,7 @@ end
 
     @testset "NUFFT α/β accumulate + tunable width ($T)" begin
       phys = ScalarFieldPhysical(Array, scalar, grid); fh, _ = tospec(phys)
-      nufft = NUFFT(fh; width = 8, beta = 18)            # explicit ES parameters
+      nufft = NUFFT(fh; window_width = 8, window_shape = 18)            # explicit ES parameters
       q = ScalarPointValues(randn(rng, T, 8))
       once = anterpolate(field_grid(fh), points, q, nufft)
       twice = ScalarFieldSpectral(copy(field_data(once)), grid)
@@ -204,7 +204,7 @@ end
   points = PointSet(TP(2π) .* rand(rng, TP, 40, 3))
   tol = TP === Float64 ? TP(1e-8) : TP(1e-4)
   exact = Array(point_values(interpolate(bh, points, DirectDFT())))
-  fast = Array(point_values(interpolate(bh, points, NUFFT(bh; tol = tol))))
+  fast = Array(point_values(interpolate(bh, points, NUFFT(bh; tolerance = tol))))
   @test isapprox(fast, exact; rtol = 50 * tol, atol = 50 * tol)
 end
 
@@ -257,7 +257,7 @@ end
 
   # NUFFT locates points relative to the origin too — it must agree with its oracle here
   nufft_tol = TP === Float64 ? TP(1e-8) : TP(1e-4)
-  fast = Array(point_values(interpolate(bh, points, NUFFT(bh; tol = nufft_tol))))
+  fast = Array(point_values(interpolate(bh, points, NUFFT(bh; tolerance = nufft_tol))))
   @test isapprox(fast, got; rtol = 50 * nufft_tol, atol = 50 * nufft_tol)
 
   # the adjoint relation M·⟨Wf̂,q⟩ = N·⟨f̂,Wᵀq⟩ must hold with the phase anchored at the
@@ -326,14 +326,14 @@ end
   # was never constructed before), out-of-box points, the adjoint relation (pins the scatter
   # with the origin on both sides), and the R = 2 tensor case DirectDFT already covers
   nufft_tol = TP === Float64 ? TP(1e-8) : TP(1e-4)
-  fast = NUFFT(bh; tol = nufft_tol)
+  fast = NUFFT(bh; tolerance = nufft_tol)
   @test isapprox(Array(point_values(interpolate(bh, points, fast))), inside;
                  rtol = 50 * nufft_tol, atol = 50 * nufft_tol)
-  wide = NUFFT(bh; tol = nufft_tol, oversampling = 3)
+  wide = NUFFT(bh; tolerance = nufft_tol, oversampling = 3)
   @test isapprox(Array(point_values(interpolate(bh, points, wide))), inside;
                  rtol = 50 * nufft_tol, atol = 50 * nufft_tol)
   # oversampling must be ≥ 2: σ = 1 has no spectral guard band, so the plan build rejects it
-  @test_throws ArgumentError NUFFT(bh; tol = nufft_tol, oversampling = 1)
+  @test_throws ArgumentError NUFFT(bh; tolerance = nufft_tol, oversampling = 1)
   @test isapprox(Array(point_values(interpolate(bh, outside, fast))), inside;
                  rtol = 50 * nufft_tol, atol = 50 * nufft_tol)
   q = ScalarPointValues(rand(MersenneTwister(22), TP, 20))
@@ -364,7 +364,7 @@ end
   plans_t = FieldTransformPlans(t_phys, t_scaff)
   th = to_spectral(t_phys, plans_t)
   exact_t = Array(point_values(interpolate(th, points, DirectDFT())))
-  fast_t = Array(point_values(interpolate(th, points, NUFFT(th; tol = nufft_tol))))
+  fast_t = Array(point_values(interpolate(th, points, NUFFT(th; tolerance = nufft_tol))))
   @test isapprox(fast_t, exact_t; rtol = 50 * nufft_tol, atol = 50 * nufft_tol)
 
   # M = 0: the zero-work launches are sane (probe-verified, decision 43) and stay pinned
@@ -388,14 +388,14 @@ end
     points = PointSet(TP(2π) .* rand(MersenneTwister(52), TP, 6, 3))
     vector_values = VectorPointValues(rand(MersenneTwister(53), TP, 6, 3))
 
-    scalar_plan = NUFFT(scalar_reference; tol = TP === Float64 ? 1e-8 : 1.0f-4)
+    scalar_plan = NUFFT(scalar_reference; tolerance = TP === Float64 ? 1e-8 : 1.0f-4)
     # a plan of lower order than the transfer is refused, not silently wrong
     @test_throws ArgumentError anterpolate(field_grid(scalar_reference), points, vector_values, scalar_plan)
     @test_throws ArgumentError anterpolate!(vector_reference, points, vector_values, scalar_plan)
     @test_throws ArgumentError interpolate(vector_reference, points, scalar_plan)
 
     # the matching plan still works and is finite everywhere
-    vector_plan = NUFFT(vector_reference; tol = TP === Float64 ? 1e-8 : 1.0f-4)
+    vector_plan = NUFFT(vector_reference; tolerance = TP === Float64 ? 1e-8 : 1.0f-4)
     deposited = anterpolate(field_grid(vector_reference), points, vector_values, vector_plan)
     @test all(isfinite, field_data(deposited))
     @test field_tensor_order(deposited) == 1
@@ -436,7 +436,7 @@ end
   end
   projected = ScalarFieldSpectral(projected_data, grid; layout)
 
-  fast = point_values(interpolate(spectral, points, NUFFT(spectral; tol = 1e-10)))
+  fast = point_values(interpolate(spectral, points, NUFFT(spectral; tolerance = 1e-10)))
   exact_projected = point_values(interpolate(projected, points, DirectDFT()))
   exact_full = point_values(interpolate(spectral, points, DirectDFT()))
 

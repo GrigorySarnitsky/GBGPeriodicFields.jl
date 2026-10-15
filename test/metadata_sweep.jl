@@ -110,7 +110,7 @@ const FOLDS = ((1, 2, 3), (2, 1, 3), (3, 2, 1), (1, 3, 2))
         # a mismatched pair must be refused, not silently mis-sized
         @test_throws ArgumentError anterpolate(field_grid(spec(0)), points,
                                                VectorPointValues(rand(rng, TP, 6, 3)),
-                                               NUFFT(spec(0); tol = TP === Float64 ? 1e-8 : 1.0f-4))
+                                               NUFFT(spec(0); tolerance = TP === Float64 ? 1e-8 : 1.0f-4))
       end
     end
   end

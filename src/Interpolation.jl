@@ -1667,7 +1667,12 @@ end
 # Stencil width and shape parameter for a target tolerance (the exponential-of-semicircle rule for
 # oversampling σ = 2: w ≈ log₁₀(1/ε) + 2, β ≈ 2.30 w — Barnett, Magland & af Klinteberg 2019).
 # Verified against `DirectDFT` in `test/transfer_spectral.jl` and bumped if the measured error misses ε.
-_nufft_width(tol::Real) = max(4, ceil(Int, -log10(tol)) + 2)
+function _nufft_width(tolerance::Real)
+  # Evaluated as a keyword default, before the constructor's body, so the refusal lives here too.
+  (isfinite(tolerance) && tolerance > 0) ||
+    throw(ArgumentError("NUFFT tolerance must be finite and positive; got $tolerance"))
+  return max(4, ceil(Int, -log10(tolerance)) + 2)
+end
 _nufft_beta(width::Integer, ::Type{T}) where {T} = T(23) / 10 * width
 
 
@@ -1710,12 +1715,13 @@ end
 
 
 """
-    NUFFT(reference::AbstractFieldSpectral;
-          tol = 1e-10, oversampling = 2, width = nothing, beta = nothing)
+    NUFFT(reference::AbstractFieldSpectral{T};
+          tolerance = 1e-10, oversampling = 2, window_width = _nufft_width(tolerance),
+          window_shape = _nufft_beta(window_width, T))
 
 The **fast, approximate** spectral-domain transfer scheme: the ``O(N\\log N + M)`` windowed-gridding
 (nonuniform FFT) counterpart of [`DirectDFT`](@ref) for evaluating a field in spectral representation at
-scattered points and depositing point values back, agreeing with `DirectDFT` to a tolerance `tol`. It runs the transfer through an oversampled work grid and a single FFT — spreading through a smooth
+scattered points and depositing point values back, agreeing with `DirectDFT` to `tolerance`. It runs the transfer through an oversampled work grid and a single FFT — spreading through a smooth
 compact window then transforming for the deposit, and the reverse for the evaluation, deconvolving the
 coefficients before the transform and gathering through the window after it — so
 it is far cheaper than the exact ``O(NM)`` sum once the point and mode counts grow; for a few points or
@@ -1730,19 +1736,18 @@ like the reference.
   - `reference` — a field in spectral representation, fixing the grid, layout, element type and tensor
     order the plan is built for. The order is fixed with the rest because the plan stores oversampled
     field templates, which carry the fiber; a plan built at one order does not serve another.
-  - `tol` — the target accuracy; the window width and shape default to the values that reach it. It is
-    a **target**, not a guaranteed bound: it must be finite and positive, and a value finer than the
-    element type can resolve widens the window as far as the formula goes and then saturates at that
-    resolution rather than erroring.
+  - `tolerance` — the target accuracy; the window width and shape default to the values that reach
+    it. It is a **target**, not a guaranteed bound: it must be finite and positive, and a value finer
+    than the element type can resolve widens the window as far as the formula goes and then saturates
+    at that resolution rather than erroring.
   - `oversampling` — the linear oversampling factor ``\\sigma`` of the work grid (default `2`); must be **at least 2**. That is an implementation bound rather than a
     theoretical one — lower upsampling is standard with a correspondingly wider window — because the
     width and shape formulas here are fitted for ``\\sigma \\ge 2``; a value of 1 leaves no spectral guard band, so the gridding breaks down.
-  - `width` — the gridding stencil width in nodes; derived from `tol` by default.
-  - `beta` — the window shape parameter, unrelated to the accumulation weight ``\\beta`` the transfer
-    verbs take; derived from the width by default.
+  - `window_width` — the gridding stencil width in nodes; by default the width that reaches `tolerance`.
+  - `window_shape` — the window's shape parameter; by default proportional to the width.
 
 It agrees with `DirectDFT` (hence [`to_physical`](@ref) / [`to_spectral`](@ref) at the grid nodes) to
-`tol` on the resolved band (the rfft Nyquist plane is projected out), shares its adjoint
+`tolerance` on the resolved band (the rfft Nyquist plane is projected out), shares its adjoint
 relation, and like it reconstructs the band-limited field (divergence-free on the resolved
 band — the package's derivative wavenumbers are zeroed at an even axis's Nyquist frequency
 while this scheme evaluates the true phase there, so a discretely divergence-free field carrying
@@ -1759,8 +1764,8 @@ Nyquist content is not pointwise divergence-free in the continuum).
 
 # Fields
 
-- `width` — the gridding stencil width in nodes, as resolved from `tol`.
-- `beta` — the window shape parameter, as resolved from `tol` and `width`.
+- `width`, `beta` — the window's width in nodes and shape parameter, `window_width` and `window_shape`
+  as resolved.
 - `total_oversampling` — the ratio of the oversampled point count to the reference grid's, which
   carries the transforms' normalization between the two grids.
 - `reference_grid`, `reference_layout` — the base and Fourier layout the plan was built for, kept so
@@ -1788,25 +1793,27 @@ struct NUFFT{T, PL, DC, PP, SP, LO} <: AbstractTransferScheme
 end
 
 
-function NUFFT(reference::AbstractFieldSpectral{T, R}; tol::Real = 1e-10, oversampling::Integer = 2,
-               width::Union{Nothing, Integer} = nothing,
-               beta::Union{Nothing, Real} = nothing) where {T<:AbstractFloat, R}
-  # `tol` sets the window width through `-log10(tol)`, so a non-positive or non-finite value produced a
-  # nonsense width (or a fallback one) while the docstring still promised agreement "to `tol`". It is a
-  # TARGET, not a guaranteed bound: a tolerance below the element type's own resolution simply widens
-  # the window as far as the formula goes and the achieved accuracy saturates at that resolution, which
-  # is why `Float32` with the default `tol` is legitimate rather than an error.
-  (isfinite(tol) && tol > 0) ||
-    throw(ArgumentError("NUFFT tol must be finite and positive; got $tol"))
+function NUFFT(reference::AbstractFieldSpectral{T, R}; tolerance::Real = 1e-10, oversampling::Integer = 2,
+               window_width::Integer = _nufft_width(tolerance),
+               window_shape::Real = _nufft_beta(window_width, T)) where {T<:AbstractFloat, R}
+  # `tolerance` sets the window width through `-log10(tolerance)`, so a non-positive or non-finite
+  # value produced a nonsense width (or a fallback one) while the docstring still promised agreement
+  # "to `tolerance`". It is a TARGET, not a guaranteed bound: a tolerance below the element type's own
+  # resolution simply widens the window as far as the formula goes and the achieved accuracy saturates
+  # at that resolution, which is why `Float32` with the default tolerance is legitimate rather than an
+  # error. The width default is evaluated before this body runs, so `_nufft_width` refuses a bad
+  # tolerance itself; the check here covers a call that gives the width and a bad tolerance beside it.
+  (isfinite(tolerance) && tolerance > 0) ||
+    throw(ArgumentError("NUFFT tolerance must be finite and positive; got $tolerance"))
   σ = Int(oversampling)
   σ ≥ 2 || throw(ArgumentError("NUFFT oversampling must be at least 2 (got $σ): with no oversampling the work grid has no spectral guard band, so the windowed gridding aliases across the whole resolved band and cannot reach the requested tolerance."))
-  # Not given means derived from `tol`; a given value must be usable, never silently replaced.
-  width === nothing || width > 0 ||
-    throw(ArgumentError("NUFFT width must be a positive number of nodes; got $width"))
-  beta === nothing || (isfinite(beta) && beta > 0) ||
-    throw(ArgumentError("NUFFT beta must be finite and positive; got $beta"))
-  w = width === nothing ? _nufft_width(tol) : Int(width)
-  β = beta === nothing ? _nufft_beta(w, T) : T(beta)
+  # A given value must be usable, never silently replaced; the derived defaults always are.
+  window_width > 0 ||
+    throw(ArgumentError("NUFFT window_width must be a positive number of nodes; got $window_width"))
+  (isfinite(window_shape) && window_shape > 0) ||
+    throw(ArgumentError("NUFFT window_shape must be finite and positive; got $window_shape"))
+  w = Int(window_width)
+  β = T(window_shape)
   grid = field_grid(reference)
   layout = field_layout(reference)
   data = field_data(reference)
@@ -2099,8 +2106,8 @@ Provided by a package extension, so it is available only when [`HDF5.jl`](https:
     a particular reference field, so a stored copy would be either a large duplicate of derived data
     or a set of parameters pretending to be the object. It is the same class as [`FieldTransformPlans`](@ref),
     which is likewise rebuilt rather than moved when array families change. Rebuild it from the
-    reference field the caller restores anyway — `NUFFT(reference; tol)` — and write the `tol` in
-    the caller's own snapshot if it varies. Passing one here throws an `ArgumentError` naming this.
+    reference field the caller restores anyway — `NUFFT(reference; tolerance)` — and write the
+    tolerance in the caller's own snapshot if it varies. Passing one here throws an `ArgumentError` naming this.
 """
 function write_scheme end
 

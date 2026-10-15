@@ -665,8 +665,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
         @test matches(interpolate(device_spectral, device_points, DirectDFT()), interpolate(host_spectral, host_points, DirectDFT()))
         @test matches(anterpolate(field_grid(device_spectral), device_points, device_q, DirectDFT(); layout = field_layout(device_spectral)), anterpolate(field_grid(host_spectral), host_points, host_q, DirectDFT(); layout = field_layout(host_spectral)))
         # NUFFT (per-backend plan: device plan ↔ device arrays): device vs CPU
-        device_nufft = NUFFT(device_spectral; tol = tol)
-        host_nufft = NUFFT(host_spectral; tol = tol)
+        device_nufft = NUFFT(device_spectral; tolerance = tol)
+        host_nufft = NUFFT(host_spectral; tolerance = tol)
         @test matches(interpolate(device_spectral, device_points, device_nufft), interpolate(host_spectral, host_points, host_nufft))
         @test matches(anterpolate(field_grid(device_spectral), device_points, device_q, device_nufft), anterpolate(field_grid(host_spectral), host_points, host_q, host_nufft))
       end

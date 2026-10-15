@@ -515,14 +515,14 @@ function run_property_lanes(configs)
          ("spectral_band with lo > hi", () -> spectral_band(m, b.T(3), b.T(1))),
          ("spectral_band with a negative edge", () -> spectral_band(m, -b.T(1), b.T(3))),
          ("spectral_cutoff with a NaN edge", () -> spectral_cutoff(m, b.T(NaN))),
-         ("NUFFT with a non-positive tolerance", () -> NUFFT(z; tol = zero(b.T))),
+         ("NUFFT with a non-positive tolerance", () -> NUFFT(z; tolerance = zero(b.T))),
 
-         ("NUFFT with a negative tolerance", () -> NUFFT(z; tol = -b.T(1))),
-         # Decision 101: an absent width or beta is derived from the tolerance; a given one must be positive.
-         ("NUFFT with a zero width", () -> NUFFT(z; width = 0)),
-         ("NUFFT with a negative width", () -> NUFFT(z; width = -2)),
-         ("NUFFT with a zero beta", () -> NUFFT(z; beta = zero(b.T))),
-         ("NUFFT with a negative beta", () -> NUFFT(z; beta = -b.T(1))),
+         ("NUFFT with a negative tolerance", () -> NUFFT(z; tolerance = -b.T(1))),
+         # Decisions 101 and 103: the width and shape default to the tolerance's; a given one must be positive.
+         ("NUFFT with a zero window width", () -> NUFFT(z; window_width = 0)),
+         ("NUFFT with a negative window width", () -> NUFFT(z; window_width = -2)),
+         ("NUFFT with a zero window shape", () -> NUFFT(z; window_shape = zero(b.T))),
+         ("NUFFT with a negative window shape", () -> NUFFT(z; window_shape = -b.T(1))),
          # CROSSED OVER THE AXIS. Both fixtures corrupted axis 1 only, so per-axis validation that
          # checked the first extent and skipped the rest — an ordinary loop-bound slip — would have
          # accepted a zero or NaN extent on axes 2 and 3 with nothing here to notice.

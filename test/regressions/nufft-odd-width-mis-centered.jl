@@ -7,7 +7,7 @@
 #
 # FOUND: /bug-hunt, 2026-08-27. FIXED: the commit that promoted this file (`_stencil_half`, per axis).
 # Promoted UNCHANGED from the witness; only this provenance header was prepended, per the README.
-# Oracle: NUFFT(reference; tol) picks a window width/shape "that reach [tol]" (docstring), and the
+# Oracle: NUFFT(reference; tolerance) picks a window width/shape "that reach [tolerance]" (docstring), and the
 # width-selection comment in src/Interpolation.jl states it was "Verified against DirectDFT in
 # test/transfer_spectral.jl and bumped if the measured error misses ε". A basic, tol-independent
 # sanity property any such accuracy-targeting scheme must have: asking for a TIGHTER tolerance
@@ -16,9 +16,9 @@
 # band-limited with NO Nyquist content on any axis (so DirectDFT's exactness is unconditional, no
 # caveat needed), and points off the grid nodes.
 #
-# `_nufft_width(tol) = max(4, ceil(Int, -log10(tol)) + 2)` produces an EVEN width for most round
+# `_nufft_width(tolerance) = max(4, ceil(Int, -log10(tolerance)) + 2)` produces an EVEN width for most round
 # powers of ten (1e-6 -> 8, 1e-8 -> 10, 1e-10 -> 12) but an ODD width for others (1e-7 -> 9,
-# 1e-9 -> 11, 1e-11 -> 13). Every `NUFFT(...; tol=...)` call anywhere in the shipped test suite uses
+# 1e-9 -> 11, 1e-11 -> 13). Every `NUFFT(...; tolerance =...)` call anywhere in the shipped test suite uses
 # an even-width-producing tol (1e-10, 1e-8, 1e-6, or the Float32 default 1e-4) -- grepped and
 # confirmed. The odd-width branch of `_es_weights`'s node placement (`half = W ÷ 2`, offsets
 # `i - half` for `i = 1:W`) is therefore never numerically exercised by the suite.
@@ -50,14 +50,14 @@ Random.seed!(555)
   exact = point_values(interpolate(field, points, DirectDFT()))
   scale = maximum(abs.(exact))
 
-  achieved(tol) = maximum(abs.(point_values(interpolate(field, points, NUFFT(field; tol = tol))) .- exact)) / scale
+  achieved(tol) = maximum(abs.(point_values(interpolate(field, points, NUFFT(field; tolerance = tol))) .- exact)) / scale
 
   # tol = 1e-8 -> width 10 (even); tol = 1e-9 -> width 11 (odd), a STRICTLY tighter request.
   err_loose = achieved(1e-8)
   err_tight = achieved(1e-9)
 
-  @test NUFFT(field; tol = 1e-8).width == 10
-  @test NUFFT(field; tol = 1e-9).width == 11
+  @test NUFFT(field; tolerance = 1e-8).width == 10
+  @test NUFFT(field; tolerance = 1e-9).width == 11
 
   # Oracle: a tighter tolerance request (wider stencil, larger shape parameter) must not leave the
   # scheme LESS accurate than the looser request.

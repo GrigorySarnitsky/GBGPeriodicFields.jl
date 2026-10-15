@@ -56,7 +56,7 @@ function add_transfer!(group, AT, ::Type{T}, grid, tag; registry = nothing) wher
   # Spectral-domain transfer: the fast windowed NUFFT (one plan built once). DirectDFT is the exact
   # O(N·M) oracle — its cost is quadratic in the work and not a regression target, so it is not swept.
   spectral = scalar_spec(AT, T, grid)
-  nufft = NUFFT(spectral; tol = 1e-6)            # w = 8 stencil — a representative accuracy
+  nufft = NUFFT(spectral; tolerance = 1e-6)            # w = 8 stencil — a representative accuracy
   spectral_out = interpolate(spectral, points, nufft)
   group["interpolate! NUFFT | $tag"] = @benchmarkable (interpolate!($spectral_out, $spectral, $points, $nufft); bench_sync(point_values($spectral_out)))
   group["anterpolate! NUFFT | $tag"] = @benchmarkable (anterpolate!($spectral, $points, $q, $nufft, $(T(1)), $(T(0))); bench_sync(field_data($spectral)))

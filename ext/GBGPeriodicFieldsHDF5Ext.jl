@@ -379,8 +379,8 @@ function write_scheme(::HDF5.H5DataStore, ::AbstractString, ::NUFFT)
   throw(ArgumentError(
     "write_scheme: a NUFFT scheme is not persistable — it owns oversampled FFT plans and a " *
     "deconvolution window built against a reference field, which are derived objects rather than " *
-    "parameters. Rebuild it from the reference field you restore anyway, `NUFFT(reference; tol)`, " *
-    "and record `tol` in your own snapshot if it varies."))
+    "parameters. Rebuild it from the reference field you restore anyway, `NUFFT(reference; tolerance)`, " *
+    "and record the tolerance in your own snapshot if it varies."))
 end
 
 

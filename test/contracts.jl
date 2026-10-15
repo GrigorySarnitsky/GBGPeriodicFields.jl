@@ -242,12 +242,12 @@ end
   # nonsense width while the docstring still promised agreement "to tol". A tolerance below the element
   # type's own resolution cannot be met by any width and is refused rather than approximated.
   for bad in (0.0, -1e-6, Inf, NaN)
-    @test_throws ArgumentError NUFFT(reference; tol = bad)
+    @test_throws ArgumentError NUFFT(reference; tolerance = bad)
   end
-  @test NUFFT(reference; tol = 1e-10) isa NUFFT
+  @test NUFFT(reference; tolerance = 1e-10) isa NUFFT
   # A tolerance finer than the element type can resolve is a TARGET that saturates, not an error: the
   # default tol on a Float32 field is ordinary usage, and the width formula simply stops improving.
   float32_reference = ScalarFieldSpectral(zeros(ComplexF32, GBGPeriodicFields.Fields.field_spectral_shape(
       Grid3D((8, 8, 8), (2.0f0π, 2.0f0π, 2.0f0π)), CONTRACT_LAYOUT, Val(0))), Grid3D((8, 8, 8), (2.0f0π, 2.0f0π, 2.0f0π)); layout = CONTRACT_LAYOUT)
-  @test NUFFT(float32_reference; tol = 1e-10) isa NUFFT
+  @test NUFFT(float32_reference; tolerance = 1e-10) isa NUFFT
 end

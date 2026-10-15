@@ -34,7 +34,7 @@ using GBGPeriodicFields
     end
     # The default layout is the standard one, except for a NUFFT plan, whose own layout it takes.
     @test field_layout(anterpolate(grid, points, values, DirectDFT())) == RealFourierLayout()
-    plan = NUFFT(reference; tol = T === Float64 ? 1e-8 : 1.0f-4)
+    plan = NUFFT(reference; tolerance = T === Float64 ? 1e-8 : 1.0f-4)
     @test field_layout(anterpolate(grid, points, values, plan)) == permuted
     # The deposit agrees with the in-place form into a field built the old way.
     into = ScalarFieldSpectral(Array, grid; layout = permuted)
@@ -42,15 +42,15 @@ using GBGPeriodicFields
     @test field_data(anterpolate(grid, points, values, DirectDFT(); layout = permuted)) == field_data(into)
   end
 
-  @testset "NUFFT refuses a non-positive width or beta, and derives them when absent" begin
+  @testset "NUFFT refuses a non-positive window width or shape, and derives them when absent" begin
     reference = ScalarFieldSpectral(Array, grid)
-    @test_throws ArgumentError NUFFT(reference; width = 0)
-    @test_throws ArgumentError NUFFT(reference; width = -2)
-    @test_throws ArgumentError NUFFT(reference; beta = 0)
-    @test_throws ArgumentError NUFFT(reference; beta = -1.0)
-    derived = NUFFT(reference; tol = 1e-6)
-    @test derived.width == NUFFT(reference; tol = 1e-6, width = derived.width).width
-    @test derived.beta == NUFFT(reference; tol = 1e-6, beta = derived.beta).beta
+    @test_throws ArgumentError NUFFT(reference; window_width = 0)
+    @test_throws ArgumentError NUFFT(reference; window_width = -2)
+    @test_throws ArgumentError NUFFT(reference; window_shape = 0)
+    @test_throws ArgumentError NUFFT(reference; window_shape = -1.0)
+    derived = NUFFT(reference; tolerance = 1e-6)
+    @test derived.width == NUFFT(reference; tolerance = 1e-6, window_width = derived.width).width
+    @test derived.beta == NUFFT(reference; tolerance = 1e-6, window_shape = derived.beta).beta
   end
 
   @testset "with_threading needs its setting named" begin
