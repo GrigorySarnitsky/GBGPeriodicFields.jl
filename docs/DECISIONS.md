@@ -4158,3 +4158,64 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
      is not a defect: cuFFT requires the folded axis first, as `docs/src/gpu.md` and `docs/TESTING.md`
      record. The survey now leaves the plans out of a permuted layout's device fixtures, rather than
      losing the whole configuration's device leg.
+
+103. **The argument audit: defaults shown, names made one, a plan from the family** (2026-10-15,
+     owner-ruled item by item). The consumer `GBGHomogeneousTurbulence` reviewed every exported
+     signature's arguments and defaults on 2026-10-13 to 15 and the owner adopted its rules; the
+     same audit ran here over 654 package-owned methods of 135 operations and 35 types, the HDF5
+     extension's ten and the callable field. Four principles decided the eleven findings, so the
+     same kind of thing came out the same way.
+
+     - **A default is written as its value; `nothing` stays only where it names an absence the
+       docstring states.** `FieldTransformPlans` takes `fft_flags = FFTW.ESTIMATE` and stores it as
+       `UInt32`: the `nothing` it took was replaced by `ESTIMATE` before planning, stored as `nothing`
+       beside it, and mapped to `ESTIMATE` again by the one reader, the `adapt` rebuild — a record of
+       "was it set" on which nothing depended.
+
+     - **A derived default is an expression in the signature.** `NUFFT`'s window width and shape are
+       expressions there, `window_width = _nufft_width(tolerance)` and `window_shape = _nufft_beta(window_width, T)`,
+       Julia evaluating keyword defaults left to right; decision 101 had made them `nothing` meaning
+       derived, which this amends. The tolerance refusal moved into `_nufft_width`, which runs before
+       the body. `traversal = nothing` and `offset = nothing` stay: each names an absence (the stored
+       order; no exponent term) that its docstring states.
+
+     - **A setting that qualifies an absent term is an identity, kept and stated.** `offset_scale`
+       with no `offset` is accepted, the term ``s \hat w`` being absent whatever ``s``; the consumer
+       sends `(coefficient = -νδt, offset_scale = δt, offset = rate)` with the rate `nothing` on every
+       unforced step, the scale a property of the step and the offset of the forcing, so a refusal
+       would move a branch into every caller. `fft_timelimit` under `ESTIMATE` likewise: it bounds the
+       search a flag such as `MEASURE` requests, FFTW's own pair. Both docstrings say so.
+
+     - **A constructor takes the facts it reads.** `NUFFT(array_family, grid, Val(R); layout, …)`
+       stands beside the reference form, as decisions 93 and 94 did for the plans and the
+       multipliers: the reference form read only the grid, layout, element type, tensor order and
+       array family off its field, so a caller holding domain context alone no longer allocates a
+       field to make a plan. Both forms share one body; the family form's plan equals the reference
+       form's to the bit, on the host and on CUDA.
+
+     - **A name mirrors the interface it follows, or is a full word; one concept has one name.**
+       `NUFFT` takes `tolerance`, `window_width` and `window_shape` for `tol`, `width` and `beta`:
+       none mirrored an interface, `width` meant a node count there and a physical length in
+       `tophat_window`, and `beta` needed a disclaimer against the α/β weights.
+
+     - **One concept has one name across the forms of a type.** `translation_kernel`
+       and `translation_kernel!` name their displacement `displacement`, the docstring's own word,
+       where `offset` is the exponent term two docstrings away; the six-array
+       `FieldSpectralMultipliers` form names its layout `layout` as every other constructor does.
+       `with_threading` takes `mode = :automatic | :threaded | :serial` for `enabled = nothing | true |
+       false`, the consumer's own ruling for a three-valued switch; a mode outside the three is
+       refused. `npoints` stays, following Base's count idiom (`ndims`, `nthreads`), 54 consumer
+       sites for no new meaning.
+
+     - **Checked and consistent, so not re-raised:** every other default is written in its
+       signature; the paired constructors list their shared keywords in one order; destination first
+       in every in-place verb and the α/β pair trailing everywhere but `combine!` and the two-operand
+       exponential form (invariant 10); the transfer verbs keep one order across their schemes; no
+       randomness anywhere; no default varies with dispatch; the scheme required positional on the
+       verbs with the keyword default only on the callable field (decision 97); `lpnorm(f, p = 2)`
+       mirrors `LinearAlgebra.norm` and its docstring names it.
+
+     - **Breaking.** The consumer forwards `fft_flags = nothing` as its own default at two sites,
+       which become `FFTW.ESTIMATE`; it has no `NUFFT` call and no `with_threading` call. The
+       `Interpolation` parity baseline is refrozen 148 → 149 for the family form; the CUDA suite
+       builds the plan from the device family and reads 695/695; `Pkg.test()` reads 11032/177.
