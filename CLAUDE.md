@@ -1132,6 +1132,56 @@ the stale traversal order. Nothing here is actionable again until the next sweep
   confirmed on both vendors. Its `fft` mechanism is `to_physical!` SCALAR at ``128^3``, exactly the
   configuration that decision leaves alone, so the next regression on that axis is equally invisible.
 
+**AIPORETNE — OPEN QUEUE, filed 2026-10-16 from Enteropia (check `hostname`; on `Enteropia` this is
+not actionable).** The ROCm suite last ran 2026-09-05 at 494/494, so decisions 84–103 have never
+executed on AMD; CUDA reads 695/695 at `af0019b3`. In this order, each step alone on the machine:
+
+1. **Pull and load.** `git pull`; master is at `af0019b3` or later. The three AMD environments carry
+   gitignored manifests — `test/gpu/rocm`, `benchmark/gpu/rocm`, `examples/gpu/rocm` — so in each run
+   `Pkg.instantiate()` and then LOAD (`using GBGPeriodicFields, AMDGPU`); resolve and instantiate
+   passing is not enough (2026-08-31, four stale environments found only at load). In `test/gpu/rocm`
+   also `Pkg.update("GBGCodingTools")` to rc.73 and verify the manifest's `git-tree-sha1` equals the
+   tag's tree (`gh api repos/GrigorySarnitsky/GBGCodingTools.jl/git/commits/<sha> --jq .tree.sha`,
+   a200c8dc…). Warm the card once with a trivial kernel after a reboot: a cold comgr JIT looks like a
+   hang, and a cold run is never killed.
+2. **The ROCm suite:** `julia --project=test/gpu/rocm test/gpu/rocm/runtests.jl`. The suite is
+   backend-agnostic, so expect **695/695**; a different number is a finding, not a rounding difference,
+   unless the log says why: the device-cost lane reports rather than judges on a backend with no
+   frozen bounds (step 4), and the aliased-allocation lane (108 cells) is SKIPPED, with an `@info`,
+   where the backend cannot count device bytes — on CUDA it runs. First-runs on AMD, in the order they are likeliest to differ from CUDA: decision 88's
+   grouped n-ary fold (a generated per-group body that failed to compile on CUDA at first); decision
+   95's aliased-allocation lane, 108 cells asserting zero device bytes, where a device VIEW allocated on
+   CUDA; decision 102's `@inferred` reductions on device (`inner`, `l2norm`, `lpnorm`, `std`, `var`,
+   `==`, `isequal` — the assertions are PF's, but AMDGPU's `dot` and `==` are its own) and its
+   `translation_kernel!` refusal; decision 103's `NUFFT(ROCArray, grid, Val(R); layout)` and the
+   `adapt` plan rebuild handing `fft_flags` to a ROCm target (ignored, as cuFFT ignores it); decision
+   93's `read_field!` through a host buffer and the plans' family form; decisions 85 (resolution
+   verbs), 87 (`tophat_window`), 90 (`mean_free_projection!`, `materialize_kernel!`), 91 (equality
+   and `hash` on device), 94 (multipliers' family form) and 97–101 (scheme positional, sampling
+   constructors with the family). A failure is REPORTED, never fixed silently; a device-specific
+   defect gets a regression witness and a decision entry, as decision 102's did.
+3. **The example:** `julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --smoke`.
+4. **Freeze the ROCm device-cost bounds.** The lane (`device_cost_lane` in `test/gpu/suite.jl`, ten
+   cases at ``256^3``) is reported, not judged, on a backend with no entry in `DEVICE_COST_BOUNDS`.
+   Two idle-machine passes agreeing to 0.02, each bound the higher of the two plus 10%, entered under
+   the suite's own backend label for the RX 7900 XTX, both element types; the reason beside the
+   numbers in the commit, and the ROCm reading added to `docs/PERFORMANCE.md` finding (av). The
+   `weighted_inner` excess (1.33–1.88 on CUDA) is known and left (owner-ruled 2026-10-03); the AMD
+   figure is reported, not fixed.
+5. **The ROCm canary:** `julia --project=benchmark/gpu/rocm benchmark/regress.jl gpu`, baseline
+   frozen 2026-09-04. A red here is a hypothesis: check first whether the baseline predates a harness
+   fix (the 2026-08-07 phantom), and whether only the unsynchronised mechanisms moved.
+6. **Record:** the ROCm count line in this file (now "ROCm reads 494/494 as of 2026-09-05") and the
+   bounds; commit and push — the push hook runs the docs build and REFUSES a tree with uncommitted
+   tracked files, so commit everything first.
+7. **Optional, with the owner's word:** the survey has never run on AMD. `julia -t4
+   --project=test/gpu/rocm test/exhaustive/runtests.jl` with `SURVEY_CONFIGURATIONS` (a regex on
+   configuration names) in processes of a dozen configurations or fewer — about 7 min and 3.5 GB of
+   host memory per configuration, never released, cause unidentified — through `script -qfec` so the
+   log is line-buffered. Note that the survey omits the plans and the `NUFFT` for a permuted layout on
+   ANY device (`plannable` in `invocations.jl`), a cuFFT limit rocFFT does not share; on ROCm that is
+   a harness conservatism to record, not a finding.
+
 **AIPORETNE — ALL THREE ITEMS CLOSED 2026-09-04 on this host** (all three were filed from Enteropia;
 check `hostname`). The record of (1) and (2) is `docs/PERFORMANCE.md` finding (ap), of (3) finding
 (aq); the entries are kept below for what they taught. Nothing here is actionable until the next
