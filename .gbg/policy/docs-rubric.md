@@ -1,7 +1,7 @@
-<!-- gbg:managed begin v2.0.0-rc.76 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.79 — rewritten by `gbg sync`; do not edit -->
 # Documentation and API — `RULE.DOC.*`, `RULE.API.*`
 
-What a docstring and an API page contain, in what order and in what shape. 48 rules, written from the rule values themselves,
+What a docstring and an API page contain, in what order and in what shape. 50 rules, written from the rule values themselves,
 so a rule reworded here was reworded in the program that checks it.
 
 ### RULE.API.POSITIONAL
@@ -58,7 +58,7 @@ Covered by a program.
 ### RULE.DOC.ARG_BULLET
 An argument or field bullet names its argument in a plain code span, never a bold one.
 
-Bold marks emphasis; a name set in bold reads as a heading over the paragraph rather than as the argument.
+Bold marks structure (`RULE.DOC.EMPHASIS`); a name set in bold reads as a heading over the paragraph rather than as the argument.
 
 Covered by a program.
 
@@ -111,6 +111,20 @@ No stale claim: a rule cited by id names a rule that exists, and a retired phras
 A citation of something renamed or removed reads exactly like one that resolves, which is why it survives.
 
 Covered by a program.
+
+### RULE.DOC.EMPHASIS
+Bold marks structure alone: a heading, an admonition's title, a table's header row, and a run-in head that opens a paragraph, a list item, a quotation or a table cell. Bold anywhere else in a sentence, and bold italic, is never used; what it marked is stress or a term at its definition, which are italic, or a sentence that should carry its weight by its order.
+
+One mark doing three jobs tells the reader none of them: in one package bold opened bullets, introduced defined terms and stressed `not`, hundreds of times inside a sentence. The authorities agree that emphasis and a defined term are italic and bold is for structure — Knuth slants the emphasised `not` and never bolds it (The TeXbook, ch. 4), LaTeX's `\emph` sets italic, SIAM's style manual says "Bold is not used for emphasis", and the Chicago, Google, Microsoft and Apple guides and Wikipedia agree — and a reader finds a run-in head by where bold stands, which bold scattered through the sentences hides. A journal's volume in a reference is plain as well: some citation styles bold it, and no rule here asks for it (the owner, 2026-10-17). Where a bold span stands decides the question, so a program does; whether its italic is earned is `RULE.DOC.EMPHASIS_RARE`'s (the owner, 2026-10-16, on GBGHomogeneousTurbulence's request).
+
+Covered by a program.
+
+### RULE.DOC.EMPHASIS_RARE
+Emphasis is italic, and rare: a sentence carries its weight by its order first, and a word is set in italic only where, read aloud, it would be stressed against what the reader expects, or where a term is defined. Italic is never set inside italic, where it does not show, nor beside bold or quotation marks on the same words; capitals and underlining are never emphasis.
+
+Emphasis marked everywhere marks nothing: the authorities who agree that it is italic agree that it is occasional, and that a sentence places its stress first by putting the stressed words at its end or its start (Fowler's ITALICS, 1926; Strunk's rule 18; Gopen and Swan, 1990). A defined term is italic where it is defined and roman after. Markdown has no underline, and on a Documenter page italic inside italic stays italic, so the reversal LaTeX makes is lost. Whether a stress is earned, or a word is a definition, is a reading of the sentence, so a reader judges it; where bold may stand is `RULE.DOC.EMPHASIS`'s (the owner, 2026-10-16).
+
+Covered by a reader given nothing, because this needs meaning.
 
 ### RULE.DOC.FENCED_CODE
 A code block in a page or a rationale document is fenced with three backticks, never indented; a docstring's indented signature is exempt.
