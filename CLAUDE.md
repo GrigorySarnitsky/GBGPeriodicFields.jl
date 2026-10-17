@@ -1142,8 +1142,17 @@ agree to 0.02 — the spread is bimodal between processes (`Float32` scalar `con
 reads 1.43–1.46 in some, 2.34–2.67 in others) and every `Float32` pass trips the busy warning on an idle card;
 the figures are in `docs/PERFORMANCE.md` finding (aw). Two gaps for the owner, neither fixed: the ROCm runner
 defines no `device_bytes_allocated`, so decision 95's aliased-allocation lane has never asserted anything on
-AMD; and `weighted_inner` costs 3.2–3.5 times a copy in `Float64` here against CUDA's 1.33. The original
-queue follows. The ROCm suite last ran 2026-09-05 at 494/494, so decisions 84–103 have never
+AMD; and `weighted_inner` costs 3.2–3.5 times a copy in `Float64` here against CUDA's 1.33.
+**Step 7 (the survey, owner-approved 2026-10-17) is BLOCKED by a package defect it found.** The mapped
+reductions `extrema`, `minimum`, `maximum`, `mean` and `integral` accept a FIELD as the fiber map, the
+class `map!`/`map` were fixed for on 2026-09-02: on the CPU `extrema(s, u)` silently returns the scalar
+field interpolated at the vector field's values read as positions, and on ROCm compiling that kernel
+segfaults LLVM (`extrema(s, u)` on two device fields, exit 139), killing every survey process at the same
+call. A fix waits for the owner. A second, HARNESS defect: from `test/gpu/rocm` the survey reports
+"BACKENDS: cpu" — `device_backends()` imports the vendor inside a function and then cannot see the new
+binding under Julia 1.12's world age, so a GPU survey started the documented way never crosses the
+device. Pre-importing (`julia -t4 --project=test/gpu/rocm -e 'using AMDGPU; include("test/exhaustive/runtests.jl")'`)
+works around it. The original queue follows. The ROCm suite last ran 2026-09-05 at 494/494, so decisions 84–103 have never
 executed on AMD; CUDA reads 695/695 at `af0019b3`. In this order, each step alone on the machine:
 
 1. **Pull and load.** `git pull`; master is at `af0019b3` or later. The three AMD environments carry
