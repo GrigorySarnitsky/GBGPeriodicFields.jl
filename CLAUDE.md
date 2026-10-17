@@ -1148,11 +1148,10 @@ reductions `extrema`, `minimum`, `maximum`, `mean` and `integral` accept a FIELD
 class `map!`/`map` were fixed for on 2026-09-02: on the CPU `extrema(s, u)` silently returns the scalar
 field interpolated at the vector field's values read as positions, and on ROCm compiling that kernel
 segfaults LLVM (`extrema(s, u)` on two device fields, exit 139), killing every survey process at the same
-call. A second, HARNESS defect: from `test/gpu/rocm` the survey reports
-"BACKENDS: cpu" — `device_backends()` imports the vendor inside a function and then cannot see the new
-binding under Julia 1.12's world age, so a GPU survey started the documented way never crosses the
-device. Pre-importing (`julia -t4 --project=test/gpu/rocm -e 'using AMDGPU; include("test/exhaustive/runtests.jl")'`)
-works around it. The original queue follows. The ROCm suite last ran 2026-09-05 at 494/494, so decisions 84–103 have never
+call. A second, HARNESS defect, also fixed that day on the owner's word:
+from a GPU environment `device_backends()` imported the vendor inside a running function and then
+could not see the new binding under Julia 1.12's world age, so the survey reported "BACKENDS: cpu"
+and never crossed the device; its lookups now go through `invokelatest`. The original queue follows. The ROCm suite last ran 2026-09-05 at 494/494, so decisions 84–103 have never
 executed on AMD; CUDA reads 695/695 at `af0019b3`. In this order, each step alone on the machine:
 
 1. **Pull and load.** `git pull`; master is at `af0019b3` or later. The three AMD environments carry

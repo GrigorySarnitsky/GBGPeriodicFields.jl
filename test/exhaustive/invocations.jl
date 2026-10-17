@@ -48,8 +48,11 @@ function device_backends()
   # Import the vendor package if the active project HAS it. Gating on `isdefined(Main, :CUDA)` alone
   # meant the axis could never fire: activating `test/gpu/cuda` makes CUDA *available*, not imported,
   # so the lane printed "NOT RUN — run from test/gpu/cuda" to a user who had just done that.
+  # Every lookup of the vendor goes through `invokelatest`: under Julia 1.12 a binding made by the
+  # `@eval` below belongs to a newer world than this running call, so a plain `isdefined` here answered
+  # false for a package it had just loaded, and the GPU environments ran the survey on the CPU alone.
   for vendor in (:CUDA, :AMDGPU)
-    isdefined(Main, vendor) && continue
+    Base.invokelatest(isdefined, Main, vendor) && continue
     try
       @eval Main using $vendor
     catch
@@ -58,8 +61,8 @@ function device_backends()
   backends = Any[("cpu", identity)]
   for (name, symbol, adapt) in (("cuda", :CUDA, x -> Base.invokelatest(getfield(Main, :CUDA).CuArray, x)),
                                 ("rocm", :AMDGPU, x -> Base.invokelatest(getfield(Main, :AMDGPU).ROCArray, x)))
-    isdefined(Main, symbol) || continue
-    vendor = getfield(Main, symbol)
+    Base.invokelatest(isdefined, Main, symbol) || continue
+    vendor = Base.invokelatest(getfield, Main, symbol)
     functional = try Base.invokelatest(getfield(vendor, :functional)) catch; false end
     functional && Base.push!(backends, (name, adapt))
   end
