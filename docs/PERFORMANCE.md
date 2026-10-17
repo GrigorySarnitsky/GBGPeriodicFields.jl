@@ -1737,6 +1737,24 @@ was backwards for a sweep-seeded set and has been corrected. The traversal order
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
 
+**(aw) The RX 7900 XTX device-cost reading is reported and NOT frozen: its passes do not agree**
+(2026-10-17, `Aiporetne`, idle card, ``256^3``). Finding (av) freezes a bound only from two passes
+agreeing to 0.02. Four processes were measured on this card, and no two agree.
+
+The spread lies between processes, not within one. At 200 repetitions two trials in one process
+agree to 0.07. Across processes, the scalar `convolve!` with a radial kernel in `Float32` reads
+1.43–1.46 in some and 2.34–2.67 in others. Every `Float32` pass tripped the harness's busy warning,
+with no other process on the device and 12 W drawn before the run.
+
+- **`Float64`:** spectral `add!`, `combine!`, `laplacian!`, `exponential_convolve!` and the vector
+  `convolve!` with a radial kernel at 0.94–1.04. The scalar one is at 1.62–1.70, the vector one with
+  the per-axis factors at 1.48–1.54.
+- **`Float32`:** `combine!` and `exponential_convolve!` at 0.95–1.06, spectral `add!` at 0.96–1.05.
+  The physical vector `add!` is at 1.50–1.75, the 4-D broadcast excess (av) records on CUDA. The vector
+  `convolve!` and `laplacian!` are at 1.37–1.69.
+- **`weighted_inner`:** 3.17–3.22 scalar and 3.39–3.47 vector in `Float64`; 4.57–5.27 and 4.97–6.03
+  in `Float32`. That is about 2.5 times its CUDA ratio, reported under (av)'s ruling and not fixed.
+
 **(av) The first device-cost reading: `weighted_inner` is the one operation well above its traffic**
 (2026-10-03, RTX 5070 Ti, idle machine, ``256^3``). The device-cost lane of
 [GBGCodingTools](https://grigorysarnitsky.github.io/GBGCodingTools.jl/) times each operation against a

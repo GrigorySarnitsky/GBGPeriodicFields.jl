@@ -820,7 +820,7 @@ Minimum bar for any change:
    after the run that took the measurement found six real ones, all in decision 73's `displace!`, three per
    element type. It had read 373 on 2026-08-15 and 361 on 2026-08-10, and no GPU run on **either** backend
    had included decisions 73–75 until this one; the CUDA environment had also stopped resolving in the
-   interim, so the suite was silently unrunnable rather than merely unrun. **ROCm reads 494/494 as of 2026-09-05** (exit 0 in 5m30s — 491 plus decision 83's three
+   interim, so the suite was silently unrunnable rather than merely unrun. **ROCm reads 567 passed with 2 recorded skips on 2026-10-17** (`afbf1176`, exit 0 in 6m53s, no failure — CUDA's 695 less the 108 aliased-allocation cells, which skip because the ROCm runner has no device byte counter, and the 20 cost bounds, reported rather than judged on a backend with none frozen; it read 494/494 on 2026-09-05, 491 plus decision 83's three
    device cells). **CUDA reads 695/695 on 2026-10-15** (decision 103's family-form plan from the device family, eight cells, exit 0 in 5m30s; it read 687/687 on 2026-10-13, decision 102's device refusal and eight `@inferred` checks per element type, exit 0 in 5m36s; it read 669/669 on 2026-10-12 with decision 101's device calls, exit 0 in 5m28s, the cost lane within its frozen bounds; it read 669/669 on 2026-10-07) (decision 100's sampled-field device cells; the unified lane reads 538 passed with 4 recorded skips — the allocation and cost lanes, which cannot count or time unified memory — plus 44/44 of its own, on 2026-10-08). It read **667/667 on 2026-10-03** (decisions 89–96, decision 95's aliased-allocation lane — 108 cells — and the device-cost lane's 20 frozen bounds; ROCm has not run since 2026-09-05). **CUDA re-ran 2026-09-26 on `Enteropia` with decision 88 and reads 520/520**, exit 0 in 4m43s (the fourteen new cells are decision 88's operand-count rows; its first run errored in both element types' convolution testset, the defect decision 88 records); it read 506/506 earlier that day with decision 87, exit 0 in 4m19s (the two new cells are `tophat_window`'s device row in each element type); it read 504/504 on 2026-09-18 with decision 85, exit 0 in 4m21s (the ten new cells are the resolution verbs' device lane; it read 494/494 on 2026-09-17) — the device lane, asserted not unified before it started, so PARITY across ROCm, CUDA device and CUDA unified (the unified lane, `test/gpu/cuda-unified`, reads 520/520 plus 44/44 of its own on 2026-09-26 with decision 88; it read 494/494 plus 44/44 on 2026-09-17). Before that it re-ran
    2026-08-31 at 454/454, up from the stale 395 of 2026-08-23. **PARITY with CUDA is now VERIFIED** (2026-09-01, on `Enteropia`): both
    backends read 454/454, exit 0. **CUDA re-ran 2026-09-04 with decision 82 and reads 491/491, exit 0 in
@@ -1132,8 +1132,18 @@ the stale traversal order. Nothing here is actionable again until the next sweep
   confirmed on both vendors. Its `fft` mechanism is `to_physical!` SCALAR at ``128^3``, exactly the
   configuration that decision leaves alone, so the next regression on that axis is equally invisible.
 
-**AIPORETNE — OPEN QUEUE, filed 2026-10-16 from Enteropia (check `hostname`; on `Enteropia` this is
-not actionable).** The ROCm suite last ran 2026-09-05 at 494/494, so decisions 84–103 have never
+**AIPORETNE — the 2026-10-16 queue RAN 2026-10-17 on this host; steps 1–3, 5 and 6 are CLOSED, step 4 is
+OPEN and step 7 was not asked.** Step 1: every environment instantiated and loaded, GBGCodingTools at rc.79
+with tree `09d1e60e` in all three of its environments. Step 2: decisions 84–103 now execute on AMD with no
+failure, 567 passed and 2 recorded skips, the arithmetic in the count line above. Step 3: `HIST_ROCm.jl --smoke`
+green, Parseval exact. Step 5: the canary is GREEN, all twelve mechanisms within 3% of the 2026-09-04
+baseline. **Step 4 is NOT done: the ROCm cost bounds cannot be frozen**, because passes on this card do not
+agree to 0.02 — the spread is bimodal between processes (`Float32` scalar `convolve!` with a radial kernel
+reads 1.43–1.46 in some, 2.34–2.67 in others) and every `Float32` pass trips the busy warning on an idle card;
+the figures are in `docs/PERFORMANCE.md` finding (aw). Two gaps for the owner, neither fixed: the ROCm runner
+defines no `device_bytes_allocated`, so decision 95's aliased-allocation lane has never asserted anything on
+AMD; and `weighted_inner` costs 3.2–3.5 times a copy in `Float64` here against CUDA's 1.33. The original
+queue follows. The ROCm suite last ran 2026-09-05 at 494/494, so decisions 84–103 have never
 executed on AMD; CUDA reads 695/695 at `af0019b3`. In this order, each step alone on the machine:
 
 1. **Pull and load.** `git pull`; master is at `af0019b3` or later. The three AMD environments carry
