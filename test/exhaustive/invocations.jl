@@ -41,28 +41,30 @@ end
 _owned_by_package(method) = method.module in PACKAGE_MODULES || method.module in EXTENSION_MODULES
 
 
+# Import the vendor package if the active project HAS it, at TOP LEVEL while this file is included.
+# Gating on `isdefined(Main, :CUDA)` alone meant the axis could never fire: activating `test/gpu/cuda`
+# makes CUDA *available*, not imported. Importing from inside `device_backends()` was the first fix and
+# it never worked under Julia 1.12: the whole sweep runs as one call begun before the import, and that
+# call cannot see the package — not its binding, and not one of its methods (`size` on a `ROCArray`
+# was "too new to be called from this world context") — so every device pool failed to build and the
+# report read "BACKENDS: cpu" from the very environment meant to cross the device. A top-level import
+# is complete before any lane begins, so every later call sees it.
+for vendor in (:CUDA, :AMDGPU)
+  isdefined(Main, vendor) && continue
+  Base.find_package(String(vendor)) === nothing && continue
+  @eval Main using $vendor
+end
+
+
 # The storage backends this process can build a pool on. CPU is always present; a device appears only
 # when its vendor package is loaded, which happens in the `test/gpu/*` environments. When one is
 # absent the suite says so — the backend axis is NOT RUN, never silently dropped.
 function device_backends()
-  # Import the vendor package if the active project HAS it. Gating on `isdefined(Main, :CUDA)` alone
-  # meant the axis could never fire: activating `test/gpu/cuda` makes CUDA *available*, not imported,
-  # so the lane printed "NOT RUN — run from test/gpu/cuda" to a user who had just done that.
-  # Every lookup of the vendor goes through `invokelatest`: under Julia 1.12 a binding made by the
-  # `@eval` below belongs to a newer world than this running call, so a plain `isdefined` here answered
-  # false for a package it had just loaded, and the GPU environments ran the survey on the CPU alone.
-  for vendor in (:CUDA, :AMDGPU)
-    Base.invokelatest(isdefined, Main, vendor) && continue
-    try
-      @eval Main using $vendor
-    catch
-    end
-  end
   backends = Any[("cpu", identity)]
   for (name, symbol, adapt) in (("cuda", :CUDA, x -> Base.invokelatest(getfield(Main, :CUDA).CuArray, x)),
                                 ("rocm", :AMDGPU, x -> Base.invokelatest(getfield(Main, :AMDGPU).ROCArray, x)))
-    Base.invokelatest(isdefined, Main, symbol) || continue
-    vendor = Base.invokelatest(getfield, Main, symbol)
+    isdefined(Main, symbol) || continue
+    vendor = getfield(Main, symbol)
     functional = try Base.invokelatest(getfield(vendor, :functional)) catch; false end
     functional && Base.push!(backends, (name, adapt))
   end

@@ -1151,7 +1151,9 @@ segfaults LLVM (`extrema(s, u)` on two device fields, exit 139), killing every s
 call. A second, HARNESS defect, also fixed that day on the owner's word:
 from a GPU environment `device_backends()` imported the vendor inside a running function and then
 could not see the new binding under Julia 1.12's world age, so the survey reported "BACKENDS: cpu"
-and never crossed the device; its lookups now go through `invokelatest`. The original queue follows. The ROCm suite last ran 2026-09-05 at 494/494, so decisions 84–103 have never
+and never crossed the device. Routing the lookups through `invokelatest` (`e3c539c2`) was NOT enough —
+every AMDGPU method was too new for the running sweep, so every device pool still failed to build — and
+the vendor is now imported at top level when `invocations.jl` is included, before any lane begins. The original queue follows. The ROCm suite last ran 2026-09-05 at 494/494, so decisions 84–103 have never
 executed on AMD; CUDA reads 695/695 at `af0019b3`. In this order, each step alone on the machine:
 
 1. **Pull and load.** `git pull`; master is at `af0019b3` or later. The three AMD environments carry
