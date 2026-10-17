@@ -65,7 +65,7 @@ using ..Fields: _spectral_zero_mode_data, _spectral_zero_mode_component_data,
   field_grid, field_layout, field_tensor_order, FieldSpectralMultipliers, FieldTransformPlans, to_physical,
   similar_field, _check_field_domain_compatibility, _check_multipliers_compatibility,
   _squared_wavenumber_broadcast, _vector_component_data, _tensor2_component_data,
-  _same_backend, _array_family
+  _same_backend, _array_family, _refuse_field_as_fiber_map
 using ..Points: AbstractPointValues, npoints
 # Every kernel class may serve as a weight: each one's `_kernel_data` is an instantiated broadcastable,
 # and the fused pass below never asks which class it holds. The former Union{StoredKernel, RadialKernel}
@@ -438,6 +438,9 @@ function _fiber_mapreduce(fiber_map::FiberMap, combine::Combine,
   # `_tensor_order`, so the fiber type below is a compile-time type rather than a runtime lookup. This
   # is for clarity, not for allocation: what keeps the family at zero bytes is the forced specialization
   # on `fiber_map` (see the docstring) — matching the parameters here changed nothing on its own.
+  # Every mapped form funnels through here, so this one call refuses a FIELD in the fiber-map slot for
+  # all five of them, on fields and point values alike, as `map!`/`map` refuse it.
+  _refuse_field_as_fiber_map(fiber_map)
   # Tensor order 0 needs no gather: the data array *is* the sequence of fiber values, so the backend's
   # own `mapreduce` already takes its best route on either device.
   R == 0 && return mapreduce(fiber_map, combine, field_data(section))

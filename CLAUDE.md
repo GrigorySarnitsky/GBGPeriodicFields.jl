@@ -1143,12 +1143,12 @@ reads 1.43–1.46 in some, 2.34–2.67 in others) and every `Float32` pass trips
 the figures are in `docs/PERFORMANCE.md` finding (aw). Two gaps for the owner, neither fixed: the ROCm runner
 defines no `device_bytes_allocated`, so decision 95's aliased-allocation lane has never asserted anything on
 AMD; and `weighted_inner` costs 3.2–3.5 times a copy in `Float64` here against CUDA's 1.33.
-**Step 7 (the survey, owner-approved 2026-10-17) is BLOCKED by a package defect it found.** The mapped
+**Step 7 (the survey, owner-approved 2026-10-17) was blocked by a package defect it found, now FIXED (owner-directed, same day).** The mapped
 reductions `extrema`, `minimum`, `maximum`, `mean` and `integral` accept a FIELD as the fiber map, the
 class `map!`/`map` were fixed for on 2026-09-02: on the CPU `extrema(s, u)` silently returns the scalar
 field interpolated at the vector field's values read as positions, and on ROCm compiling that kernel
 segfaults LLVM (`extrema(s, u)` on two device fields, exit 139), killing every survey process at the same
-call. A fix waits for the owner. A second, HARNESS defect: from `test/gpu/rocm` the survey reports
+call. A second, HARNESS defect: from `test/gpu/rocm` the survey reports
 "BACKENDS: cpu" — `device_backends()` imports the vendor inside a function and then cannot see the new
 binding under Julia 1.12's world age, so a GPU survey started the documented way never crosses the
 device. Pre-importing (`julia -t4 --project=test/gpu/rocm -e 'using AMDGPU; include("test/exhaustive/runtests.jl")'`)
@@ -2261,7 +2261,11 @@ that would have caught this class, so it earns its place ahead of work that repa
   `map!`/`map` methods. Measured free: the non-field path is a no-op the compiler removes, and vector
   `map!` allocates the same 144 B before and after. `Fields` refrozen 128 → 130 with the reason;
   witness in `test/regressions/callable-field-as-fiber-map.jl`, confirmed to FAIL on the pre-fix tree
-  before being kept. Removing the callable — the framing this item shipped with — was never needed.)
+  before being kept. Removing the callable — the framing this item shipped with — was never needed.
+  The fix MISSED the class: the five mapped reductions take the same φ and kept accepting a field, on the
+  CPU returning a plausible number and on ROCm crashing the compiler, until 2026-10-17, when the first ROCm
+  survey found it and one guard call in their shared pass closed all five; witness in
+  `test/regressions/callable-field-as-reduction-fiber-map.jl`, which fails on the unfixed tree.)
   **(3)** *(CLOSED 2026-09-02 (user): `AbstractField` stays a `Union` — leave it as is, do
   nothing, and do not re-raise.* The decision-60 analogy that motivated the item is about NAMING, not
   cost, and the cost question was settled by measurement rather than argument: the same body under

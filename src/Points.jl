@@ -66,7 +66,7 @@ using KernelAbstractions: get_backend
 using ..FiberSections: fiber_shape, FiberVector, FiberTensor2   # the fiber is base-agnostic
 import Base: +, -, *, /, map, map!, ==, isequal, hash
 import LinearAlgebra: dot, cross, mul!, transpose, transpose!, norm, tr, det
-using ..Fields: _refuse_field_as_fiber_map, _array_family   # the callable-field guard shared with `FieldAlgebra`
+using ..Fields: _refuse_field_as_fiber_map, _array_family   # the callable-field guard shared with `FieldAlgebra` and `Reductions`
 import ..Fields: adapt!, field_data, _vector_component_data, _tensor2_component_data  # extended on PointValues
 import ..FieldAlgebra: add!, subtract!, multiply!, divide!, dot!, cross!,       # extended on PointValues
                        norm!, sym, sym!, skew, skew!, dev, dev!, tr!, det!
