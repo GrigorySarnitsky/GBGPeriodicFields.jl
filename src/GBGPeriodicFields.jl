@@ -13,34 +13,34 @@ GBGPeriodicFields carries real-valued scalar, vector and second-order-tensor fie
 three-dimensional rectangular periodic domains, in physical-space and real-to-complex spectral
 representations, on CPU and GPU backends, with HDF5 field persistence.
 
-The tensors are **Cartesian** — components on one fixed right-handed orthonormal frame, with no
+The tensors are *Cartesian* — components on one fixed right-handed orthonormal frame, with no
 curvilinear coordinates or metric machinery — so this is an applied field toolkit
 rather than a general differential-geometry package.
 
 These words recur in every operation's documentation:
 
-- a **base** is the set of locations a value is attached to: a [`Grid3D`](@ref) of nodes, or a [`PointSet`](@ref) of
+- a *base* is the set of locations a value is attached to: a [`Grid3D`](@ref) of nodes, or a [`PointSet`](@ref) of
   off-grid positions. A grid cell carries the quadrature weight a reduction integrates against; the
   values themselves sit on the nodes.
-- a **fiber** is the value at one such location — a scalar, a `FiberVector`, or a `FiberTensor2`.
-- a **section** puts the two together: it assigns one fiber to every point of a base, which is what a
+- a *fiber* is the value at one such location — a scalar, a `FiberVector`, or a `FiberTensor2`.
+- a *section* puts the two together: it assigns one fiber to every point of a base, which is what a
   field and a set of point-values each are, and why one set of formulas serves both.
-- the **resolved band** is the set of wavenumbers a grid's resolution actually represents, *excluding*
+- the *resolved band* is the set of wavenumbers a grid's resolution actually represents, *excluding*
   the Nyquist frequency of each even-length axis. Those planes are excluded because there the wavenumbers
   used for first derivatives are zeroed while the squared ones used for the Laplacian keep the true
   value — so every identity scoped "on the resolved band" holds off them and may
   fail on them. An odd-length axis has no exact Nyquist mode and so loses nothing.
-- a field is **band-limited** when its Fourier content vanishes above the wavenumbers the grid stores,
+- a field is *band-limited* when its Fourier content vanishes above the wavenumbers the grid stores,
   so the finite trigonometric series those coefficients define represents it exactly. A product of two
   such fields is not band-limited, which is why the operations that form one are offered in physical
   representation only.
-- a section's **scalar type** is its real precision — the `T <: AbstractFloat` every field and
+- a section's *scalar type* is its real precision — the `T <: AbstractFloat` every field and
   point-value type is parameterized on, `Float64` or `Float32`, read back by
-  [`field_scalar_type`](@ref). Its **element type** is what the storage array actually holds, and the
+  [`field_scalar_type`](@ref). Its *element type* is what the storage array actually holds, and the
   two part company in spectral representation: physical storage holds `T`, spectral storage holds
   `Complex{T}` at the same scalar type. Precision is the scalar type; the complex storage is
   representation detail, so a field in spectral representation is no less a `Float64` field.
-- a section's **array family** is the kind of array its data lives in — `Array` on the host,
+- a section's *array family* is the kind of array its data lives in — `Array` on the host,
   `CuArray` or `ROCArray` on a device — taken as the array's underlying type rather than its wrapping,
   so a `reshape` of an `Array` is still the `Array` family. Two sections combine only within one
   array family and one element type; a mixed pair is refused rather than converted, and
@@ -83,7 +83,7 @@ docstring maps what it provides, so this list says what each is for rather than 
     (storage, HDF5 persistence, the vector-space operations, [`inner`](@ref), [`l2norm`](@ref), and spline
     interpolation between grid and points). Others do not: the reductions returning a fiber or taking
     a fiber map (`mean(det, A)`), `map`, and [`sym`](@ref)/[`skew`](@ref)/[`dev`](@ref) are defined for ``R \\le 2`` and
-    **throw** above it.
+    throw above it.
 
     General `R` was deferred rather than declined, to ship a usable field layer for the second-order
     surface a pseudospectral solver actually needs. Above the ceiling an operation either works or

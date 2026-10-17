@@ -25,9 +25,9 @@ exponential_convolve
 
 The package holds a kernel in whichever of four forms is cheapest for its multiplier: wrapped in a
 `StoredKernel` when the multiplier is arbitrary, as per-axis factors when it separates, as the
-**function** computing it when it depends on the wavenumber only through ``\lvert k\rvert^2``, or as
-**any two kernels** held unmultiplied when a composition cannot be collapsed into one. All four apply
-identically and agree bitwise on the host; on a device a **complex**-valued kernel is the one
+function computing it when it depends on the wavenumber only through ``\lvert k\rvert^2``, or as
+any two kernels held unmultiplied when a composition cannot be collapsed into one. All four apply
+identically and agree bitwise on the host; on a device a complex-valued kernel is the one
 exception, agreeing there to rounding.
 
 They part company in one place. Inversion is a mathematical partial operation — a kernel that
@@ -56,7 +56,7 @@ admits — and each signature says which class, since that is what determines th
 `radial_kernel`, `spectral_cutoff` and `spectral_band` give a `RadialKernel` (a closure);
 `tophat_window`, `assignment_window` and `translation_kernel` give a `SeparableKernel` (three ``O(N)``
 factors).
-The escape hatch is `radial_kernel`, taking any other real **function** of ``\lvert k\rvert^2``.
+The escape hatch is `radial_kernel`, taking any other real function of ``\lvert k\rvert^2``.
 
 ```@docs
 radial_kernel

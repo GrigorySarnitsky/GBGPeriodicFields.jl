@@ -9,13 +9,13 @@ Field-field and field-constant operations preserve the representation of their a
 pointwise on fields in physical representation and coefficient-wise on fields in spectral
 representation. An operation that is not linear in a field argument — multiplying two fields together,
 or contracting two fields — is defined only in physical representation, since only a linear map
-commutes with the rfft isomorphism; the exception is a **fiber-constant** factor, the same at every point,
+commutes with the rfft isomorphism; the exception is a *fiber-constant* factor, the same at every point,
 which keeps the operation linear and available in both. The missing combinations are deliberate.
 
-Three words recur below. The **base** is the set of locations a section attaches a value to — the
+Three words recur below. The *base* is the set of locations a section attaches a value to — the
 grid's nodes for a field — so a formula that is "pointwise over the base" applies at each of them
-independently and touches no neighbours. A **fiber** is the value at one base point, a scalar, a
-`FiberVector` or a `FiberTensor2`. A **section** is one fiber at every point of a base, which is what a
+independently and touches no neighbours. A *fiber* is the value at one base point, a scalar, a
+`FiberVector` or a `FiberTensor2`. A *section* is one fiber at every point of a base, which is what a
 field and a set of point-values each are, and that shared shape is why one set of formulas serves both.
 
 The parts are:
@@ -39,7 +39,7 @@ The parts are:
     norms.
   * **Arbitrary fiber map** — [`map!`](@ref) and [`map`](@ref) apply *any* fiber map `φ` you supply at
     every base point — a composition like `exp ∘ det`, a pointwise equation of state, whatever is not one
-    of the named operations above. This is the section-valued **escape hatch** for un-named maps (and the
+    of the named operations above. This is the section-valued escape hatch for un-named maps (and the
     sibling of mapped reductions such as `mean(det, A)`): `φ` may change the tensor order, and the
     result's order is `φ`'s (`map(det, A)` gives a scalar field). A field must be in physical representation, since an arbitrary
     `φ` is nonlinear.
@@ -62,10 +62,10 @@ while the index-shuffling operations (`cross`, `transpose`, `sym`, `skew`, `dev`
 may be called with the destination aliasing an input.
 
 !!! note "Why an aliased in-place call is safe"
-    `destination` may **be** an input — `sym!(A, A)` is computed directly and is bitwise-identical to
+    `destination` may be an input — `sym!(A, A)` is computed directly and is bitwise-identical to
     the non-aliased call — because each pass reads all of an element's sources into registers before
     writing any of that element's outputs. That argument needs one section's element ``n`` to be the
-    other's element ``n``, and it is the **ownership** rule that supplies it: a section's constructor
+    other's element ``n``, and it is the ownership rule that supplies it: a section's constructor
     refuses borrowed storage, so two sections can share memory only by being backed by the same array.
     Two partially-overlapping views at *different* base indices would break the argument, and they are
     not merely undetected — they cannot be constructed. The `mul!` operation is the one exception, keeping
@@ -579,7 +579,7 @@ The additional argument is:
 
 !!! note "Here α and β weight the two inputs, not the destination"
     Almost every in-place operation in the package uses trailing `α`, `β` that
-    accumulate a result **onto** `destination`: ``\\alpha (\\mathrm{result}) + \\beta \\texttt{destination}``.
+    accumulate a result onto `destination`: ``\\alpha (\\mathrm{result}) + \\beta \\texttt{destination}``.
     This operation is one of two exceptions — the other is [`exponential_convolve!`](@ref GBGPeriodicFields.Convolution.exponential_convolve!)'s two-operand
     forms, which carry this same combination into a fused convolution — and it is the exception the
     name announces: it *is* the weighted combination, so its `α`
@@ -1142,13 +1142,13 @@ returns a fresh result instead.
 
 # Arguments
 
-- `destination` — the field written with the product. It must **not** share storage with either
+- `destination` — the field written with the product. It must not share storage with either
   operand, and that is not checked: `mul!` keeps `LinearAlgebra`'s contrary contract, where every
   other in-place operation here is alias-safe by construction.
 - `A`, `B` — the tensor operands, each a second-order tensor field or a constant `FiberTensor2`.
 - `u`, `a` — the vector operand, a vector field `u` or a constant `FiberVector` `a`. The operands come
-  in the order they multiply, so the signatures above cover both the **left** action
-  ``(A u)_i = A_{ij} u_j`` and the **right** action ``(u A)_i = u_j A_{ji}``. At least one operand must
+  in the order they multiply, so the signatures above cover both the *left* action
+  ``(A u)_i = A_{ij} u_j`` and the *right* action ``(u A)_i = u_j A_{ji}``. At least one operand must
   be a field, since a product of two constants is not a field operation.
 - `α`, `β` — real accumulation weights, converted to the field's scalar type. The three-argument forms
   overwrite (``\\alpha = 1``, ``\\beta = 0``); the five-argument forms compute
@@ -1844,7 +1844,7 @@ At every base point `x`, `destination`'s fiber is set to `φ` applied to the `so
 - `φ` — the fiber map, applied to the input fiber value(s) and returning the output fiber value. It must be
   a pure, GPU-safe function (no captured state, no scalar indexing of device arrays); its output tensor
   order sets `destination`'s order (`det` gives a scalar field, an `SMatrix`-valued `φ` a tensor field).
-  It must also read **only the fiber it is given** — see the warning below.
+  It must also read only the fiber it is given — see the warning below.
 - `destination` — the field (or point-value section) receiving the result; its tensor order must
   match `φ`'s output, and it may alias any of the `sources`.
 - `sources` — one or more compatible fields (or point-value sections) on `destination`'s base; `φ` takes their fibers in argument order.

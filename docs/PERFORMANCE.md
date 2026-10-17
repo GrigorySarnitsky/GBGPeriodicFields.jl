@@ -31,8 +31,8 @@ that matters.
   The CPU path is not, however, a convenience for toy problems.
   It carries two roles that must not be confused. Development and small tests run on the CPU because
   that is where a workstation is, and at those grids performance rarely decides anything. The role the
-  CPU path is tuned *for* is the other one: **a single large CPU node, running the resolutions that do
-  not fit one GPU's memory.** Distributed and multi-GPU execution are out of scope
+  CPU path is tuned *for* is the other one: a single large CPU node, running the resolutions that do
+  not fit one GPU's memory. Distributed and multi-GPU execution are out of scope
   (`docs/ARCHITECTURE.md` §1), so the ceiling is whatever one node holds — and on a CPU node that
   ceiling is high. A NAISS Arrhenius thin CPU node pairs two 128-core AMD EPYC 9755 processors with
   768 GB of DDR5, a fat node carries 3 TB, and one GH200 in the GPU partition offers 96 GB of HBM.
@@ -46,19 +46,21 @@ that matters.
   candidates that *looked* like wins, polynomial-eval tuning was already free, the periodic-wrap
   hoist made `CatmullRom` *slower*, and point sorting — the textbook locality optimization —
   *regressed* the GPU gather. Only the one the measurement pointed at (loop order) survived (§4). The
-  lesson is the method, not those verdicts: **both negative results were re-measured on current
-  hardware in 2026-08-07 and reversed sign for `CatmullRom`** — which is the same principle
+  lesson is the method, not those verdicts: both negative results were re-measured on current
+  hardware in 2026-08-07 and reversed sign for `CatmullRom` — which is the same principle
   applied twice, since a verdict is only ever about the platform it was taken on (§4(c)).
 
 - **A benchmark run owns the machine, and a number is not a result until it is explained.** Two
-  obligations, both learned the hard way. **Run benchmarks alone** — no test suite, no documentation
+  obligations, both learned the hard way. Run benchmarks alone — no test suite, no documentation
   build, no second lane, nothing else on the host, and *especially* not while a GPU sweep is in
   flight. A device benchmark is host-bound at small grids (the synchronisation and, on the GPU path,
   the per-sample GC), so competing work inflates it by a roughly fixed amount per case; that alone
   invented a 2.2× "regression" at ``64^3``, an inflated canary baseline (the frozen per-host
   regression-guard suite `benchmark/regress.jl` judges against; §7), and a phantom "environment
   shift" attributed to a driver, all in one session. Check `uptime` and the GPU's utilisation before
-  starting, and wait rather than measure into a busy box. **Then read what came back.** Running a
+  starting, and wait rather than measure into a busy box.
+
+  **Then read what came back.** Running a
   sweep and reporting that it completed is not a measurement: compare against the previous archive
 (the saved per-sweep result file a characterization run writes; §6),
   state which operations moved and in which direction, and account for every systematic movement
@@ -67,8 +69,8 @@ that matters.
   grid size is overhead, not arithmetic — and the second is whether the same commit range moved the
   other backend, since a real code regression is not confined to one device.
 
-A scope note carried from the architecture: **platform optima diverge**, so every result below is
-reported per platform, never as a single number. (The **L²/measure reductions** — `integral`, `inner`,
+A scope note carried from the architecture: platform optima diverge, so every result below is
+reported per platform, never as a single number. (The L²/measure reductions — `integral`, `inner`,
 `l2norm`, `mean`, …; `docs/ARCHITECTURE.md` decision 18 — are bandwidth-bound streaming reductions
 whose only subtlety is floating-point summation order, tolerance-tested rather than bitwise; they are
 now part of the suite, §5.)
@@ -78,7 +80,7 @@ now part of the suite, §5.)
 
 What bounds each public operation class — the mental model a benchmark either confirms or refutes.
 
-- **FFT transforms** (`to_physical`/`to_spectral`) → bound by **FFTW** (CPU) / **rocFFT**/**cuFFT**
+- **FFT transforms** (`to_physical`/`to_spectral`) → bound by FFTW (CPU) / rocFFT/cuFFT
   (GPU). The
   package adds only the normalization convention and the fiber-last layout (`docs/ARCHITECTURE.md`
   §3–4); the transform itself is the library's. Not something we tune — but the dominant cost of any
@@ -90,18 +92,20 @@ What bounds each public operation class — the mental model a benchmark either 
   interface ([cuFFT docs](https://docs.nvidia.com/cuda/cufft/)); rocFFT has an offline tuner
   producing per-size/per-architecture solution maps, not surfaced by AMDGPU.jl. The one reachable
   lever is rocFFT's `ROCFFT_RTC_CACHE_PATH` kernel cache (an environment variable; see §7 gap 6).
-- **Field algebra (M2 + M3), the differential operators, and convolution** → **memory-bandwidth-bound**. A
+- **Field algebra (M2 + M3), the differential operators, and convolution** → memory-bandwidth-bound. A
   fiberwise add, contraction, wavenumber multiply, kernel multiply (`convolve`), or arbitrary fiber map (`map!` — its adapter assembles the fiber in registers, adding no memory traffic over the named ops, so it tracks `det!`) reads and writes `O(1)` numbers per grid point
   and does `O(1)` flops on them — arithmetic intensity well below the roofline ridge. Consequence:
   on CPU, thread scaling saturates once the cores jointly saturate DRAM bandwidth (the plateau in
   §4); on GPU, the figure of merit is achieved bandwidth, not occupancy.
-- **The grid↔point transfer** (`interpolate`/`anterpolate`), local-stencil **spline** schemes → the
+- **The grid↔point transfer** (`interpolate`/`anterpolate`), local-stencil spline schemes → the
   subtle one. Each point gathers (or scatters) a ``(2n{+}2)^3`` stencil (``n`` the spline half-width) with data-dependent indices, so
-  it is bound by **irregular memory access**, and the binding *differs by platform*:
-  - **GPU**: maximize **memory-level parallelism** — many distinct cache lines and DRAM banks in
+  it is bound by irregular memory access, and the binding *differs by platform*:
+  - **GPU**: maximize memory-level parallelism — many distinct cache lines and DRAM banks in
     flight at once to hide latency
     ([coalescing/occupancy](https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/performance_guidelines.html)).
-    Scattered (unsorted) points naturally *spread* access and feed that parallelism. **The corollary
+    Scattered (unsorted) points naturally *spread* access and feed that parallelism.
+
+  **The corollary
     once drawn here — that the field is largely cache-resident at the grids we run, so little
     locality is left to win — is FALSIFIED.** It reasoned from a retired card's 96 MB against a 67 MB
     ``256^3`` scalar `Float32` field; decision 78 then won ``3.06\times`` by reordering for locality
@@ -117,20 +121,20 @@ What bounds each public operation class — the mental model a benchmark either 
   reversed for `CatmullRom` (§4(c)), so the balance between the two pulls is a property of the
   card, not a constant.
 - **Deliberately unbenchmarked, so the absence reads as a decision rather than a gap.** Two public
-  surfaces carry no row on purpose. The **allocating constructors** (decision 74) have none because
+  surfaces carry no row on purpose. The allocating constructors (decision 74) have none because
   an allocator's cost is the backend allocator's, and finding (y) records what a per-call
   field-sized allocation does to a row: it lands in a process-history-selected regime and stops
   being comparable across process shapes, so the row would measure the harness's memory history.
-  **Scheme persistence** (decision 75) has none because it writes four HDF5 attributes and there is
+  Scheme persistence (decision 75) has none because it writes four HDF5 attributes and there is
   no persistence class to put it in — inventing one to time a constant would measure the library
-  rather than the package. Neither has **field persistence**: its time is the HDF5 library's, and
+  rather than the package. Neither has field persistence: its time is the HDF5 library's, and
   the package's share, adding no copy, is asserted in `test/hdf5.jl` rather than timed (decision 93).
 - **Base-space motion** (decision 73) → four rows in the `transfer` class (`displace!` one- and
   three-term, the three-term torus arity, and `wrap!`): ``O(M)`` streaming over ``(M, 3)`` arrays,
   bandwidth-trivial beside a gather — 30–300× cheaper than the `CatmullRom` gather at the same point
   count, which is the boundary-costs-nothing claim the rows document. The fused wrap is free in
-  **traffic** (the torus row's counts equal the cover row's, pinned by the pass audit) but not in
-  serial **arithmetic**: floating-point `mod` is compute-visible where one core does all the work
+  traffic (the torus row's counts equal the cover row's, pinned by the pass audit) but not in
+  serial arithmetic: floating-point `mod` is compute-visible where one core does all the work
   (``256^3``-derived points, `Float64`: torus 7.0 against cover 2.2 ms at ``t1``) and vanishes into
   bandwidth where the pass is memory-bound (1.41 against 1.24 ms at ``t8``; 91.5 against 64.6 µs on
   the RX 7900 XTX). The fusion itself pays exactly there: at ``t8`` the fused torus pass beats
@@ -154,41 +158,43 @@ architecture or the tests; they are collected here so an optimizer has them in o
   `test/jet.jl` (`JET.@test_call`).
 - **Zero allocations in hot paths** — an unexpected allocation almost always signals a type problem.
   Prefer the in-place `!` forms; allocate scratch once and reuse. (`@allocated`/BenchmarkTools report it.)
-- **`@inbounds` in kernels**, **isbits / `SVector` kernel arguments** (so the spline coefficient
-  matrices pass into GPU kernels *by value*, no device array), and **fused broadcasts through
-  `_assign!`** rather than a bare `.=` (the codegen + threading contract, `docs/ARCHITECTURE.md` §9).
+- **`@inbounds` in kernels**, isbits / `SVector` kernel arguments (so the spline coefficient
+  matrices pass into GPU kernels *by value*, no device array), and fused broadcasts through
+  `_assign!` rather than a bare `.=` (the codegen + threading contract, `docs/ARCHITECTURE.md` §9).
 - **Allocate via `similar`/`similar_field`** so results inherit the input's backend (the one-line
   reason a CPU-written method runs on a `ROCArray` unchanged).
 
 **GPU** (ROCm/HIP [performance guidelines](https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/performance_guidelines.html)):
 
 - **No scalar indexing of device arrays** (invariant 6) — checked under `allowscalar(false)` in both
-  the test and benchmark GPU runs, but **only when those are run**: they need a physical device, they
+  the test and benchmark GPU runs, but only when those are run: they need a physical device, they
   are opt-in, they are not part of `Pkg.test()`, and CI is manual-only. It is a guarantee the design
   makes and a check that confirms it on demand — not a gate a regression cannot get past. A scalar
   index introduced during CPU-only work stands until someone runs the GPU suite.
-- **Favour spread access for memory-level parallelism**, and **loop the contiguous (`x`) axis
-  innermost** so per-thread stencil access is stride-1 (§4 measured this at up to 3.9×).
-- **Minimize host↔device transfer**; keep fields resident on the device. **Allocate once, operate
+- **Favour spread access for memory-level parallelism**, and loop the contiguous (`x`) axis
+  innermost so per-thread stencil access is stride-1 (§4 measured this at up to 3.9×).
+- **Minimize host↔device transfer**; keep fields resident on the device.
+
+  **Allocate once, operate
   in place.**
 
 **Methodology** (BenchmarkTools.jl [manual](https://juliaci.github.io/BenchmarkTools.jl/)):
 
-- **Warm up** (compile) before timing; **synchronize the backend** — GPU work is asynchronous, so an
+- **Warm up** (compile) before timing; synchronize the backend — GPU work is asynchronous, so an
   un-synced timer measures launch latency, not the kernel (the suite's `bench_sync`).
 - **Report the minimum** of many samples (least-noise estimator) alongside the median.
 - **Side-by-side comparison in one session**: build both variants (baseline and candidate) and time
   them on identical data, back-to-back, in a single process — the only reliable way to resolve a
   difference smaller than the ~10% run-to-run variance (separate launches drift with thermal state,
   allocation layout, and cache).
-- **Control the thread count** (`-t1` vs `-t4`), and **always confirm on the GPU** before keeping an
+- **Control the thread count** (`-t1` vs `-t4`), and always confirm on the GPU before keeping an
   optimization (platform divergence is real, §4).
 
 
 ## 4. What we have found
 
-The transfer-layer results below were measured on an **Intel i7-12700K** (8 P-cores) and on a
-**since-retired AMD card**, `Float32`, ~1 point per 27 grid cells. That card is gone from the fleet and
+The transfer-layer results below were measured on an Intel i7-12700K (8 P-cores) and on a
+since-retired AMD card, `Float32`, ~1 point per 27 grid cells. That card is gone from the fleet and
 from `RESULTS.md`; what is kept here is the qualitative finding in each case, not its absolute numbers,
 and anything re-measured on the current cards (RX 7900 XTX, RTX 5070 Ti) says so explicitly. These are the
 cumulative results of the transfer-layer optimization work; the benchmark suite (§5) regenerates the
@@ -209,15 +215,17 @@ weight polynomials hide under memory latency. So pick the smoothness for accurac
 
 | | GPU 256³ | GPU 512³ (Lalescu) | CPU (Catmull–Rom / Lalescu) |
 |:---|:---|:---|:---|
-| speedup (x-inner / z-inner) | 1.6–1.7× | **3.9×** (785→203 ms) | 0.75× (i7-12700K, 2026-06 — **superseded**, see below) |
+| speedup (x-inner / z-inner) | 1.6–1.7× | **3.9×** (785→203 ms) | 0.75× (i7-12700K, 2026-06 — superseded, see below) |
 
-Kept x-inner as a **GPU-first** choice — the CPU's large caches absorb the strided access and its
-`z`-inner form vectorizes better, but the GPU is the production platform. **Re-measured
+Kept x-inner as a GPU-first choice — the CPU's large caches absorb the strided access and its
+`z`-inner form vectorizes better, but the GPU is the production platform.
+
+**Re-measured
 (2026-07-22), and x-inner now stands on CPU evidence too:** decision 37 reopened this tiebreak
 because its cache justification dies in the CPU production band, so the A/B was repeated at 512³
 `Float64` (≈5×10⁶ points, the harness's one-per-27-cells density, Ryzen 9800X3D) — and the old
 penalty does not reproduce there. The z-inner
-nest gains only ~9–10% on the 4³ Catmull–Rom stencil and **loses 23%** (serial; 5% at eight
+nest gains only ~9–10% on the 4³ Catmull–Rom stencil and loses 23% (serial; 5% at eight
 threads) on the 8³ Lalescu stencil, whose per-point working set no longer fits the reuse the old
 measurement enjoyed. A per-backend loop order would also break gather bit-identity across
 backends for at most a single-digit win on one scheme; the split is rejected and the x-inner nest
@@ -226,8 +234,10 @@ is the recorded choice for both platforms.
 **(c) Rejected by measurement.** Two "obvious" optimizations that did not survive:
 
 - **Wrap-hoist** (precompute the ``3(2n{+}2)`` periodic node offsets to kill inner-loop `mod`s):
-  bit-identical, but **regressed the default Catmull–Rom by 10–14%** — the extra registers cut
-  occupancy. Proof the kernels are memory/occupancy-bound, not ALU-bound. **RE-MEASURED 2026-08-07 and
+  bit-identical, but regressed the default Catmull–Rom by 10–14% — the extra registers cut
+  occupancy. Proof the kernels are memory/occupancy-bound, not ALU-bound.
+
+  **RE-MEASURED 2026-08-07 and
   REOPENED: the sign is reversed for `CatmullRom`, and the CPU was never tested.** Two kernels
   differing only in where the wrap is computed, verified bitwise equal, ratios hoisted-over-base:
 
@@ -235,43 +245,45 @@ is the recorded choice for both platforms.
   ``64^3``, ``128^3``, ``256^3``, ``512^3``):
 
   - GPU trilinear — 0.969, 0.990, 0.978, 0.992
-  - GPU `CatmullRom` — **0.698**, **0.713**, 0.829, 0.895
-  - GPU `Lalescu(3,3)` — **0.516**, 1.122, **2.017**, (not run)
+  - GPU `CatmullRom` — 0.698, 0.713, 0.829, 0.895
+  - GPU `Lalescu(3,3)` — 0.516, 1.122, 2.017, (not run)
   - CPU trilinear — 0.897, 0.843, 0.884, 0.843
-  - CPU `CatmullRom` — **0.368**, **0.433**, 0.584, 0.607
-  - CPU `Lalescu(3,3)` — **0.276**, **0.297**, 0.359, (not run)
+  - CPU `CatmullRom` — 0.368, 0.433, 0.584, 0.607
+  - CPU `Lalescu(3,3)` — 0.276, 0.297, 0.359, (not run)
 
-  Three things follow. **The recorded occupancy mechanism is right**, and ``R = 3`` on the GPU is where
+  Three things follow. The recorded occupancy mechanism is right, and ``R = 3`` on the GPU is where
   it shows: 24 registers per thread turns a ``2\times`` win at ``64^3`` into a ``2\times`` loss at
-  ``256^3`` as the working set grows and occupancy becomes the binding constraint. **But it does not
-  bite `CatmullRom` on RDNA3** — hoisted, it is 10–30% *faster* at every grid, where the
-  retired AMD card recorded 10–14% slower. **And the CPU, never measured for this, wins hugely and
-  everywhere** — up to ``3.6\times`` — which is what the mechanism predicts: a CPU thread has no
+  ``256^3`` as the working set grows and occupancy becomes the binding constraint. But it does not
+  bite `CatmullRom` on RDNA3 — hoisted, it is 10–30% *faster* at every grid, where the
+  retired AMD card recorded 10–14% slower. And the CPU, never measured for this, wins hugely and
+  everywhere — up to ``3.6\times`` — which is what the mechanism predicts: a CPU thread has no
   occupancy to lose, and `mod` by a *runtime* grid size is a genuine integer division rather than a
   compiler-strength-reduced constant. That matters because the CPU path carries the beyond-VRAM grids
-  (ARCHITECTURE.md decision 37). On both backends the benefit **shrinks as the grid grows** and the
+  (ARCHITECTURE.md decision 37). On both backends the benefit shrinks as the grid grows and the
   gather becomes more latency-bound, converging toward 1 without crossing it for ``W \le 4``.
 
   **Reopened, not adopted**, and the caveat is load-bearing: these are *standalone* kernels sharing the
   package's loop order but not its spline weights, and the hoist is written with `ntuple`, which need
   not compile like the original attempt did. The ratios establish that the trade is worth re-examining
-  on current hardware, **not** what the package's own kernel would measure.
-- **Morton particle sorting** (the textbook GPU-locality optimization): recorded as **0.5–1.0× on GPU**
+  on current hardware, not what the package's own kernel would measure.
+- **Morton particle sorting** (the textbook GPU-locality optimization): recorded as 0.5–1.0× on GPU
   (gather) — concentrating access *kills* the memory-level/DRAM-bank parallelism the GPU needs, and the
-  field is cache-resident anyway — though **2.2–4.4× on CPU**. **That gather result does NOT reproduce on
+  field is cache-resident anyway — though 2.2–4.4× on CPU.
+
+  **That gather result does NOT reproduce on
   the RX 7900 XTX (re-measured 2026-08-07), and the question is reopened.** Identical points, reordered
-  only, at the same 1-per-27 density: Morton reaches **1.43×** (`Float32` ``128^3`` `CatmullRom`,
-  105.7 → 73.6 µs) and **1.40×** (`Float32` ``256^3`` trilinear, 116.8 → 83.4 µs), and helps in three of
-  four cells for `CatmullRom` — **the usual scheme**. One cell clearly loses, `Float64` ``256^3``
+  only, at the same 1-per-27 density: Morton reaches 1.43× (`Float32` ``128^3`` `CatmullRom`,
+  105.7 → 73.6 µs) and 1.40× (`Float32` ``256^3`` trilinear, 116.8 → 83.4 µs), and helps in three of
+  four cells for `CatmullRom` — the usual scheme. One cell clearly loses, `Float64` ``256^3``
   trilinear at ``0.74\times``. The original was measured on a since-retired card, so this is plausibly
   an RDNA2-versus-RDNA3 difference rather than a bad measurement; either way the recorded range no longer
-  describes the hardware the project runs on. **It is reopened, not overturned**, and three things must
+  describes the hardware the project runs on. It is reopened, not overturned, and three things must
   hold before it is adopted: the ordering must be rebuilt as points move (measured host cost 31.7 ms at
   ``256^3``, paying back after 377 gathers; an on-device radix sort at an estimated 1–2 ms would pay back
   after 12–24, which is the number that matters and is *not* yet measured), the benchmark compares
   perfectly-sorted against perfectly-random while a real point set drifts between the two, and the
-  **companion scatter result below is unaffected and remains the larger objection**. The companion **atomic-free node-centric
-  scatter** is correct, conserving and bit-**deterministic**, but **6–24× slower on GPU**: at our
+  companion scatter result below is unaffected and remains the larger objection. The companion atomic-free node-centric
+  scatter is correct, conserving and bit-deterministic, but 6–24× slower on GPU: at our
   sparse 1-per-27 density it traverses ~27× more (empty) reverse-stencil cells than the atomic
   scatter touches particles. Sorting + node-centric deposition is a *dense*-particle (PIC) technique;
   wrong for this regime. (If deterministic anterpolation ever becomes a hard requirement, it is the
@@ -279,33 +291,33 @@ is the recorded choice for both platforms.
 - **Storing the Helmholtz denominator as a precomputed derivative-squared wavenumber family**
   (rather than squaring ``a`` in-register — decision 42 dropped exactly these arrays, and after
   decision 47 restored the gated CPU loop the question was whether to bring them back). Measured
-  head-to-head, in-register vs a stored ``a^2`` array, same projection otherwise: **CPU in-register
-  wins everywhere** — Float64 ``+4\%`` (``128^3``/``256^3``), Float32 ``+10\%`` — because a register
+  head-to-head, in-register vs a stored ``a^2`` array, same projection otherwise: CPU in-register
+  wins everywhere — Float64 ``+4\%`` (``128^3``/``256^3``), Float32 ``+10\%`` — because a register
   multiply of the already-loaded ``a`` beats an extra stride-1 load, and the stored form keeps three
-  more arrays resident. On the **GPU** in-register ties in **Float32** but is ``\approx 6\%`` *slower*
-  in **Float64** — and that lone reversal is a **test-hardware artifact, not a production signal**.
+  more arrays resident. On the GPU in-register ties in Float32 but is ``\approx 6\%`` *slower*
+  in Float64 — and that lone reversal is a test-hardware artifact, not a production signal.
   The kernel is memory-bound (the F64/F32 time ratio is ``\approx 2.1\times`` at ``256^3``, tracking
   the ``2\times`` byte ratio, not any compute ratio); the reason dropping three squaring-multiplies
-  helps in F64 is that the **RTX 5070 Ti's consumer-Blackwell FP64 runs at ``\sim 1/64`` rate**, so
+  helps in F64 is that the RTX 5070 Ti's consumer-Blackwell FP64 runs at ``\sim 1/64`` rate, so
   its FP64 ALU becomes co-limiting alongside memory and the extra multiplies tip it over. The
-  production GPU is **GH200** (decision 37 — Grace-Hopper, **full-rate ``1{:}2`` FP64**), where that
+  production GPU is GH200 (decision 37 — Grace-Hopper, full-rate ``1{:}2`` FP64), where that
   ALU has ``\sim 32\times`` the F64 throughput and cannot be co-limiting on a memory-bound kernel — so
   the F64 case is expected to behave like F32 (a tie), and the stored array's extra reads to help
-  nowhere. That is an inference from the memory-bound measurement and the known FP64 rates, **not**
+  nowhere. That is an inference from the memory-bound measurement and the known FP64 rates, not
   measured on a GH200 (none on hand). Even taking the ``6\%`` at face value, capturing it needs a
   per-backend kernel split — re-introducing the two-bodies-in-sync coupling that produced the
-  decision-47 dead-loop bug — for a win seen only on a card the production runs will not use. **Kept
-  in-register**; the arrays stay dropped. This also retires the original (wrong) hypothesis that
+  decision-47 dead-loop bug — for a win seen only on a card the production runs will not use. Kept
+  in-register; the arrays stay dropped. This also retires the original (wrong) hypothesis that
   decision 42's in-register arithmetic cost the regression the canary flagged — it did not; the dead
   loop did (decision 47), and the arithmetic is free-to-favourable on every path that matters.
 
-**(d) Anterpolation and contention.** The scatter costs ≈**2.2–2.7×** the gather (atomic
+**(d) Anterpolation and contention.** The scatter costs ≈2.2–2.7× the gather (atomic
 read-modify-write + a full-grid prescale). On that RDNA2 card `Float32` atomic-add was native but `Float64`
-is emulated (CAS loop) ⇒ ≈**1.3–1.7×** slower; contention is worst at *moderate* clustering
+is emulated (CAS loop) ⇒ ≈1.3–1.7× slower; contention is worst at *moderate* clustering
 (~2 pts/cell), not extreme (extreme stays cache-hot).
 
 **(e) CPU vs GPU.** The transfer threads on CPU through `KernelAbstractions`' `CPU()` backend with no
-code change, scaling ≈**4.5–5.7×** on 8 threads before the bandwidth plateau; the GPU is ≈**9–22×**
+code change, scaling ≈4.5–5.7× on 8 threads before the bandwidth plateau; the GPU is ≈9–22×
 the 8-thread CPU (≈ the 384-vs-~60 GB/s bandwidth ratio for the heavy schemes, more for the light
 ones via parallelism).
 
@@ -314,13 +326,13 @@ applies the differential operators thousands of times in its time loop, so any p
 allocates internally matters. On the GPU it matters *a lot*: such scratch escapes Julia's GC (which
 triggers on *host* memory, while the scratch is *device* memory), so the device pool grows every step
 until VRAM fills and the run wedges (allocator spinning, GPU idle) or `hipMalloc` aborts — observed at
-192³/256³. The fix made the in-place differential operators allocate **nothing**: `_squared_wavenumber_broadcast`
-(the ``|k|^2`` coordinate) is returned **lazily** (an unfused `Broadcasted`, no ``O(N^3)`` array), and the
+192³/256³. The fix made the in-place differential operators allocate nothing: `_squared_wavenumber_broadcast`
+(the ``|k|^2`` coordinate) is returned lazily (an unfused `Broadcasted`, no ``O(N^3)`` array), and the
 `helmholtz_projection!` / `laplacian!` / `inverse_laplacian!` kernels fuse their former temporaries into
 the component broadcasts — each now allocates ``\sim 0`` bytes in place (measured; guarded by
-`test/allocations.jl`), with identical results. Payoff: a **preallocated, in-place** pseudospectral DNS
-step allocates nothing per step → **no manual `GC.gc()`/`reclaim`, flat VRAM**. The forced-HIT example
-(`examples/gpu/rocm/HIST_ROCm.jl`, 192³ `Float32`, ``\mathrm{Re}_\lambda \approx 93``) sustains **≈ 34 ms/step**
+`test/allocations.jl`), with identical results. Payoff: a preallocated, in-place pseudospectral DNS
+step allocates nothing per step → no manual `GC.gc()`/`reclaim`, flat VRAM. The forced-HIT example
+(`examples/gpu/rocm/HIST_ROCm.jl`, 192³ `Float32`, ``\mathrm{Re}_\lambda \approx 93``) sustains ≈ 34 ms/step
 (8000 steps, ≈ 270 s) on the retired card this way. *Discipline for consumers:* preallocate a workspace and
 use the `!` forms with a destination distinct from the sources; the fiber `norm`/`lpnorm`
 deliberately materialize one field and are the exceptions (`dev!` left the list when decision 39 fused
@@ -336,7 +348,7 @@ count), and each iteration allocates a
 full-grid mask — and, because a `mapreduce` over a `Broadcasted` *materializes* on this GPU stack rather
 than fusing, the masked product too: ``O(N)`` full-grid temporaries per call, which the host-triggered GC
 does not reclaim. A single ``256^3`` `radial_correlation` snapshot churned several GB and wedged a 12 GB
-card at the *first* snapshot. The fix bins in a **single scatter-add pass** — one portable
+card at the *first* snapshot. The fix bins in a single scatter-add pass — one portable
 `KernelAbstractions` + `Atomix` histogram kernel atomically accumulating each element into its shell — so
 per-call temporaries drop from ``O(N)`` to ``O(1)``. Correctness is unchanged (same per-shell sums; CPU
 `test/reductions.jl` + GPU parity hold). Payoff: the ``256^3`` `Float32` forced-HIT example
@@ -352,16 +364,16 @@ three staged spectral planes per call to its ``\sim\!1.4`` KB accumulator and le
 **(h) FFTW `ESTIMATE` can badly mis-plan single-precision transforms — pass `MEASURE` for production.**
 `FieldTransformPlans` builds its FFTW plans with the default `ESTIMATE` flag (instant, but it *guesses*
 the algorithm instead of timing candidates). On a Ryzen 9800X3D (Zen 5, stock FFTW 3.3.11) that guess is
-~5× too slow for the 256³ `Float32` transforms — in **both** directions, at every thread count — because
+~5× too slow for the 256³ `Float32` transforms — in both directions, at every thread count — because
 its hardcoded single-precision codelet heuristics misjudge this CPU generation. Rebuilding with
 `FFTW.MEASURE` (a one-time, timed plan search) fixes it, and the planning cost (seconds) amortizes over a
 long run. Pure in-place transform, 256³ `Float32`, minimum time:
 
 | threads | c2r (`to_physical!`), `ESTIMATE`→`MEASURE` | r2c (`to_spectral!`), `ESTIMATE`→`MEASURE` |
 |:---|:---|:---|
-| 1 | 170 → 33.3 ms (**5.1×**) | 168 → 33.6 ms (**5.0×**) |
-| 4 | 47.3 → 14.0 ms (**3.4×**) | 46.3 → 12.9 ms (**3.6×**) |
-| 8 | 27.5 → 12.0 ms (**2.3×**) | 26.2 → 10.2 ms (**2.6×**) |
+| 1 | 170 → 33.3 ms (5.1×) | 168 → 33.6 ms (5.0×) |
+| 4 | 47.3 → 14.0 ms (3.4×) | 46.3 → 12.9 ms (3.6×) |
+| 8 | 27.5 → 12.0 ms (2.3×) | 26.2 → 10.2 ms (2.6×) |
 
 The gain narrows as threads are added — the planner's advantage is largest where a single core is doing
 all of the work — so the headline is the single-threaded figure. (Read from the current `RESULTS.md`
@@ -375,15 +387,15 @@ pitfall, not a package issue.
 **The *inversion* is Zen 5's; the *mis-planning* is not — corrected 2026-08-23 from a corpus-wide sweep
 of the committed table.** Reading `ESTIMATE`/`MEASURE` as a ratio rather than looking for a
 `Float32`-slower-than-`Float64` ordering, the i7-12700K mis-plans single precision too, at
-``256^3``/t1: **2.13×** (`to_physical scalar`), **2.40×** (`to_spectral scalar`) and **2.10×**
+``256^3``/t1: 2.13× (`to_physical scalar`), 2.40× (`to_spectral scalar`) and 2.10×
 (`to_physical vector`), against ``5.17``/``5.07``/``4.10×`` on the 9800X3D. Double precision is
-``1.20``–``1.46×`` on the i7 and ``1.15``–``2.83×`` on the Ryzen. So the effect is **precision-specific
-on both microarchitectures** and merely three times worse on Zen 5. What is genuinely Zen-5-only is that
+``1.20``–``1.46×`` on the i7 and ``1.15``–``2.83×`` on the Ryzen. So the effect is precision-specific
+on both microarchitectures and merely three times worse on Zen 5. What is genuinely Zen-5-only is that
 it is severe enough to *flip the ordering* — on the i7 the `ESTIMATE` `Float32` transform is still
 faster than its `Float64` twin (``88.0`` against ``127.3`` ms), so nothing looks wrong unless the
 `measure` twin is consulted, which is exactly why the narrower attribution was recorded. The sentence
 above stays true as written about the inversion; what changes is that "misjudge this CPU generation"
-must not be read as "and only that generation", and a consumer on **any** x86 CPU doing long
+must not be read as "and only that generation", and a consumer on any x86 CPU doing long
 single-precision runs should pass `MEASURE`.
 
 *This widens rather than narrows the ARM concern in §7 gap 8*, which cites this finding as a Zen 5
@@ -393,11 +405,14 @@ platform, not less — so `MEASURE` should be in the first Arrhenius measurement
 tests and short runs); the escape hatch already exists,
 `fft_flags = FFTW.MEASURE` (or `FFTW.PATIENT`) on either `FieldTransformPlans` form. `MEASURE`
 overwrites the arrays it plans on, which since decision 93 are the plans' own, never the caller's fields. The forced-HIT CPU
-example (`examples/HIST_CPU.jl`) now plans with `MEASURE`. **Update (2026-07-21, the 512³ sweep):** the
+example (`examples/HIST_CPU.jl`) now plans with `MEASURE`.
+
+**Update (2026-07-21, the 512³ sweep):** the
 mis-plan persists into the CPU production band — at 512³ the `ESTIMATE`d scalar `Float32` c2r ties the
 `Float64` one to three digits (402.297 vs 402.195 ms, t8), single precision buying *nothing* — so the
 `RESULTS.md` 9800X3D `Float32` FFT columns at 256³–512³ should be read as `ESTIMATE`-planned (the package
 default, deliberately what the suite measures), not as the CPU's `Float32` capability.
+
 **Update (2026-07-22):** the pair is now a standing measurement — every CPU FFT row in the suite carries
 a `measure` twin planned with `FFTW.MEASURE` (built on scratch fields, per the overwrite caveat above), so
 `RESULTS.md` shows the `ESTIMATE` experience and the tuned production path side by side and this finding's
@@ -411,7 +426,7 @@ production run lives, and threading largely hides it.
 mapped forms (decision 30) reduce a function of the fiber value at every base point without
 materializing it. A single formulation cannot serve both devices, and the first implementation shipped
 the GPU's shape to the CPU, where it ran *slower* than the materializing route it was meant to replace.
-Splitting it fixes that. Measured with the **same map on both sides** (`mean(det, A)` against
+Splitting it fixes that. Measured with the same map on both sides (`mean(det, A)` against
 `mean(det(A))`, ``N = 128``, `Float64`):
 
 | backend | fused | materialize + reduce | |
@@ -434,12 +449,12 @@ section of traffic that materializing pays — so on a CPU the fix is simply not
 expression: the implementation runs its own blocked loop over the component arrays instead. A GPU has no
 such loop to forfeit (thread-parallel, bandwidth-bound), so index arithmetic hides behind memory latency
 and the skipped section write and read-back is pure profit; it keeps the fused `Broadcasted`. Blocking
-the CPU loop pairwise, as Base's own reduction does, additionally makes it the **most accurate** route
+the CPU loop pairwise, as Base's own reduction does, additionally makes it the most accurate route
 (relative error ``1.2\times10^{-16}``, against ``3.7\times10^{-15}`` for the lazy form and
 ``1.6\times10^{-16}`` for materializing). The strided gather that fiber-last layout (invariant 3) forces
 contributes only ``2\times``, and the `StaticArray` build is free.
 
-The last row is a **measurement trap worth recording**: `LinearAlgebra.norm` on a fiber uses the
+The last row is a measurement trap worth recording: `LinearAlgebra.norm` on a fiber uses the
 overflow-safe scaled 2-norm, ``4.3\times`` the plain magnitude the fieldwise `norm` evaluates. So
 comparing `maximum(norm, u)` against `lpnorm(u, Inf)` varies the algorithm *and* the route together and
 reads as a fusion penalty that is not the fusion — given the same formula the fused form is 1.8 ms
@@ -469,7 +484,7 @@ briefly severed that loop and decision 47 restored it — see the canary lane, �
 | 1 | 3.9× | 4.1× |
 | 4 | 6.5× | 2.7× |
 
-Two costs worth recording. The KA launch allocates a small **size-independent** host-side bookkeeping
+Two costs worth recording. The KA launch allocates a small size-independent host-side bookkeeping
 (~1.5 KB serial, ~7 KB at four threads — task spawning), where the broadcast route allocated
 ~0.3 KB; the allocation audit's fraction-of-a-field threshold absorbs it, and the field-sized guard
 temporary of the aliased call (~0.84 MB at the audit size, IT's 3.19-unit transient at ``256^3``) is
@@ -483,10 +498,10 @@ kernel field. Whether that pays depends on what the stored route would actually 
 
 | comparison (vector field) | CPU ``128^3`` F64, 4 threads | GPU ``256^3`` F32, RX 7900 XTX |
 |:---|:---|:---|
-| lazy vs stored kernel, kernel **fixed** | 9.1 vs 5.4 ms — stored 1.7× | 0.94 vs 0.87 ms — stored 1.08× |
-| lazy vs rebuild + apply, exponent **varies** | comparable (the rebuild pays the same `exp`) | 0.94 vs 0.46 + 0.87 ms — **lazy 1.4×** |
-| two-operand fused vs sequential `combine!` + `convolve!` | 9.9 vs 11.3 ms — **fused 1.14×** | 1.11 vs 1.68 ms — **fused 1.5×** |
-| kerneled `combine!` vs the sequential pair | 7.4 vs 11.3 ms — **fused 1.5×** | 1.13 vs 1.68 ms — **fused 1.5×** |
+| lazy vs stored kernel, kernel fixed | 9.1 vs 5.4 ms — stored 1.7× | 0.94 vs 0.87 ms — stored 1.08× |
+| lazy vs rebuild + apply, exponent varies | comparable (the rebuild pays the same `exp`) | 0.94 vs 0.46 + 0.87 ms — lazy 1.4× |
+| two-operand fused vs sequential `combine!` + `convolve!` | 9.9 vs 11.3 ms — fused 1.14× | 1.11 vs 1.68 ms — fused 1.5× |
+| kerneled `combine!` vs the sequential pair | 7.4 vs 11.3 ms — fused 1.5× | 1.13 vs 1.68 ms — fused 1.5× |
 
 Three lessons. The *fusion* forms (the bottom two rows) win on both backends — they save a
 destination write and re-read, which no amount of `exp` cost eats. The *lazy-vs-stored* single-operand
@@ -521,29 +536,31 @@ which now gives the guidance without them.
 
 **(l) The threaded `_assign!` inner loop runs at ~8.6 GB/s per thread — mid thread counts sit *above*
 serial on the streaming ops.** Found by the first 512³ CPU sweep (2026-07-21) and visible, unnoticed, in
-every committed CPU column before it: on **both** measured CPUs, at **every** grid size, `add!`/
+every committed CPU column before it: on both measured CPUs, at every grid size, `add!`/
 `gradient!`/`symmetric_gradient!` and the rest of the `_assign!`-routed streaming family run *slower* at
 2 and 4 threads than at 1, with 8 threads only marginally recovering (9800X3D `add!` scalar `Float64`,
 t1→t2→t4→t8: 64³ 40 µs → 368 → 185 → 95; 512³ 83.9 ms → 187.6 → 94.2 → 73.6). The serial path is
 `materialize!` — SIMD, ~41 GB/s on one Zen 5 core, already near the desktop's DRAM ceiling — while the
-threaded path (`_assign_threaded!`) indexes the fused `Broadcasted` **element by element through a
-`CartesianIndex`**, which does not vectorize: measured single-threaded at 512³, 375 ms against
-`materialize!`'s 79 ms, a **4.7× per-core penalty**. Every threaded lane is that loop divided by its
+threaded path (`_assign_threaded!`) indexes the fused `Broadcasted` element by element through a
+`CartesianIndex`, which does not vectorize: measured single-threaded at 512³, 375 ms against
+`materialize!`'s 79 ms, a 4.7× per-core penalty. Every threaded lane is that loop divided by its
 thread count until the aggregate hits DRAM (375/2 = 187.5, 375/4 = 93.8 — reproducing the sweep cells to
-three digits). Two corollaries, both measured: **linear indexing plus `@simd` — the alternative the
-implementation's own comment contemplates, legal now that the compat floor is 1.12 — does not help**
+three digits). Two corollaries, both measured: linear indexing plus `@simd` — the alternative the
+implementation's own comment contemplates, legal now that the compat floor is 1.12 — does not help
 (365 ms; `Broadcasted` `getindex` stays scalar either way), so the fix is not an index-style swap but
-per-chunk `materialize!` over sliced broadcast arguments; and the ops that thread through **other**
+per-chunk `materialize!` over sliced broadcast arguments; and the ops that thread through other
 routes are unaffected (FFTW threads itself; the `KernelAbstractions` kernels partition natively —
 `anterpolate!` scales 3.4 s → 562 ms, t1→t8, in the same sweep). Consequences while the fix is pending:
 on a 2-channel desktop, `JULIA_NUM_THREADS=1` is the *fastest* CPU configuration for the streaming ops
 below ~256³ and within ~15% of t8 at 512³; on the many-channel node of decision 37
 (`docs/ARCHITECTURE.md`), where serial is ~1/12 of socket bandwidth, the slow loop still saturates the
 socket eventually but wastes ~4.7× the cores doing it. The threading *tests* are unaffected (bitwise
-identity holds — the loop is slow, not wrong). **Fixed (2026-07-22, decision 38):** the threaded path
+identity holds — the loop is slow, not wrong).
+
+**Fixed (2026-07-22, decision 38):** the threaded path
 now runs the standard fused `materialize!` per contiguous slab of the largest axis, so each slab
 executes the same SIMD kernel as serial — measured on the probe, 512³ `Float64` `add!`: t2
-187.7 → **73.3 ms** (the DRAM ceiling, previously reached only at t8), t8 unchanged at the ceiling,
+187.7 → 73.3 ms (the DRAM ceiling, previously reached only at t8), t8 unchanged at the ceiling,
 and 64³ t8 95 → 28 µs (threading now *wins* at small sizes). Both hosts' CPU columns in
 `RESULTS.md` are re-swept post-fix (Enteropia and Aiporetne, 2026-07-22); pre-fix t2–t8 numbers
 survive only in superseded archives and measure the retired loop.
@@ -581,9 +598,9 @@ bins (2.7–2.8 ns) yet still trails serial at the ``64^3`` count (same-bin coll
 per add). At
 production sizes the mode reads are DRAM-bound and the contention hides, so the anomaly is confined
 to small-grid diagnostics costing single-digit milliseconds — recorded, not fixed. Read the ≈48×
-`Float64` radial gap at both of its levels, which are not in tension: its **mechanism** is vendor
+`Float64` radial gap at both of its levels, which are not in tension: its mechanism is vendor
 hardware — RDNA emulates the global `Float64` atomic with a CAS loop where NVIDIA has it natively,
-which is why the gap collapses to 1.11× in `Float32` (§6) — while its **exposure** is an addressable
+which is why the gap collapses to 1.11× in `Float32` (§6) — while its exposure is an addressable
 implementation gap, because the global atomic scatter has no per-workgroup pre-reduction, the
 standard technique for exactly this kernel shape, and with one the emulated atomic would be hit a
 few times per workgroup instead of once per mode. Every other cross-vendor ratio in this document
@@ -604,17 +621,17 @@ its speed is how the per-axis product is INDEXED and how the launch is SHAPED �
 reads.** Decision 50 stores a separable kernel (`SeparableKernel`) as three ``O(N)`` per-axis factors instead of an
 ``O(N^3)`` field, which removes one field-sized stream from every application (three down to two). That
 alone predicts a speed-up; it does not deliver one, and the two failed attempts are the instructive
-part. Handing the lazy product to the **linear-indexed** fiberwise executor makes every element convert
-a linear index to a cartesian one — an integer division, emulated on a GPU — measured **0.29×** a stored
-kernel (vector, ``256^3``, `Float64`, RTX 5070 Ti). Replacing that with a hand-written **three-dimensional**
+part. Handing the lazy product to the linear-indexed fiberwise executor makes every element convert
+a linear index to a cartesian one — an integer division, emulated on a GPU — measured 0.29× a stored
+kernel (vector, ``256^3``, `Float64`, RTX 5070 Ti). Replacing that with a hand-written three-dimensional
 `KernelAbstractions` kernel removed the conversion and gained nothing (0.78× vector) while *halving* the
-scalar case to **0.55×**: the folded axis is ``N/2 + 1`` — **129** at ``256^3`` — so a three-dimensional
+scalar case to 0.55×: the folded axis is ``N/2 + 1`` — 129 at ``256^3`` — so a three-dimensional
 launch fragments warps against a row length that is not a multiple of the warp size, where the stored
-path's flat launch stays coalesced. What works is the plainest form, **one flat broadcast** over the
+path's flat launch stays coalesced. What works is the plainest form, one flat broadcast over the
 whole section with the factors carrying singleton axes (they extend along the remaining mode axes and
 along the fiber): cartesian indexing *and* a flat, coalesced launch.
 
-The **CPU needs the opposite route**, and the same measurement says so. That five-operand broadcast,
+The CPU needs the opposite route, and the same measurement says so. That five-operand broadcast,
 three of whose operands carry singleton axes, does not vectorize: it ran at a fixed ~330 M elements/s —
 the *same rate* in `Float32` as in `Float64`, the signature of an element-bound loop rather than a
 bandwidth-bound one. So the CPU takes a gated hand-written twin (§9's kernel-pair shape): the two outer
@@ -632,22 +649,22 @@ Ratios against the stored kernel (vector field, ``>1`` = axis-factored faster):
 | ``256^3`` | 0.78 | **1.01** | 0.91 | 0.54 | **1.15** | **1.18** |
 | ``512^3`` | — | — | 0.85 | 0.60 | **1.12** | **1.12** |
 
-The trend is the point: **the ratio improves with grid size on the CPU**, because the saving is
+The trend is the point: the ratio improves with grid size on the CPU, because the saving is
 bytes not moved (two streams instead of three) while the cost is per-element arithmetic. The GPU column
 does not follow it — the ratio there sits near parity at ``64^3`` and drifts slightly down, a device
 being bandwidth-bound at every size in this range rather than crossing out of cache. Small grids sit
 in cache — the stored kernel's extra read is nearly free there, so the axis-factored form only pays for
 its arithmetic and loses. Past cache the pass becomes DRAM-bound and the missing stream wins: at
-``256^3``–``512^3`` threaded, the CPU is **1.12–1.18× faster**, and `Float32` on the GPU reaches parity.
+``256^3``–``512^3`` threaded, the CPU is 1.12–1.18× faster, and `Float32` on the GPU reaches parity.
 
-The `Float64` GPU column is a **consumer-card artifact, not the production case**. The two extra complex
+The `Float64` GPU column is a consumer-card artifact, not the production case. The two extra complex
 multiplies are 12 FP64 flops per element; the gap at ``256^3`` is 363 µs for 305 MFLOP, an implied
-**0.84 TFLOP/s** — precisely the RTX 5070 Ti's 1/64-rate FP64. On the decision-37 GH200 (full-rate FP64)
+0.84 TFLOP/s — precisely the RTX 5070 Ti's 1/64-rate FP64. On the decision-37 GH200 (full-rate FP64)
 the same work is ~9 µs, so `Float64` there should track the `Float32` column and land near 1.15×.
 
 The same split applies to the kernel-composed `combine!`, which initially kept the linear-indexed
 route and so ran the rejected shape at ``R \ge 1`` — measured at roughly a third of the stored
-kernel's speed until it took the cartesian routes as well, after which it is **1.1×** *faster* than
+kernel's speed until it took the cartesian routes as well, after which it is 1.1× *faster* than
 the stored kernel at ``256^3`` threaded. A kernel storage class is only as fast as the slowest entry
 point that accepts it.
 
@@ -661,25 +678,27 @@ summed ``(\kappa_1^2 + \kappa_2^2) + \kappa_3^2``, matching the left association
 uses, or the compressed and stored paths agree only to rounding rather than bit for bit — and the suite
 asserts the stronger form.
 
-The symbol is a **closure, and it must capture values rather than a type**. Capturing an element type —
+The symbol is a closure, and it must capture values rather than a type. Capturing an element type —
 writing `one(T)` inside the closure with `T` closed over — makes the captured object a `Type`, which is
 not a bitstype, and a GPU launch rejects it outright. Hoist the constants to values before the closure
 is built.
 
-Three rules generalize. **Reach for the broadcast route before a hand-written kernel on a device** —
+Three rules generalize. Reach for the broadcast route before a hand-written kernel on a device —
 §9's execution-route policy, here vindicated by measurement, since Julia's broadcast machinery chose a
-better launch than the hand-rolled kernel did. **A broadcast over singleton-axis operands is the
-exception on a CPU**, where it does not vectorize and a hand-written twin is worth its keep. And when a
-fused pass underperforms, **measure the launch shape and the traversal order before blaming the
-arithmetic** — both failed attempts here were layout problems wearing an arithmetic costume.
+better launch than the hand-rolled kernel did. A broadcast over singleton-axis operands is the
+exception on a CPU, where it does not vectorize and a hand-written twin is worth its keep. And when a
+fused pass underperforms, measure the launch shape and the traversal order before blaming the
+arithmetic — both failed attempts here were layout problems wearing an arithmetic costume.
 
 *Re-derived 2026-09-03 from the 2026-08-31 archives, against a stored kernel on a vector field
-(``<1`` = the compressed class faster).* The table above is older. **Axis-factored:** threaded on a CPU
+(``<1`` = the compressed class faster).* The table above is older.
+
+**Axis-factored:** threaded on a CPU
 it costs ``1.75``–``2.45\times`` a stored kernel at ``64^3``, is mixed at ``128^3`` (``0.83``–``2.11``,
 `Float32` still behind) and overtakes by ``256^3``–``512^3`` at ``0.72``–``0.95``; single-threaded it never
 overtakes in this range. On a device one card crosses (``1.37`` at ``64^3`` falling to ``0.88`` at
 ``256^3`` in `Float64`) and the other does not, staying ``1.20``–``2.53\times`` at every size and element
-type measured. **Radial**, at ``R = 1``, where its symbol is evaluated once per component: ``1.1``–``2.1\times``
+type measured. Radial, at ``R = 1``, where its symbol is evaluated once per component: ``1.1``–``2.1\times``
 at ``64^3`` across the CPU thread counts, ``0.70``–``0.97`` by ``256^3``–``512^3`` on most of them; on a
 device ``0.85``–``1.10`` in `Float64`, but in `Float32` slower at every size on one of the two GPUs, by as
 much as ``2.6\times`` at ``128^3``. So the two classes do not share a crossover. These figures lived in
@@ -689,15 +708,15 @@ the `materialize_kernel` and `RadialKernel` docstrings until 2026-10-08.
 `Enteropia`, and the 2026-08-07 `Aiporetne` control says the cause is specific to that host.** The full
 re-sweep of the 9800X3D lanes found a cluster confined to the `fft`
 class: at ``256^3`` `Float64`, `-t1` `to_physical scalar` went 83.8 → 116.0 ms and `to_spectral scalar`
-171.9 → 207.4 ms; `-t8` saw `to_spectral vector` at ``128^3`` go 11.3 → 16.7 ms. **It is reproducible,
-not jitter** — three standalone probes of the ``256^3`` `Float64` rows returned 115.8 / 116.8 / 116.5
+171.9 → 207.4 ms; `-t8` saw `to_spectral vector` at ``128^3`` go 11.3 → 16.7 ms. It is reproducible,
+not jitter — three standalone probes of the ``256^3`` `Float64` rows returned 115.8 / 116.8 / 116.5
 and 208.3 / 209.3 / 211.1 ms, a spread under 1%.
 
 What it is *not*, each checked rather than assumed: not a package change (the transform path has zero
 changed code lines between the two commits — the 136 insertions in `Fields.jl` are docstrings and
 decision 61's type parameter); not FFTW (the `libfftw3` artifact dates from 2026-05-25 and
 `benchmark/Manifest.toml` from 2026-07-22, both predating the older archive); not Julia (1.12.6 for
-both sweeps); and not a machine-wide slowdown — the other **596** rows of the same lanes have a median
+both sweeps); and not a machine-wide slowdown — the other 596 rows of the same lanes have a median
 drift of ``-0.12\%``, so only the FFT rows moved. It is CPU-only: the cuFFT lane shows no `fft` row
 among its movers. The one difference the record does show is a reboot between the two sweeps
 (current kernel `7.0.0-28-generic`), and no pre-reboot kernel or microcode version was recorded, so a
@@ -705,15 +724,15 @@ platform change can be neither confirmed nor excluded on that host alone.
 
 **The control ran on `Aiporetne` (i7-12700K) on 2026-08-07, and at the larger grids the shift does not
 reproduce.** That host's lanes were last measured 2026-07-22, so the comparison spans an even wider
-commit range than the one that produced the finding. Across its **192** `fft` rows (four thread lanes × 48), exactly **one** row at ``256^3`` moved slower, by ``+1.0\%``, against `Enteropia`'s ``+38\%`` on the
+commit range than the one that produced the finding. Across its 192 `fft` rows (four thread lanes × 48), exactly one row at ``256^3`` moved slower, by ``+1.0\%``, against `Enteropia`'s ``+38\%`` on the
 row the finding names; the per-lane medians run ``-4.5\%`` to ``-6.8\%``. State this precisely rather
-than as "nothing got slower", which a first pass over a single lane wrongly suggested: **23 of the 192
-rows did move slower**, but all except that one ``256^3`` row sit at ``64^3`` or ``128^3``, and the three
+than as "nothing got slower", which a first pass over a single lane wrongly suggested: 23 of the 192
+rows did move slower, but all except that one ``256^3`` row sit at ``64^3`` or ``128^3``, and the three
 exceeding 20% (``+46.8\%``, ``+23.5\%``, ``+22.2\%``) are all small-grid cells at `-t4`/`-t8`, where
 thread overhead dominates a workload of well under a millisecond and the scatter is largest. The finding
 is about the *larger* grids, and there the two hosts moved in opposite directions over overlapping
 periods.
-`Aiporetne` runs kernel `7.0.0-28-generic` — **the same version `Enteropia` recorded after its reboot** —
+`Aiporetne` runs kernel `7.0.0-28-generic` — the same version `Enteropia` recorded after its reboot —
 so if a kernel or microcode change were responsible, this host should show the slow vintage and instead
 shows the fast one. That exonerates the platform version specifically, which is stronger than a bare
 failure to reproduce, and leaves the cause in `Enteropia`'s own machine state.
@@ -724,10 +743,10 @@ rows did not merely fail to slow — they got materially *faster*, by 5–46% at
 ms, a ratio of ``0.54``). No package change touches the transform path over that range either. So both
 hosts show an `fft`-class-confined shift across a re-sweep, in opposite directions, with unrecorded
 platform state on both sides. The conservative reading is not that one host regressed and the other did
-not, but that **`fft` timings are not stable across sweeps on either host** while the conditions of a
+not, but that `fft` timings are not stable across sweeps on either host while the conditions of a
 sweep go unrecorded — which is exactly what the vintage caveat exists to express. Whatever moves them is
-below the package, and neither direction has been traced. **Treat `fft` rows as comparable only within a
-vintage**, and treat a cross-vintage `fft` comparison as uninformative rather than as evidence.
+below the package, and neither direction has been traced. Treat `fft` rows as comparable only within a
+vintage, and treat a cross-vintage `fft` comparison as uninformative rather than as evidence.
 
 **Studied on `Aiporetne`, 2026-08-07: five candidates eliminated by measurement, and the instrument
 gap closed.** The `fft` class is the only one whose cost depends on a plan chosen at runtime, so it is
@@ -737,11 +756,11 @@ the natural suspect, but each mechanism was tested rather than argued:
     ``256^3``) measured in eight separate processes spans 156.1–165.0 ms — a spread of ``1.06\times``,
     against the 20–50% to be explained.
   - **Hybrid core placement is not it, but it IS a latent hazard.** The 12700K is 8 P-cores plus 4
-    E-cores. Pinned to an E-core the same row measures **255.8–266.1 ms against 156.5–164.3 ms on a
-    P-core — ``1.63\times``** — easily enough to produce the effect. It does not, because every
+    E-cores. Pinned to an E-core the same row measures 255.8–266.1 ms against 156.5–164.3 ms on a
+    P-core — ``1.63\times`` — easily enough to produce the effect. It does not, because every
     unpinned sample landed in the P-core range: Linux reliably places a single compute-bound thread on
-    a P-core. **A sweep run under `taskset`, a cgroup, or a systemd slice that admits E-cores would
-    read 1.6× slow with nothing else changed**, which is worth knowing before anyone constrains one.
+    a P-core. A sweep run under `taskset`, a cgroup, or a systemd slice that admits E-cores would
+    read 1.6× slow with nothing else changed, which is worth knowing before anyone constrains one.
   - **Transparent huge pages are not it.** THP is in `madvise` mode with `AnonHugePages: 0`, so the
     arrays are never huge-page backed on this host — the mode cannot vary between sweeps because
     nothing requests it.
@@ -762,8 +781,8 @@ which is exactly the kind of cross-sweep state nothing was capturing.
 
 **RESOLVED 2026-08-09 on the host that showed it: the shift was a ONE-OFF, not a persistent state
 change.** `Enteropia`'s CPU lanes were re-swept against the 2026-08-05 archive over an interval whose
-`src/` edits are **docstring text only** — five files were touched by a documentation pass, and
-stripping docstrings and comments from both revisions leaves **zero** differing executable lines — so
+`src/` edits are docstring text only — five files were touched by a documentation pass, and
+stripping docstrings and comments from both revisions leaves zero differing executable lines — so
 anything that moved would be platform or measurement. Nothing moved. The `fft` class is flat — per-lane medians ``-1.4\%``, ``-1.2\%`` and ``-1.1\%`` at `-t1`,
 `-t2` and `-t4` — and at ``256^3``, where the event was ``+20``–``50\%``, the medians are ``-3.7\%``,
 ``-6.5\%`` and ``-1.2\%``. Every other class is flat on the same lanes, 600 rows each, with overall
@@ -772,7 +791,7 @@ medians of ``+0.0\%``, ``-0.2\%`` and ``-0.2\%``.
 **What that licenses, and what it does not.** The instrument reproduces itself across four days on
 this host, so the harness is sound and the 2026-08-05 `fft` reading was a transient of that particular
 sweep rather than a lasting change in the machine — which is also why the `Aiporetne` control found
-nothing to confirm. It does **not** identify the transient's cause, and it cannot: the state that would
+nothing to confirm. It does not identify the transient's cause, and it cannot: the state that would
 have named it was never recorded, and the episode is over. The finding therefore closes as
 *unattributed but bounded* — a single sweep's `fft` column, on one host, not reproduced before or
 since. The stamping is the durable outcome: these three lanes are the first archives in the tree
@@ -782,8 +801,8 @@ all, for the unrelated reason in (q).
 **(q) FFTW's threaded executor segfaults at `-t8` — REPRODUCIBLE on `Enteropia`, and the lane completes
 only when split across processes.** The heading below and the 105-trial non-reproduction that follows it are
 kept as the record of how this looked before 2026-08-09; both are now superseded. On that date the
-`-t8` characterization lane failed **three times consecutively** on `Enteropia` (9800X3D), taking the
-tally on that host to **four failures in five attempts** across two dates. Every crash carries the
+`-t8` characterization lane failed three times consecutively on `Enteropia` (9800X3D), taking the
+tally on that host to four failures in five attempts across two dates. Every crash carries the
 identical stack — `signal 11` in `spawn_apply` inside `libfftw3`, reached through FFTW.jl's
 `spawnloop` (`providers.jl:49`) on a Julia task — and every one landed in the `reductions` class,
 whose `radial_correlation` takes an inverse transform. The crash point *moves* between attempts
@@ -803,7 +822,7 @@ its operations. A short reproducer is not cheaply available.
 **The lane is obtainable anyway, by splitting it across processes.** The mitigation below is unusable
 here — building plans under `set_fft_threads!(1)` removes the callback, but the `-t8` lane exists
 precisely to measure threaded FFT, so it would corrupt the column it is meant to produce. What works
-instead is running the lane as **one process per grid** (`CHAR_SIZES=64`, then 128, 256, 512) and
+instead is running the lane as one process per grid (`CHAR_SIZES=64`, then 128, 256, 512) and
 merging the four archives: 64³, 256³ and 512³ passed first time, 128³ on its second attempt, and the
 parts hold disjoint rows (150 each) so the union is what an uncrashed process would have written.
 `RESULTS.md`'s `CPU 9800X3D t8` column was rebuilt that way on 2026-08-10 and is flat against the
@@ -811,7 +830,7 @@ parts hold disjoint rows (150 each) so the union is what an uncrashed process wo
 twins whose `MEASURE` plan search legitimately re-decides between runs.
 
 **That is a workaround, and it sharpens the diagnosis rather than closing it.** The fault is unchanged
-and a plain `-t8` invocation still dies here. But a fresh process doing only ``128^3`` **also** crashed,
+and a plain `-t8` invocation still dies here. But a fresh process doing only ``128^3`` also crashed,
 2.5 minutes in, so the trigger is not simply a long-lived process accumulating state; splitting helps
 because it shortens each exposure and makes a retry cheap, not because it removes the hazard. Combined
 with the crash point moving between attempts, the fault reads as a low-probability race whose rate rises
@@ -823,25 +842,25 @@ is five because the four failures of the single-process lane (three on 2026-08-0
 against one success) are joined by a fifth from the split run of 2026-08-10, whose ``128^3`` process
 crashed on its first attempt before succeeding on its second. Every crash
 on record shares four properties: `-t8` (FFTW's thread count tracks Julia's, so eight workers; `-t1`,
-`-t2` and `-t4` have never failed across many lanes), the host `Enteropia`, the **`reductions` class**
+`-t2` and `-t4` have never failed across many lanes), the host `Enteropia`, the `reductions` class
 — five times out of five, never `fft`, `algebra`, `operators`, `convolution` or `transfer` — and a
 small or middling grid (``128^3`` four times, ``64^3`` once, never ``256^3`` or ``512^3``, though that
 last is partly survivorship because the monolithic lanes died before reaching them). What it is *not*
 is an accumulation threshold: the allocation counter at death spans 158M to 1071M and the collection
 count 1753 to 14598, a sevenfold spread on both.
 
-Four reproduction attempts at `-t8` on the failing host all came back **clean**, and each one narrows
+Four reproduction attempts at `-t8` on the failing host all came back clean, and each one narrows
 the cause: 2,400 `radial_correlation` calls; twelve rounds of build → run → drop → `GC.gc(true)` over
-`fft`, `transfer` and `reductions`; **five rounds of the `reductions` class alone at the exact crashing
-cell**; and the full `Pkg.test()` suite. So neither the operation, nor plan churn, nor the class, nor
+`fft`, `transfer` and `reductions`; five rounds of the `reductions` class alone at the exact crashing
+cell; and the full `Pkg.test()` suite. So neither the operation, nor plan churn, nor the class, nor
 eight threads is sufficient on its own.
 
 **What every real crash had that none of those had is the rest of the process.** In each one, `fft`,
 `algebra`, `operators`, `convolution` and `transfer` had already run before `reductions` was reached —
 and `fft` is the class that builds the most plans, including the `measure` twins that invoke FFTW's
-**timed planner**. That is the exact window FFTW.jl documents, quoted below: the collector may run
+timed planner. That is the exact window FFTW.jl documents, quoted below: the collector may run
 during the `spawnloop` callback *while the planner is executing*. Its deferred plan destruction and
-`GC.safepoint()` spin exist to stop that **deadlocking**; a segfault is the other failure, the shape of
+`GC.safepoint()` spin exist to stop that deadlocking; a segfault is the other failure, the shape of
 a plan freed by its finalizer while another thread is still executing it. The working description is
 therefore a low-probability race, per threaded transform execution, whose window is opened by earlier
 planner activity in the same process — which explains both why the small grids catch it (their call
@@ -858,7 +877,7 @@ characterization lane died with `signal 11` inside `spawn_apply` in `libfftw3`, 
 FFTW.jl's `spawnloop`, while running the `reductions` class at ``128^3`` `Float64` — which touches FFTW because
 `radial_correlation` takes an inverse transform. The package sets FFTW's thread count to match Julia's
 at load, so ``-t8`` is the only lane driving FFTW with eight worker threads; `-t1`, `-t2` and `-t4` all
-completed. Re-running the identical lane succeeded (30m31s, `rc=0`), so the fault is **intermittent**.
+completed. Re-running the identical lane succeeded (30m31s, `rc=0`), so the fault is intermittent.
 Nothing was corrupted: `characterize.jl` writes its JSON only at the end, so the crash left the previous
 archive intact rather than half-written — worth knowing, because a harness that wrote incrementally
 would have produced a silently mixed-vintage column instead.
@@ -867,7 +886,7 @@ would have produced a silently mixed-vintage column instead.
 fault is now LOCATED rather than mysterious.** Two stressors were built against the mechanism instead
 of re-running a 30-minute lane. Both drove eight FFTW worker threads at ``128^3`` `Float64` through
 `radial_correlation`, which is what the original crash was running (it takes an inverse transform and
-materialises a power field), with **plan churn** so finalizers had work pending while the next round
+materialises a power field), with plan churn so finalizers had work pending while the next round
 executed: v1 forced collection between rounds, v2 instead kept the heap near its threshold from a
 background allocating task, so the collector would fire *inside* the callback rather than between
 calls. Totals: 105 trials, ~50,500 transform executions, ~6,200 plan build-and-destroy cycles, on
@@ -876,7 +895,7 @@ calls. Totals: 105 trials, ~50,500 transform executions, ~6,200 plan build-and-d
 **What the attempt did establish.** FFTW.jl's own source documents this interaction zone: "the
 garbage-collector may run at unexpected times. For example, it may run during the `spawnloop` callback
 while the FFTW planner is executing", and it carries deferred plan destruction plus a `GC.safepoint()`
-spin specifically so that case cannot **deadlock** on the `fftwlock`. A **segfault** is a different
+spin specifically so that case cannot deadlock on the `fftwlock`. A segfault is a different
 failure from the one that machinery guards, and the shape that produces one is a plan being destroyed
 by its finalizer while another thread is still executing it — a use-after-free reached through
 `spawn_apply`. That is consistent with every recorded detail: it needs plan lifetime to overlap
@@ -922,9 +941,9 @@ Three control rows taking no kernel (`add!`, `laplacian!`, the plain `divergence
 
 **The mechanism is a per-fiber-component recompute of the kernel symbol.** Decision 51 made
 `spectral_cutoff` and `spectral_band` return a `RadialKernel`, whose `_kernel_data` is a lazy
-``\sigma(\lvert k\rvert^2)`` over the ``(N_{k_x}, N_y, N_z)`` mode grid. Against a **scalar** field that
-shape matches and the symbol is evaluated once per mode; against a **vector** field the trailing
-singleton is extruded over the fiber and the symbol is evaluated **once per component**. A stored
+``\sigma(\lvert k\rvert^2)`` over the ``(N_{k_x}, N_y, N_z)`` mode grid. Against a scalar field that
+shape matches and the symbol is evaluated once per mode; against a vector field the trailing
+singleton is extruded over the fiber and the symbol is evaluated once per component. A stored
 kernel re-reads a cached array in the same place, which is far cheaper. Measured directly at `HEAD`,
 radial against its own materialized twin:
 
@@ -968,8 +987,8 @@ no fiber to extrude over.
 
 **The premise behind wanting the fix was also wrong, and measuring is what showed it.** A traffic count
 says the radial class should beat stored by ``1/(2R+1)`` — about 14% at ``R = 1`` — and that the
-recompute was eating it. At ``256^3`` `Float64` the radial broadcast measures **41.9 ms against
-stored's 45.0 ms**, already 6.8% ahead: it *is* realizing its memory saving at production scale, and
+recompute was eating it. At ``256^3`` `Float64` the radial broadcast measures 41.9 ms against
+stored's 45.0 ms, already 6.8% ahead: it *is* realizing its memory saving at production scale, and
 there was no forfeited 14% to recover. The ``1.02`` reading at ``128^3`` is the transition point
 between the two regimes, not evidence of a permanent loss.
 
@@ -977,14 +996,14 @@ between the two regimes, not evidence of a permanent loss.
 serial, where the pass is compute-bound; the CPU path's tuning target is the beyond-VRAM band
 (ARCHITECTURE.md decision 37), and there the radial class is already the faster of the two. Decision 51
 stands as measured: ``O(1)`` builders, competitive application at production grids, and a small-grid
-compute penalty that no reasonable fix removes without costing more elsewhere. **No change is
-warranted**, and the pass audit's separate ``\hat w`` extrusion holder should be re-priced against this
+compute penalty that no reasonable fix removes without costing more elsewhere. No change is
+warranted, and the pass audit's separate ``\hat w`` extrusion holder should be re-priced against this
 result before anyone acts on it either.
 
 **(s) Every GPU number this project has ever recorded is inflated 2–29× by `gcsample`, and the
 operations were never what was being timed.** `characterize.jl` sets
 `BenchmarkTools.DEFAULT_PARAMETERS.gcsample = true` for device lanes, and `regress.jl` sets
-`gcsample = USEGPU`. That runs a full `GC.gc()` **before every sample**, whose finalizers free device
+`gcsample = USEGPU`. That runs a full `GC.gc()` before every sample, whose finalizers free device
 buffers and synchronize the device — a cost that lands on a measurement whose operation is tens of
 microseconds. Measured A/B on the RX 7900 XTX, `Float64`, the whole `convolution` class run through the
 suite's own code with only that one parameter changed:
@@ -997,27 +1016,27 @@ The `gcsample = true` figures reproduce the committed archive to within a few pe
 identifies the archive as this regime rather than some other.
 
 **The tell was visible in the table all along.** With the overhead in, `convolve! scalar` and
-`convolve! vector` at ``128^3`` read 1.094 and 1.177 ms — a **3× difference in bytes moved appearing as
-1.08×**, because both were dominated by a shared ~1 ms floor. With it out they read 57 and 182 µs, a
+`convolve! vector` at ``128^3`` read 1.094 and 1.177 ms — a 3× difference in bytes moved appearing as
+1.08×, because both were dominated by a shared ~1 ms floor. With it out they read 57 and 182 µs, a
 ratio of ``3.2`` that matches the data volume. A device column whose scalar and vector rows nearly
 coincide is not measuring the device.
 
 **It is not a uniform scale factor, so it corrupts comparisons *within* a column too.** The inflation
 varies per row (``1.94``–``4.25\times`` at ``256^3`` alone), and at least one documented conclusion
-**reverses** when it is removed: `convolve! vector ∘ radial` against `∘ stored` reads ``1.48\times``
+reverses when it is removed: `convolve! vector ∘ radial` against `∘ stored` reads ``1.48\times``
 *slower* for the radial class at ``256^3`` with `gcsample`, and ``0.90\times`` — *faster* — without it,
-with the same flip at ``128^3``. Decision 51's radial kernel is therefore **faster than the stored class
-on this card**, in the same direction as CUDA. The claim recorded in `bd1e4f30` that decision 51's trade
-"has opposite sign on the two vendors" is **retracted**: it rested on a probe that also ran
+with the same flip at ``128^3``. Decision 51's radial kernel is therefore faster than the stored class
+on this card, in the same direction as CUDA. The claim recorded in `bd1e4f30` that decision 51's trade
+"has opposite sign on the two vendors" is retracted: it rested on a probe that also ran
 `gcsample = true`, and the apparent sign came from two rows being inflated by different factors
 (``9.5\times`` against ``5.8\times``), not from the kernels.
 
-**Scope.** `gcsample` is gated on `USEGPU` in both harnesses, so **CPU columns and CPU canary baselines
-are clean** and every GPU column of `RESULTS.md` — all four cards, every grid — plus both hosts' GPU
+**Scope.** `gcsample` is gated on `USEGPU` in both harnesses, so CPU columns and CPU canary baselines
+are clean and every GPU column of `RESULTS.md` — all four cards, every grid — plus both hosts' GPU
 canary baselines are affected. Cross-card GPU comparisons are affected twice over, since each vendor's
 free-and-synchronize cost differs; the recorded "RTX 5070 Ti is ≈1.8× the RX 7900 XTX" was not safe to
-rely on until re-measured, and on re-measurement (both cards, fixed regime) it **fell to 1.09× in
-`Float64` at ``256^3``** — see the resolved cross-card entry in (v).
+rely on until re-measured, and on re-measurement (both cards, fixed regime) it fell to 1.09× in
+`Float64` at ``256^3`` — see the resolved cross-card entry in (v).
 
 **Why it was there, and why deleting it was not the fix.** It was added deliberately (2026-06-11)
 because the `reductions` class wedged the device: `lpnorm` materializes a magnitude field per call,
@@ -1028,7 +1047,7 @@ reinstates it.
 **The fix, landed and validated: `gcsample` is now decided PER ROW, by measurement.** Only a row that
 creates device arrays fast enough to exhaust the pool within its own trial needs the per-sample
 collector, and `_apply_gcsample_policy!` in `characterize.jl` finds those rows rather than assuming
-them. Each row is warmed up, then run with the collector **disabled** while the device pool is watched;
+them. Each row is warmed up, then run with the collector disabled while the device pool is watched;
 the growth is projected over the trial from the row's own per-call time, and a row projected to exceed
 2 GiB keeps `gcsample`. Host bytes cannot serve as the signal — a KernelAbstractions launch allocates
 host bytes per call, so a first attempt using them classified every launching row as allocating and
@@ -1041,7 +1060,7 @@ the spectral `inner`'s ``O(N^2)`` correction planes 13.5 MiB, `materialize_kerne
 was written from the code years before this probe existed, and the probe was not told it.
 
 **Validated on the case the setting existed for.** Running `characterize.jl` itself over `convolution`
-and `reductions` at ``128^3`` **and** ``256^3`` `Float64`: it completes without wedging, keeps
+and `reductions` at ``128^3`` and ``256^3`` `Float64`: it completes without wedging, keeps
 `gcsample` on exactly six rows (the two `materialize_kernel` rows and the four documented reduction
 materializers), and the in-place rows recover their physics — `convolve!` scalar against vector reads
 57.3 against 181.0 µs, a ratio of ``3.16`` matching the data volume, where the archive read 1.094
@@ -1052,7 +1071,7 @@ CPU lanes are untouched, the policy being gated on the backend.
 version's fixed eight calls were themselves an unbounded allocation: `transfer` at ``256^3``, whose
 NUFFT allocates oversampled work arrays per call, filled the pool and hung a re-sweep for two and a
 half hours with VRAM at 99%, device activity at 0%, and one core spinning in the allocator. The
-`catch`-based fail-safe did not fire because **a wedge is a hang, not an exception**. The probe is now
+`catch`-based fail-safe did not fire because a wedge is a hang, not an exception. The probe is now
 bounded by memory with an early exit — one call at a time, stopping the moment growth passes 512 MiB,
 which is already decisive — so its peak use is that ceiling plus one call rather than the pool.
 `SIGTERM` did not reach the spinning process; `SIGKILL` released the pool cleanly and the archive
@@ -1072,14 +1091,14 @@ the RX 7900 XTX column moved by a median of ``-81.6\%`` over 467 rows: `operator
 `fft` ``-71.7\%``. Individual rows fall 97%. The physics is back — `convolve!` scalar against vector at
 ``128^3`` reads 57.3 against 180.0 µs, a ratio of ``3.14`` matching the data volume, where the old
 column read 1.094 against 1.177 ms. The canary was refrozen on the fixed harness and is green with
-**zero** rows needing the per-sample GC, every canary being an in-place mechanism: that lane had been
+zero rows needing the per-sample GC, every canary being an in-place mechanism: that lane had been
 pure collector overhead.
 
 **A defect in that fix suppressed `tune!` for the entire device suite, and is now repaired.** The
 policy returns the rows whose parameters it set deliberately so they are not re-tuned, and it
 identified them with `allocating || params.evals == 1`. The second test was meant to catch a *capped*
-row, which reports `allocating = false` but has had `evals` pinned to 1 — except that **1 is also
-`BenchmarkTools`' untuned default**, so the test matched every row in the suite and `tune!` ran on
+row, which reports `allocating = false` but has had `evals` pinned to 1 — except that 1 is also
+`BenchmarkTools`' untuned default, so the test matched every row in the suite and `tune!` ran on
 none of them. The flat rows are documented three paragraphs above as "tuned normally", so the code
 contradicted its own specification. A capped row now carries its own flag. The repair was verified by
 perturbation on a synthetic suite rather than by reading: a flat row must leave `fixed` empty, and a
@@ -1090,7 +1109,7 @@ Tuning only raises `evals` above 1 when a call is short enough that per-sample o
 to the work. Rather than reason about which rows those are, the two disciplines were run against each
 other on the RTX 5070 Ti at ``64^3`` `Float64`: of the whole `convolution` class only
 `spectral_cutoff`, `radial_kernel` and `spectral_band` — the ``O(1)`` closure builders at
-``\approx 0.4`` µs — tune above `evals = 1` (to ≈ 207), and untuned they read **6–8% high** (400.0
+``\approx 0.4`` µs — tune above `evals = 1` (to ≈ 207), and untuned they read 6–8% high (400.0
 against 373.8 ns; 390.0 against 361.2; 400.0 against 376.5). Every other row stays at `evals = 1` and
 ties to within 1%, including `materialize_kernel radial` at 11.4 µs — so the threshold sits far below
 the 20 µs a first estimate assumed, and the affected set is three builder mechanisms rather than every
@@ -1100,15 +1119,15 @@ are simply known to read a few percent high until that lane is next swept.
 
 **Scope, stated exactly.** The policy is reached only under `USEGPU`; the CPU branch calls
 `tune!(suite)` and always did, so no CPU column is touched. Before the per-row policy existed
-`tune!(suite)` ran unconditionally for devices too, which makes the **RX 7900 XTX re-sweep of
-2026-08-07 the only archive in the tree measured with tuning suppressed** — every other column,
+`tune!(suite)` ran unconditionally for devices too, which makes the RX 7900 XTX re-sweep of
+2026-08-07 the only archive in the tree measured with tuning suppressed — every other column,
 device and CPU alike, is tuned. The canary is unaffected: `regress.jl` carries its own standalone
 copy of the policy that neither caps samples nor returns a do-not-tune set, so no frozen baseline
 needs refreezing.
 
 **`RESULTS.md` now holds both GPU columns in the fixed regime**, the RX 7900 XTX re-swept 2026-08-07
 and the RTX 5070 Ti 2026-08-09, so the two are comparable again — see the resolved cross-card entry in
-(v). Two further columns were **dropped rather than carried**: both belonged to cards since retired
+(v). Two further columns were dropped rather than carried: both belonged to cards since retired
 from the fleet, both were measured in the broken regime, and neither could be re-swept, so a reader
 could never correct or compare them — and a column like that invites exactly the comparison it cannot
 support.
@@ -1126,7 +1145,7 @@ allocates task state per transform call. Three properties identify it as harness
     ``8^3`` to ``48^3``. Field-sized scratch would scale; this does not.
   - **Nondeterministic.** The same configuration measured 7008, 10464, 23173 and 48557 B/step on
     different runs, since the number of tasks actually spawned varies with scheduling.
-  - **Set at plan-build time.** A plan built under `set_fft_threads!(1)` measures **exactly 0 B/step**
+  - **Set at plan-build time.** A plan built under `set_fft_threads!(1)` measures exactly 0 B/step
     even when called from a four-thread session, while one built under four threads measures 7008 in
     the same session. Restoring the setting before the call changes nothing.
 
@@ -1139,7 +1158,9 @@ not the package's code path.
 purely field-proportional bound, so a constant several-kilobyte cost overran it on the small fixtures.
 The lane now builds a dedicated single-threaded plan for the allocation measurement — the only place
 the cost can be removed — and reports 0 B/step deterministically across repeated `-t4` runs, with the
-tight field-proportional bound kept for detection power. **Raising the bound would have been the wrong
+tight field-proportional bound kept for detection power.
+
+**Raising the bound would have been the wrong
 fix**: it would have set a threshold against a quantity that varies 7× run to run, which is how a
 harness stops measuring anything.
 
@@ -1163,7 +1184,7 @@ measurement, `Float32` `mean(norm) vec`:
 | ``256^3`` `-t8` | 5434 – 5931 | ``1.09\times`` |
 | ``256^3`` `-t1` | 13063 – 13295 | ``1.02\times`` |
 
-The variance is confined to **small grid × high thread count**, where ~31 µs of work is comparable to
+The variance is confined to small grid × high thread count, where ~31 µs of work is comparable to
 the cost of spawning eight threads and BenchmarkTools' minimum over a one-second budget does not
 suppress the tail. The mode at that cell is ~31 µs, which is what the *old* archive recorded (32.0);
 the re-sweep happened to catch the tail (67.5). Thread scaling there is in fact monotone when measured
@@ -1175,23 +1196,23 @@ a uniform ~10%.
 
 **(v) Which recorded decisions the `gcsample` defect could have corrupted — audited, not assumed.**
 Finding (s) invalidates GPU numbers, and several recorded decisions were justified by GPU numbers, so
-the question is which of them could now be wrong. The inflation was **not a uniform factor** (1.94–4.25×
+the question is which of them could now be wrong. The inflation was not a uniform factor (1.94–4.25×
 at ``256^3``, 18–29× at ``64^3``), and a uniform factor is the only kind that cancels in an A/B ratio —
 so the exposure is worst where a claimed ratio is near 1. That is exactly how decision 51's radial
 versus stored comparison flipped sign.
 
 **The blast radius is narrower than it first looks.** `BenchmarkTools`' own default is
 `gcsample = false`, and only three entry points ever set it: `characterize.jl`, `regress.jl`, and the
-two `runbenchmarks.jl` drivers. **An ad-hoc `@benchmark` head-to-head is therefore unaffected**, which
+two `runbenchmarks.jl` drivers. An ad-hoc `@benchmark` head-to-head is therefore unaffected, which
 is how most of the decision-bearing comparisons in this document were taken. A useful corroborating
-test: the per-sample GC put a floor of roughly 1 ms on any device row at ``\le 128^3``, so **a recorded
-GPU figure below that floor cannot have been measured under it**.
+test: the per-sample GC put a floor of roughly 1 ms on any device row at ``\le 128^3``, so a recorded
+GPU figure below that floor cannot have been measured under it.
 
 **Re-checked on the fixed harness, and surviving:**
 
   - **Decision 30's backend split** (`mean(det, A)` fused against `mean(det(A))` materialising, ``128^3``
-    `Float64`, RX 7900 XTX). Recorded: 0.55 vs 0.69 ms, fused ``1.3\times``. Re-measured: **0.259 vs
-    0.486 ms, fused ``1.87\times``** — same direction, stronger, and both absolutes fell as the collector
+    `Float64`, RX 7900 XTX). Recorded: 0.55 vs 0.69 ms, fused ``1.3\times``. Re-measured: 0.259 vs
+    0.486 ms, fused ``1.87\times`` — same direction, stronger, and both absolutes fell as the collector
     floor came off. The GPU branch of `_reduce_fiber` is pointed the right way. Its recorded figures also
     sit below the 1 ms floor, so they were never under `gcsample` to begin with.
   - **Decision 51** (radial against stored): re-measured on the fixed harness, radial is 9–12% *faster*
@@ -1219,14 +1240,16 @@ inflation's per-row variance, and none can be re-checked from this box:
   - **Decision 42's GPU figure — RE-CHECKED on the RX 7900 XTX, and it is a tie.** The recorded
     "in-register ties in `Float32`, ``\approx 6\%`` slower in `Float64`" was measured on the RTX 5070 Ti,
     so this is a different card rather than a direct re-run. Both variants written as standalone
-    kernels differing only in the denominator — and verified **bitwise equal** — give stored-over-
+    kernels differing only in the denominator — and verified bitwise equal — give stored-over-
     in-register ratios of ``0.955`` (`Float64` ``128^3``), ``0.998`` (`Float64` ``256^3``), ``1.015``
     (`Float32` ``128^3``) and ``1.004`` (`Float32` ``256^3``). The recorded *direction* reproduces
     weakly — in-register is 4.5% slower in `Float64` at ``128^3`` — while everything else ties inside
-    1.5%, so the effect is real but marginal and vanishes at the larger grid. **The decision is
+    1.5%, so the effect is real but marginal and vanishes at the larger grid.
+
+    **The decision is
     untouched either way**: it rests on the CPU result (in-register wins everywhere, ``+4\%``/``+10\%``),
     and the CPU was never affected. Worth stating plainly because it is the natural worry:
-    **neither variant materialises anything field-sized.** The stored family is three PER-AXIS vectors
+    neither variant materialises anything field-sized. The stored family is three PER-AXIS vectors
     of length ``N_{k_x}``, ``N_y``, ``N_z`` — a few KB, the same ``O(N)`` shape as the derivative
     wavenumbers — so the trade is three register multiplies against three stride-1 loads from
     cache-resident vectors, not memory pressure. (The stored family must be the derivative-squared
@@ -1236,15 +1259,15 @@ inflation's per-row variance, and none can be re-checked from this box:
   - **Every cross-card ratio — RESOLVED 2026-08-09, and the headline one was wrong.** Both sides were
     inflated by *vendor-specific* amounts, so nothing could be said until both cards were re-swept;
     they now are. The prediction that the large ratios keep their direction and none keeps its
-    magnitude was **half right**. The ``\approx 48\times`` `Float64` radial gap is confirmed almost
+    magnitude was half right. The ``\approx 48\times`` `Float64` radial gap is confirmed almost
     exactly — 48.64× on `co-spectrum vec.vec` and 48.07× on `radial_spectrum vec` at ``256^3``, the
-    atomic-scatter difference — and it survives because it is enormous. The **"≈1.8× median" does
-    not**: at ``256^3`` the median over 71 comparable rows is **1.09× in `Float64` and 1.28× in
-    `Float32`**, which is near parity, and the RX 7900 XTX in fact has the wider memory bus. The
-    advantage the old figure described is real but **concentrated where the work is small**: 2.21×
+    atomic-scatter difference — and it survives because it is enormous. The "≈1.8× median" does
+    not: at ``256^3`` the median over 71 comparable rows is 1.09× in `Float64` and 1.28× in
+    `Float32`, which is near parity, and the RX 7900 XTX in fact has the wider memory bus. The
+    advantage the old figure described is real but concentrated where the work is small: 2.21×
     and 3.06× at ``64^3``, 1.35× and 1.65× at ``128^3``, decaying to parity as the rows become
     bandwidth-bound — the signature of a launch-latency edge, not a throughput one. And the AMD card
-    **wins seven of the transfer class's eight rows** at ``256^3`` `Float64`, which no previous
+    wins seven of the transfer class's eight rows at ``256^3`` `Float64`, which no previous
     comparison could have shown: the four spline gathers and scatters run at 0.53–0.68× the NVIDIA
     time (so 1.5–1.9× the speed), the two `NUFFT` rows sit near parity at 0.85–0.95×, and the one
     NVIDIA win is `anterpolate! Lalescu(3,3)` at 1.11×.
@@ -1252,7 +1275,7 @@ inflation's per-row variance, and none can be re-checked from this box:
 
     **That transfer verdict is a 2026-08-09 reading and decision 78 has since overturned part of it;
     the paragraph above is kept as the record of that date.** On the table as regenerated 2026-08-31
-    the AMD card wins **five** of the eight, not seven, at ``1.25``–``1.79\times``, and it now LOSES
+    the AMD card wins five of the eight, not seven, at ``1.25``–``1.79\times``, and it now LOSES
     `interpolate! CatmullRom` (``1.04\times`` to NVIDIA) and both `NUFFT` directions
     (``1.23``–``1.25\times``). The gather reversal is finding (aj)'s AMD-only walk regression arriving
     in a vendor comparison: that row reads 1.048 ms in the 2026-08-09 archive against 1.540 ms now.
@@ -1263,14 +1286,14 @@ every split decision are untouched by this. That is most of the tuning record.
 
 **(w) The fix for (s) never ran on CUDA — it called a function that does not exist, and the catch-all
 reported the failure as a measurement.** The per-row policy asks the device pool how much it grew, and
-on the NVIDIA side it asked with `CUDA.total_memory() - CUDA.available_memory()`. **`CUDA.available_memory`
-is not a binding in the CUDA.jl this tree resolves** (CUDACore 6.2.0); the call raised `UndefVarError` on
+on the NVIDIA side it asked with `CUDA.total_memory() - CUDA.available_memory()`. `CUDA.available_memory`
+is not a binding in the CUDA.jl this tree resolves (CUDACore 6.2.0); the call raised `UndefVarError` on
 every row. Each row's probe is wrapped in a `try`/`catch` whose documented intent is "unclassifiable ⇒
-keep the old, safe behaviour", so **every row on CUDA fell back to `gcsample = true`** — the exact regime
+keep the old, safe behaviour", so every row on CUDA fell back to `gcsample = true` — the exact regime
 (s) exists to remove.
 
 **It announced itself as a result.** The run printed `per-sample GC kept for N allocating row(s): …` and
-named them, which reads as a measurement of N allocating rows. Those lists were each class's **complete**
+named them, which reads as a measurement of N allocating rows. Those lists were each class's complete
 row list: `operators` reported all nine of its rows — `laplacian!`, `curl!`, `divergence!` and the rest —
 every one of which `test/allocations.jl` pins at zero bytes. That is the tell, and it is the same shape as
 (s)'s own: a device column whose in-place operations look like allocators is not measuring allocation.
@@ -1280,16 +1303,16 @@ The condition was caught three classes into the first `Enteropia` re-sweep (2026
 **Root cause is unexercised code, and it was flagged in advance.** The policy was written on a host with
 no NVIDIA card, and the note queuing this re-sweep said in as many words that the CUDA branch "has never
 been exercised, unlike the AMD path". The AMD path was correct throughout — `AMDGPU.used_memory()` exists
-— so **finding (s)'s AMD re-sweep and every conclusion drawn from it are unaffected**. What follows is
-narrower and worse: **no CUDA archive has ever been measured under the per-row policy**, so the RTX 5070
+— so finding (s)'s AMD re-sweep and every conclusion drawn from it are unaffected. What follows is
+narrower and worse: no CUDA archive has ever been measured under the per-row policy, so the RTX 5070
 Ti column remained in the pre-fix regime even after the fix shipped.
 
 **Both halves repaired.** The call is now `CUDA.used_memory()`, the same name the AMD path already used,
 which makes the two vendors symmetric. Its semantics were verified rather than assumed: a 16 MiB `CuArray`
 moves it by exactly 16 MiB, `reclaim` returns it to zero, and it reads zero at rest — and being
-**pool-scoped it ignores other processes on the card**, where the device-wide `total - free` reported
+pool-scoped it ignores other processes on the card, where the device-wide `total - free` reported
 32 MiB for that same 16 MiB array and would drift with anything else using the GPU. The second repair
-matters more than the first: `apply_gcsample_policy!` now returns the rows whose probe **threw**
+matters more than the first: `apply_gcsample_policy!` now returns the rows whose probe threw
 separately from the rows it classified, and prints a `!!` banner with the count and the first exception,
 plus an unmissable line when *every* row failed. A fallback that cannot be told apart from a result is how
 a broken instrument reports success.
@@ -1311,8 +1334,8 @@ the flatness is the proof: a copy would scale with the grid and this does not.
 ``256^3`` `Float64` scalar goes out in ``6.03`` ms and comes back in ``23.72`` ms; the vector, ``19.77``
 against ``72.18`` ms; in `Float32`, ``2.46`` against ``11.41`` ms and ``9.00`` against ``36.27`` ms. The
 outbound rate is ``\approx 22`` GB/s, which is a healthy PCIe 4.0 figure; the inbound is ``\approx 5.6``
-GB/s, far below it. The asymmetry is therefore not the bus — it is that the return trip **allocates its
-destination**, a fresh pageable host array, and pays for the pages as well as the transfer. That is
+GB/s, far below it. The asymmetry is therefore not the bus — it is that the return trip allocates its
+destination, a fresh pageable host array, and pays for the pages as well as the transfer. That is
 evidence for the open design question the roadmap already carries: whether `adapt` should gain an
 in-place form writing into a caller's preallocated destination. A consumer pulling a field back every
 few steps is currently paying an allocation it has no way to hoist.
@@ -1324,10 +1347,10 @@ trip to the outbound rate. The `storage` class carries `adapt!` rows beside the 
 comparison stays measured rather than remembered.
 
 *And it is now measured, not projected.* Decision 69's `adapt!` rows sit beside the allocating ones in
-the table since 2026-08-23: on the return trip it is **3.48–3.66×** at ``256^3``, and **outbound it is
-a wash** (``1.0\times``) — which is this finding's own diagnosis confirming itself, the device
+the table since 2026-08-23: on the return trip it is 3.48–3.66× at ``256^3``, and outbound it is
+a wash (``1.0\times``) — which is this finding's own diagnosis confirming itself, the device
 allocation being pooled and cheap so there was never a page cost to avoid that way. The gain also has a
-**size threshold**: a ``128^3`` `Float64` scalar (16.8 MB) shows ``1.01\times`` where the vector on the
+size threshold: a ``128^3`` `Float64` scalar (16.8 MB) shows ``1.01\times`` where the vector on the
 same grid (50 MB) shows ``3.48\times``, which is what page faults on fresh host pages look like — they
 bite only once an allocation outgrows the allocator's reused blocks.
 
@@ -1339,13 +1362,13 @@ FFT planning it redoes rather than anything copied.
 *The RX 7900 XTX was swept 2026-08-23 and confirms every structural claim above, while disagreeing on
 one magnitude.* The identity is free there too (``146``–``159`` ns, flat across grids and both element
 types, against the ``118``–``122`` ns NVIDIA reads); the outbound `adapt!` is a wash (``1.01``–``1.09``);
-the return trip recovers **``2.79``–``2.99×``** at ``256^3`` against NVIDIA's ``3.48``–``3.66×``; and the
-**size threshold reproduces exactly** — a ``128^3`` `Float64` scalar shows ``0.99×``, no gain at all,
+the return trip recovers ``2.79``–``2.99×`` at ``256^3`` against NVIDIA's ``3.48``–``3.66×``; and the
+size threshold reproduces exactly — a ``128^3`` `Float64` scalar shows ``0.99×``, no gain at all,
 where the vector on the same grid shows ``3.06×``. Two structural properties holding on an independent
 runtime is what promotes them from a CUDA observation to a property of the operation.
 
 *The magnitude that differs is the outbound bus, and it is the vendor rather than the package.* A
-``256^3`` `Float64` scalar crosses **to** the AMD card in ``11.42`` ms against NVIDIA's ``6.03`` — an
+``256^3`` `Float64` scalar crosses to the AMD card in ``11.42`` ms against NVIDIA's ``6.03`` — an
 outbound rate of ``\approx 11.8`` GB/s against ``\approx 22`` — while the return trip is near parity
 (``24.40`` against ``23.72`` ms). So the ``4\times`` asymmetry this finding is named for is
 ``\approx 2.1\times`` on AMD, not because the return is faster but because the outbound is slower. The
@@ -1360,7 +1383,9 @@ throughout the small-grid rows rather than anything about bytes.
 on what ran before it in the same process.** A corpus sweep flagged one cell as unexplained —
 `materialize_kernel radial`, `Float64` ``512^3``, i7-12700K, ``t2`` reading 143.0 ms against ``t1``
 93.2 and ``t4`` 76.7, i.e. slower than *both* neighbours. It was re-measured on the assumption it was
-a transient. **It is not.** Two independent processes returned 143.18 and 143.57 ms, agreeing with
+a transient.
+
+**It is not.** Two independent processes returned 143.18 and 143.57 ms, agreeing with
 each other to 0.3% and with the archive to ``1.00\times``, and the neighbours reproduced too (``t1``
 91.7, ``t4`` 76.6). The table is right.
 
@@ -1369,11 +1394,11 @@ every thread count — ``296 \to 145 \to 79 \to 54`` ms for ``t1``/``t2``/``t4``
 — so there is no threading defect. The ``t2`` and ``t4`` cells agree with standalone measurement to
 within 2%; the ``t1`` cell does not, and is ``3.2\times`` faster in the suite than alone. The
 difference was bisected to a single ingredient by elimination: constructing the row through
-`build_suite` gives 295.5 ms, adding `tune!` gives 298.0, but running the **whole class in one
-process** — what `characterize.jl` does — gives **91.6 ms**, reproducing the archive. So the row is
+`build_suite` gives 295.5 ms, adding `tune!` gives 298.0, but running the whole class in one
+process — what `characterize.jl` does — gives 91.6 ms, reproducing the archive. So the row is
 sensitive to the 17 rows that stream through multi-GB fields ahead of it, and only at one thread.
 `materialize_kernel separable` behaves identically, which is what identifies the class: these are the
-only two rows that **allocate an ``O(N^3)`` result per call** rather than writing into a preallocated
+only two rows that allocate an ``O(N^3)`` result per call rather than writing into a preallocated
 destination.
 
 *Five hypotheses were tested and refuted*, and they are recorded so nobody re-runs them: first-touch
@@ -1384,15 +1409,15 @@ its argument's *type* and the result is otherwise dead — but the exact harness
 standalone is 297.3 ms and forcing the data to be observed adds only ``1.14\times``; `evals`, which
 `tune!` sets to 1 in every lane; and heap history, since holding 6 GB of live fields first changes
 nothing (300.2 → 296.2 ms). A bimodal distribution was excluded by sampling 93 times at ``t1``, where
-the minimum is still 300.4 ms. **The mechanism is therefore not identified** — what is established is
+the minimum is still 300.4 ms. The mechanism is therefore not identified — what is established is
 that the effect is real, reproducible, confined to ``t1``, and confined to the two allocating rows.
 
 *The follow-up sweep (2026-08-24) drew the boundary by measurement.* Every suite row allocating a
 field-sized result per call was measured standalone at ``t1``, ``512^3`` `Float64` against its archived
-cell. **Clean in that cell: all eight allocating `fft` rows** — standalone agrees with the archive
+cell. Clean in that cell: all eight allocating `fft` rows — standalone agrees with the archive
 within 3%, so per-call allocation is *not* the discriminator, and finding (h)'s `ESTIMATE`/`MEASURE`
 ratios rest on uncontaminated cells. Finding (at) breaks that verdict at ``256^3`` `Float32`.
-**Affected: exactly five rows** — the two `materialize_kernel` rows (``2.8``–``3.2\times``),
+Affected: exactly five rows — the two `materialize_kernel` rows (``2.8``–``3.2\times``),
 `lpnorm vec Inf` (``1.63\times``), and `radial_correlation`/`cross-correlation`
 (``1.2``–``1.7\times``, at ``t1`` *and* ``t2``, worst in `Float32` at ``512^3``). The five allocate
 their result *inside the operation* (via `similar`/broadcast) rather than through a transform plan;
@@ -1402,12 +1427,12 @@ whether that is the mechanism or merely coextensive with it is unestablished.
 process shape — all classes, one process, ``512^3`` `Float64` — reproduces the archived cell for every
 affected row at ``t1`` (``0.98``–``1.00\times``: `lpnorm` 222.1 against 223.6 ms,
 `radial_correlation` 5458 against 5581, `cross-correlation` 5607 against 5734, both `materialize_kernel`
-rows exact) and for the correlations at ``t2`` (``1.01``–``1.03\times``). A **class-only** process is
+rows exact) and for the correlations at ``t2`` (``1.01``–``1.03\times``). A class-only process is
 a *third* regime: sufficient history for `materialize_kernel` (the convolution class reproduces its
 archive cells) but not for the reductions three, whose class-only values sit with standalone. So the
 fast values are not stale and not wrong — they are what the full sweep reproducibly measures — and the
 rule is that a cell from one process shape must never be compared against a measurement from another.
-The four rows decisions 71/72 added were checked the same way and are **regime-insensitive**
+The four rows decisions 71/72 added were checked the same way and are regime-insensitive
 (`reality_residual vector` 47.5 against the merged 47.4 ms; `weighted_inner x3 fused` 2.020 against
 2.065 s), so their class-only-merged cells are comparable with their full-sweep column.
 
@@ -1432,7 +1457,7 @@ wrong instead of explaining it.
 declined** (2026-08-26). The CUDA parity suite found decision 73's `displace!` disagreeing with its CPU
 twin in the last bit. The cause is compiler contraction, established rather than assumed: the device
 folds `x + c * v` into a fused multiply-add — one rounding — where the host multiplies and then adds,
-two. On CUDA the device result equals the host's `muladd` form **exactly**, in both precisions and for
+two. On CUDA the device result equals the host's `muladd` form exactly, in both precisions and for
 the two-term call, and the host's own plain-against-`muladd` mismatch count (151 of 900 in `Float64`,
 136 in `Float32`) matches the device-against-host count element for element.
 
@@ -1450,7 +1475,7 @@ on all three grounds and fails on each.
 - **Accuracy: a better bound, not a better answer.** Against a `BigFloat` reference the maximum error
   improves from ``8.99 \times 10^{-16}`` to ``7.95 \times 10^{-16}`` in `Float64` and from
   ``5.09 \times 10^{-7}`` to ``4.54 \times 10^{-7}`` in `Float32` — one rounding per term rather than
-  two. Element by element it is **not** uniformly better: over 30,000 elements per type it wins 3162
+  two. Element by element it is not uniformly better: over 30,000 elements per type it wins 3162
   and loses 1800 in `Float64`, wins 3116 and loses 1765 in `Float32`. A luckily-cancelling double
   rounding can land closer than a single one.
 - **Footing: the agreement is a vendor coincidence.** It holds because the device compiler contracts
@@ -1482,16 +1507,16 @@ before/after rather than a comparison against an archive.
   nearly sevenfold in the best case.
 - **CPU vector rows under `MEASURE`: median ``0.974`` and ``0.973``.** Neutral.
 
-The last two rows together say what the win actually is. **The plan shape is neutral** — given a
+The last two rows together say what the win actually is. The plan shape is neutral — given a
 properly planned transform, three single-component passes cost what one batched pass costs. What
-changed is that **`ESTIMATE` plans a three-dimensional transform far better than it plans a
-four-dimensional batched one**, and the package ships `ESTIMATE`. So the speedup is real and reaches
+changed is that `ESTIMATE` plans a three-dimensional transform far better than it plans a
+four-dimensional batched one, and the package ships `ESTIMATE`. So the speedup is real and reaches
 every consumer that does not pass its own planner flags, but it is a planner-quality effect and would
 mostly vanish for a consumer already planning with `MEASURE`.
 
 That also sharpens finding (h). Under `ESTIMATE` a ``256^3`` `Float32` forward transform measured
-**513 ms** against `Float64`'s **496 ms** — single precision should be about twice as fast, not
-equal — where under `MEASURE` the same cells read **108 ms** and **180 ms**. The default planner
+513 ms against `Float64`'s 496 ms — single precision should be about twice as fast, not
+equal — where under `MEASURE` the same cells read 108 ms and 180 ms. The default planner
 effort is leaving a factor of ``4.7`` on the floor at that size, which is worth more than this
 decision was, and is not addressed by it.
 
@@ -1508,8 +1533,8 @@ identical lane — which I did first — establishes stability and says nothing 
 group reproduced to 1.3% while being wrong about the code.
 
 **CPU ``512^3`` convolution (five rows, ``\times 1.16``–``1.35``).** Back-to-back, old against new
-reads ``\times 1.012``. The same binary, same shape, run four times, alternates **178.1, 159.5,
-177.8, 158.7 ms** — two stable bands ``12\%`` apart, chosen per process. Within one process the
+reads ``\times 1.012``. The same binary, same shape, run four times, alternates 178.1, 159.5,
+177.8, 158.7 ms — two stable bands ``12\%`` apart, chosen per process. Within one process the
 rows agree to ``0.03\%``, so a sweep is self-consistent and two sweeps need not be.
 
 **The band is not what the obvious suspects say.** Six stored kernels allocated in ONE process all
@@ -1519,14 +1544,14 @@ pages. A minimal three-array probe sits in the slow band always, while the full 
 fast one — which places this in finding (y)'s family: sensitivity to the process's allocation
 history, here selecting between two bands rather than shifting one row.
 
-**CPU ``128^3``/``256^3`` at ``t4`` (five rows).** Back-to-back, the new tree is equal or **faster**:
+**CPU ``128^3``/``256^3`` at ``t4`` (five rows).** Back-to-back, the new tree is equal or faster:
 `interpolate! Lalescu(3,3)` 88.1 against 95.0 ms, `trilinear` 3.72 against 3.79, `CatmullRom` 14.36
 against 14.55. The row `convolve! vector ∘ radial` re-measures at 8.195 ms against the archive's 8.277.
 
 **Device small grids (ten rows, up to ``\times 1.49``).** Two regimes were being compared, not two
-codes: the archive's vintage keeps per-sample GC on **8** device transfer rows where the current
-harness keeps it on **0**. Measured directly on the real row, new code, GC-free,
-`interpolate! Lalescu(3,3)` ``64^3`` `Float32` reads **214.9 µs** against the archive's **215.1** —
+codes: the archive's vintage keeps per-sample GC on 8 device transfer rows where the current
+harness keeps it on 0. Measured directly on the real row, new code, GC-free,
+`interpolate! Lalescu(3,3)` ``64^3`` `Float32` reads 214.9 µs against the archive's 215.1 —
 exact agreement. The ``320`` µs in the sweep is the sweep's context.
 
 **So the stencil fix is free, and the evidence for that is the A/B rather than the sweep.** The sweep
@@ -1550,7 +1575,7 @@ consumer's per-stage hot loop.
 
 The CPU leg now runs the fixed tree over contiguous axis-1 columns — bitwise thread-count-invariant,
 asserted in `test/threading.jl`'s battery, both weight classes and the tuple form. Measured after:
-**0.44 ms at `-t8`** (33×) and 2.43 ms serial (6×); the three-weight tuple 24.3 → 1.16 ms (21×). The
+0.44 ms at `-t8` (33×) and 2.43 ms serial (6×); the three-weight tuple 24.3 → 1.16 ms (21×). The
 GPU branch is byte-identical and the CUDA suite is green over it.
 
 Two traps inside the fix, both measured rather than read. An accumulator that a `map` closure
@@ -1562,7 +1587,7 @@ class gets an element source reproducing its `_kernel_data` expression exactly �
 classes bitwise-equal to each other, which the suite pins.
 
 **Cross-box after-record (i7-12700K, IT's own re-measurement after taking the bump):** the ``|\kappa|^2``
-radial weight at ``128^3`` `Float64` reads 19.2 → 4.49 ms serial and **1.08 ms at `-t8`** (17.8×), the
+radial weight at ``128^3`` `Float64` reads 19.2 → 4.49 ms serial and 1.08 ms at `-t8` (17.8×), the
 ratio to same-size `inner` falling from ~12 to 1.6 — and the consumer's whole CPU step 248 → 202 ms
 (1.23×). Their 300-step checksum is identical to the pre-fix run at print precision and their frozen
 audits stay green, so the pathology is dead on both CPU generations with values preserved.
@@ -1580,7 +1605,7 @@ components cost the same divisions as three.
 
 The stencil walks consecutive nodes, so each index is its predecessor plus one, wrapped: `_wrap_step`
 replaces the division with a conditional zero and keeps three `mod`s per point for the starts. It is
-**bitwise identical** — only the index arithmetic changed, the multiply and accumulate order did not —
+bitwise identical — only the index arithmetic changed, the multiply and accumulate order did not —
 verified over 48 configurations including a stencil wider than the grid, where the walk wraps more
 than once. Measured: CPU gather ``1.3``–``2.1\times``, GPU gather ``1.1``–``1.2\times``.
 
@@ -1599,7 +1624,9 @@ stencil of 2, 4, 6 and 8 nodes per axis, i.e. 8 to 512 nodes per point — the C
 | 8 (`LalescuSpline(8; smoothness = 3)`, `LagrangeSpline(8)`) | ``1.14\times`` | **``0.86\times``** |
 
 At eight nodes per axis the walk can be SLOWER, and the first two versions of this finding both
-described it wrongly. **A third correction landed 2026-09-01: the table below is the GATHER, and the
+described it wrongly.
+
+**A third correction landed 2026-09-01: the table below is the GATHER, and the
 width-8 SCATTER — which no version of this finding ever swept — is far worse, ``1.45``–``1.48\times``
 at ``512^3`` `Float64` on every thread lane. See finding (am); the qualifications immediately below
 describe the gather corner and do not carry over to it.**
@@ -1623,7 +1650,7 @@ What survives adversarial re-measurement, interleaved and across seeds:
   per-thread time is lower, so it saturates bandwidth first and then forfeits the memory-level
   parallelism the independent `mod` indices retain. That also explains the thread-count sign flip,
   which a per-thread register argument cannot.
-- The cost is attributable to the **innermost-axis** walk specifically, confirmed by two probe
+- The cost is attributable to the innermost-axis walk specifically, confirmed by two probe
   variants: walking only the innermost axis reproduces the regression, and leaving `mod` there
   recovers it. The mechanism is the one that sank the `ntuple` hoist:
 the walk keeps six live indices across the nest and makes each index depend on its predecessor, where
@@ -1671,9 +1698,9 @@ At ``4\times 10^6`` points the device gains hold or grow — the `Float64` vecto
 ``5.54\times`` and the scalar ``5.00\times`` — because the unordered kernel degrades as the point set
 outgrows cache while the ordered one does not.
 
-Building the order cost **0.098–0.13 ms** on device against a gather it saves 1.7 ms on, so it repays
+Building the order cost 0.098–0.13 ms on device against a gather it saves 1.7 ms on, so it repays
 inside a SINGLE transfer — where the estimate it replaces guessed 12–24, having assumed a vendor sort.
-Validating the permutation (the adversarial review below) roughly doubled that to **0.24–0.27 ms**,
+Validating the permutation (the adversarial review below) roughly doubled that to 0.24–0.27 ms,
 which still repays six times over in one transfer; the figure is quoted post-validation everywhere
 else, since that is the code that ships.
 It is not a sort: a counting pass over blocks of cells, three portable kernels, no new dependency. The
@@ -1687,7 +1714,7 @@ in SPH and name the discriminator — Morton wins where cell access is RANDOM, l
 a sequential sweep, which a sorted stencil transfer is. The recorded plan had assumed Morton.
 
 **Stability within a bucket buys nothing**, within noise everywhere but one cell, so the atomic
-placement stands and no backend split was built for it. **One bucket per cell is not better** and
+placement stands and no backend split was built for it. One bucket per cell is not better and
 costs ``14\times`` more to build (1.55 ms against 0.11 at ``256^3``), the ``16.7`` million buckets
 dominating the cumulative sum; including the build, the default `4` is optimal on both backends.
 
@@ -1726,7 +1753,9 @@ operation's least traffic. Two passes agreed to 0.02 in every cell.
   coefficients cost 0.97. Explained the same day, below.
 
 The lane's bounds are frozen from this run at the higher pass plus 10%, for CUDA only; the RX 7900
-XTX is reported and not judged until a run on it is frozen. **Left as known (2026-10-03):** the consumer measured
+XTX is reported and not judged until a run on it is frozen.
+
+**Left as known (2026-10-03):** the consumer measured
 `weighted_inner` at 3.8% of a `Float32` step and 1.9% of a `Float64` one at ``256^3``, so the floor
 would save 1.7% and 0.5%, below the cost of a device reduction kernel.
 
@@ -1789,8 +1818,8 @@ at 57, 49, 41 and 41 minutes, the ``t8`` lane split one grid per process per §4
 retry, and the CUDA lane at 57 minutes.
 
 Against the archives the medians are 0.9974, 0.9985, 0.9988 and 0.9989 over the 752 rows each CPU lane
-shares with its predecessor, and **1.0000** over 606 device rows. Asking which rows are slower than
-``1.10\times`` on at least three of the four CPU lanes returns **nothing**, bar two kernel builders
+shares with its predecessor, and 1.0000 over 606 device rows. Asking which rows are slower than
+``1.10\times`` on at least three of the four CPU lanes returns nothing, bar two kernel builders
 whose absolute times are 1.0 ns and 1.3 ns — one clock tick, and they move both ways. The canary is
 green on all three baselined lanes, with 36 mechanism rows judged invariant.
 
@@ -1819,7 +1848,7 @@ against.
 **The FFTW-wisdom hypothesis was put as a falsifiable prediction, and it failed.** Were planner state
 accumulated by the `measure` rows at the other grids the cause, running the `fft` class alone across
 all four grids would reproduce the fast number; it returns the slow one. The cause therefore lies
-outside that class, in what a full sweep runs before it, and it is **unattributed**. The kernel moved
+outside that class, in what a full sweep runs before it, and it is unattributed. The kernel moved
 from `7.0.0-30-generic` to `-31` between the two sweeps and the older kernel is gone, so that candidate
 can no longer be tested — the terminal state of §4(p).
 
@@ -1885,8 +1914,8 @@ than inferred from timings: `_interpolate_kernel!` at ``256^3`` `Float64`, dumpe
 compiler for the pre-decision-78 commit `7bbbc75a` and for HEAD, for the regressed scheme and for
 the flat one.
 
-- `CatmullRom`, the ``1.74\times`` regression: 91 VGPRs, no scratch and **16 waves per EU** under
-  `mod`; **192 VGPRs, 292 bytes of scratch and 8 waves per EU** under the walk, with 72 scratch loads
+- `CatmullRom`, the ``1.74\times`` regression: 91 VGPRs, no scratch and 16 waves per EU under
+  `mod`; 192 VGPRs, 292 bytes of scratch and 8 waves per EU under the walk, with 72 scratch loads
   and stores in the emitted code against 14.
 - `Lalescu(3,3)`, flat at ``0.98``–``1.05\times``: 104 → 107 VGPRs, occupancy 12 → 12, scratch traffic
   14 → 5. Nothing moved.
@@ -1932,7 +1961,7 @@ repaired, and a report defect a hand edit had been hiding** (the queue asked for
 splice; `src/` had moved by nine files since these archives' `b452fb17`, so the splice tool's own rule
 applied and the lanes were re-swept whole). Medians against the 2026-08-31 archives: CPU t1/t2/t4/t8
 ``0.9991``/``0.9999``/``1.0001``/``1.0000`` over 752 rows, GPU ``1.0005`` over 663 — the harness
-reproduces itself, and a replication scan across the four thread lanes finds **zero** rows slower in
+reproduces itself, and a replication scan across the four thread lanes finds zero rows slower in
 all four at any threshold. Canaries green on all three lanes and refrozen.
 
 The movers are finding (ak)'s repair and nothing else. Every `ordered` transfer row runs faster —
@@ -1954,7 +1983,7 @@ the rename split the row in two: this host's cells under the new name, Enteropia
 future rename: every Enteropia cell must be bit-identical after a regeneration that did not touch its
 archives, and it read eight differing until the alias landed.
 
-The ROCm suite was run first, as the queue ordered: **491/491, exit 0 in 5m16s**, the predicted
+The ROCm suite was run first, as the queue ordered: 491/491, exit 0 in 5m16s, the predicted
 count exactly, so decisions 80 and 82 are staged on AMD and `_same_backend`, invariant 14's predicate,
 has been exercised on every device row. Both benchmark gates report every transfer point set
 unmutated (CPU 192 rows, ROCm 206, 0 failed).
@@ -1971,7 +2000,7 @@ because the harness changed in the same range: decision 78 added seven rows to t
 three of them allocating ``512^3`` vector fields, so roughly 3 GB more sits live while the row runs —
 which can move a neighbour with no kernel changing.
 
-So the claim rests on an A/B that **bypasses the benchmark group entirely** — a standalone script
+So the claim rests on an A/B that bypasses the benchmark group entirely — a standalone script
 building one scalar field and one point set and timing `anterpolate!` directly, byte-identical in
 both arms, with no `BenchmarkTools`, no `gcsample` policy and no `characterize.jl`. Against
 `7bbbc75a`, the last commit before decision 78, interleaved A-B-A-B:
@@ -2003,7 +2032,7 @@ a smaller grid; that is unconfirmed.
 
 **Why it was missed, and it is the session's own failure mode again.** Finding (ad) swept the scheme
 axis and recorded a width-8 corner of "4–14%, above four threads, ``R = 1``" — but it swept the
-**gather**. The scatter was left at `CatmullRom`, so the width-8 scatter was never measured at all,
+gather. The scatter was left at `CatmullRom`, so the width-8 scatter was never measured at all,
 and the corner as documented understates this cell by an order of magnitude and gets its thread
 dependence backwards: here every lane regresses, including ``t1``, where (ad) records the walk running
 ``1.17``–``1.22\times`` FASTER. A sweep that covers one verb is not a sweep of the axis.
@@ -2016,7 +2045,7 @@ fits nothing.
 
 The reading that covers all four platforms: the walk serialises the stencil's address chain, and what
 that gives up is worth most exactly where the memory system could have served many independent misses
-at once. **It supersedes (aj)'s working-set account**, which (al) falsified without replacing, and it
+at once. It supersedes (aj)'s working-set account, which (al) falsified without replacing, and it
 is falsifiable — a third large-cache platform should regress, a third small-cache one should not.
 
 **Not fixed, and deliberately.** Making the walk conditional on scheme, rank, verb or host means a
@@ -2028,7 +2057,7 @@ an implementation that keeps the cheaper arithmetic without serialising the chai
 233 transfer cells faster against 10 slower, but that count comes from the TABLE and so inherits the
 harness change above; on this host it also compares a transfer-only re-measurement against a full
 sweep (finding (y)). The half that is methodology-clean is the 12700K, full sweep against full sweep,
-and there **every** transfer cell improved, ``0.56``–``0.95\times``. Decision 78 is strongly
+and there every transfer cell improved, ``0.56``–``0.95\times``. Decision 78 is strongly
 net-positive. It has one bad cell, and it is on the grid decision 37 tunes for.
 
 **(al) The CUDA arm of the A/B finding (aj) handed over: decision 76 costs on BOTH vendors, and
@@ -2201,8 +2230,8 @@ exit 0 with the fix (190 rows on CPU, 204 on CUDA), exit 1 with the fix reverted
 **Only half the archives could be repaired here.** This host's five were re-measured and spliced with
 `benchmark/replace_class.jl`, which verified all 2930 untouched rows bit-identical; `Aiporetne`'s four
 `12700K` lanes and the `RX 7900 XTX` still carry the defect and are marked in `RESULTS.md` until that
-host repeats it. Splicing rather than re-sweeping is honest here **because `src/` is identical between
-the archives' commit and HEAD**, so the untouched rows measure the same package and the archive's
+host repeats it. Splicing rather than re-sweeping is honest here because `src/` is identical between
+the archives' commit and HEAD, so the untouched rows measure the same package and the archive's
 `commit=` vintage tag stays truthful; had the package moved, the lane would have needed a full sweep.
 
 **A jitter result fell out of checking that splice, and it contradicts standing guidance.** Four
@@ -2349,7 +2378,7 @@ all enter the archives at once). Medians against the previous archives: CUDA 0.9
 CPU t1/t2/t4/t8 1.000/0.999/1.000/0.998 over 632–760 — the harness reproduces itself, and the
 movement is confined to the changed operations.
 
-The movers, each matching its recorded mechanism: `weighted_inner` **7.7× at t1 rising to 59× at t8**
+The movers, each matching its recorded mechanism: `weighted_inner` 7.7× at t1 rising to 59× at t8
 (finding (ac) — the tuple form at ``512^3`` fell 1.47 s → 40 ms); `exponential_convolve!` vector
 1.5–2.3× on both backends (decision 79); the transfer gathers 1.1–2.9× unordered (the decision-78
 wrap walk; the `Lalescu(3,3)` device gather 0.35×), with the separable `convolve!` 1.47× on device
@@ -2394,12 +2423,16 @@ the defect is blind to it (decision 52 closed it for tests, decision 55 for orac
 counterpart).
 
 `benchmark/triage.jl` asks the two absolute questions over archives that already exist, riding every
-`report.jl` regeneration as a section of `RESULTS.md` — no new measurement. **(A) Thread-flat on every
+`report.jl` regeneration as a section of `RESULTS.md` — no new measurement.
+
+**(A) Thread-flat on every
 host**: genuinely serial code reads ``1.0\times`` from t1 to t8 on all hosts, where a
 bandwidth-saturated streaming op reads ``1.1``–``1.3\times`` on one. Both qualifiers were forced by
 measurement: a ``1.3`` threshold flagged 211 rows of honest saturation, and the 9800X3D saturates DRAM
 from a single core (`add!` at ``512^3`` is flat at 44 GB/s there while scaling ``1.5\times`` on the
-12700K), so flat-on-one-host is that host's physics and flat-on-every-host is the code's. **(B)
+12700K), so flat-on-one-host is that host's physics and flat-on-every-host is the code's.
+
+**(B)
 Declared peers**: pairs whose docstrings claim comparable cost, asserted for the first time — a
 class-median comparison was tried and dropped, a class mixing algorithms whose work legitimately
 differs ``64\times``. Both scans skip sub-millisecond rows (§4(u)); flags are questions, closed by a
@@ -2408,7 +2441,7 @@ flag.
 
 **First run over the ten committed archives: every flag accounted but one pair.** 46 thread-flat rows
 — 43 known (`weighted_inner` retro-flags at ``0.99\times``, `reality_residual`, the materializers),
-and **`radial_spectrum` / the co-spectrum flat on BOTH hosts at ``\approx 2.7`` GB/s** — far off the
+and `radial_spectrum` / the co-spectrum flat on BOTH hosts at ``\approx 2.7`` GB/s — far off the
 roof, so not saturation: the shell-binning scatter-add does not scale on CPU, a genuinely new
 born-slow candidate for the same treatment as finding (ac). 91 peer violations, all 91 known
 (`weighted_inner` until the lanes are re-swept; `exponential_convolve!` = the recorded IT item 2).
@@ -2429,8 +2462,8 @@ one outstanding field load per thread where the memory system wants two or more.
 was ``1.3``–``2\times``.
 
 It was implemented — the node count moved into the type domain, so the three loops take static trip
-counts and the weights resolve to registers — verified **bitwise identical** over the same 48
-configurations, and **measured at nothing**: ``2.374`` against ``2.370`` ms on the device gather and
+counts and the weights resolve to registers — verified bitwise identical over the same 48
+configurations, and measured at nothing: ``2.374`` against ``2.370`` ms on the device gather and
 within noise on both CPU element types. It was reverted rather than kept, since it adds a type
 parameter to two kernels and two launch sites for no gain. The count was evidently already folding.
 
@@ -2443,7 +2476,7 @@ compute-bound again. It also explains finding (z)'s `muladd` result on `displace
 declined hoist as the same phenomenon rather than three separate curiosities.
 
 Two independent predictions in that survey were confirmed and are worth keeping. Shared-memory
-privatization would **lose** here: the published crossover is at a point density of ``0.05``, measured
+privatization would lose here: the published crossover is at a point density of ``0.05``, measured
 with a stencil eight times wider than this one, and this regime sits at ``0.06`` with the narrow
 stencil, so the tile flush cost — which is proportional to the GRID, not the points — would dominate.
 And the node-centric scatter this package measured at ``6``–``24\times`` slower fails by exactly the
@@ -2452,11 +2485,11 @@ brackets the measurement.
 
 ## 5. The benchmark suite
 
-A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of
+A standing suite under `benchmark/` (sibling of `test/`), opt-in — *not* part of
 `Pkg.test()`, exactly like the GPU tests. A call to `build_suite(; array_type, types, sizes)` builds a
-`BenchmarkTools.BenchmarkGroup` parameterised by the **device array type** (`Array` on CPU;
+`BenchmarkTools.BenchmarkGroup` parameterised by the device array type (`Array` on CPU;
 `CuArray`/`ROCArray` on GPU — the same approach `test/gpu/suite.jl` uses with `to_device`), so one suite
-runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU work to completion. **Every** row that
+runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU work to completion. Every row that
 writes to a device buffer synchronizes it, including the transfer rows: relying on a driver's internal
 synchronization is what left `NUFFT` anterpolation's final assignment outside its own measurement, and
 a benchmark should assume nothing about where a driver happens to block.
@@ -2469,17 +2502,17 @@ field. Two ratios are swept per lane, a fixed small block and a half-sized coars
 index map can be right at one ratio and wrong at another. The rows enter `RESULTS.md` at the next
 sweep, `src/` having moved with the decision.
 
-Classes covered: **FFT** transforms (each CPU row with a `measure` twin planned via `FFTW.MEASURE`, so
+Classes covered: FFT transforms (each CPU row with a `measure` twin planned via `FFTW.MEASURE`, so
 the default-`ESTIMATE` experience and the tuned production path sit side by side and finding (h) is
 re-measured per host/size/type on every sweep; GPU rows have no twin, the device FFT libraries taking no
 planner flag; plus, per scalar/vector, the decision-64 pair — the preserving scratch arity of
 `to_physical!` and the destructive three-argument baseline it is priced against, whose delta is the
-cost of preservation), **field algebra** (M2 + M3, representative — including the weighted
-combination `combine!` and the determinant `det!`), **differential operators** (including the fused
+cost of preservation), field algebra (M2 + M3, representative — including the weighted
+combination `combine!` and the determinant `det!`), differential operators (including the fused
 `symmetric_gradient!` and the kernel-composed `helmholtz_projection!`/`divergence!` forms of
 decision 32, whose baseline is the sequential operator + `convolve!` pair they replace, and the
 reality projector `reality_projection!` of decision 83, scalar and vector — an ``O(N^2)`` row beside
-the ``O(N^3)`` ones, priced in place), **convolution** (`convolve!` scalar/vector, the lazy `exponential_convolve!` — its exponent scale-aware, so every
+the ``O(N^3)`` ones, priced in place), convolution (`convolve!` scalar/vector, the lazy `exponential_convolve!` — its exponent scale-aware, so every
 size measures the streaming pass and not the `Float32` subnormal band (finding (m)) — and the kernel-composed
 `combine!` of decision 33 — their baselines the stored-kernel `convolve!` and the sequential
 `combine!` + `convolve!` pair — + the builders `spectral_cutoff` /
@@ -2489,43 +2522,43 @@ a builder returning a compressed kernel is timed on one factor rather than a fie
 the `spectral_cutoff` and `spectral_band` rows previously wrapped their builder in `materialize_kernel`
 and so reported an ``O(1)`` lazy build at the cost of an ``O(N^3)`` materialization, with neither
 trackable on its own).
-Each **compressed kernel class** is additionally swept *against its materialized twin* at the point of
+Each compressed kernel class is additionally swept *against its materialized twin* at the point of
 application — `convolve!` on a vector field with the kernel axis-factored, radial, and stored — since
 the classes compute the same coefficients and only their cost differs, so the stored form is the
 baseline that makes a storage change legible (finding (o)). The class OPERATIONS join it: the general
 `radial_kernel` builder against the two named bands, `materialize_kernel` on both compressed classes
 (the escape hatch allocates the ``O(N^3)`` field the classes exist to avoid, so its cost is what a
 consumer trades away by materializing), the in-place `translation_kernel!` against its allocating
-sibling, and `inv` — whose row **doubled** when decision 56 gave it a zero policy, and deliberately so:
-that guard is three ``O(N)`` reductions over the axis factors, measured at **40.6 µs** on an RTX 5070 Ti
-against a **9.5 µs** reciprocal, so it dominates the operation. It is accepted rather than optimized
+sibling, and `inv` — whose row doubled when decision 56 gave it a zero policy, and deliberately so:
+that guard is three ``O(N)`` reductions over the axis factors, measured at 40.6 µs on an RTX 5070 Ti
+against a 9.5 µs reciprocal, so it dominates the operation. It is accepted rather than optimized
 away, because a kernel is inverted once and applied many times — this class is swept for regressions,
 not for hot-path cost — and because the alternative is returning a non-finite coefficient that poisons
 every later result. Read against an archive from before 2026-07-30, that step is the guard, not drift.
-Then the **interpolation/anterpolation
-transfer** (the spline schemes plus the spectral `NUFFT`; the exact `DirectDFT` is its oracle, not a swept regression target), and the
-**L²/measure reductions** (`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`, the covariance
+Then the interpolation/anterpolation
+transfer (the spline schemes plus the spectral `NUFFT`; the exact `DirectDFT` is its oracle, not a swept regression target), and the
+L²/measure reductions (`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`, the covariance
 tensor `cov` — the one reduction whose result is fiber-valued at ``R = 2``, so it streams a vector
-field and writes nine accumulators — the scalar-only `var` in **both** representations, which prices what
+field and writes nine accumulators — the scalar-only `var` in both representations, which prices what
 skipping the transform is worth (decision 49 gave it a Parseval form), the fused multiplier-weighted
 `weighted_inner`, the spectral Parseval
 `inner`, the spectral zero-mode `integral`/`mean` (an O(1) DC-coefficient read, not a streaming reduction),
 and the radial reductions `radial_spectrum` / `radial_correlation` plus the two-field co-spectra
 `radial_spectrum(f, g)` / `radial_correlation(f, g)` — a single scatter-add shell-binning pass and an
 inverse rfft, diagnostic-cost; the co-spectra cost the same as the single-field forms, sharing their
-binning), including the **mapped forms** `maximum(norm, u)` / `mean(norm, u)` / `mean(det, A)` /
+binning), including the mapped forms `maximum(norm, u)` / `mean(norm, u)` / `mean(det, A)` /
 `mean(tr, A)`, whose `maximum(norm, u)` row pairs with the `lpnorm vec Inf` row as a direct A/B — the
 same quantity, one materializing a magnitude section and one not.
 
 **Storage-family moves** (`adapt`, decision 63) are the seventh class, and the only one whose cost is a
-**link** rather than a device: a host↔device copy is bounded by the bus, so it does not improve with the
-card and does not scale like anything else in the table. The class is **device-only and empty on a CPU
-lane** — `adapt` to the family one already occupies is the identity, so a host row would time a no-op
+link rather than a device: a host↔device copy is bounded by the bus, so it does not improve with the
+card and does not scale like anything else in the table. The class is device-only and empty on a CPU
+lane — `adapt` to the family one already occupies is the identity, so a host row would time a no-op
 and report nanoseconds as though a transfer had happened. It sweeps both directions separately (they
 are not symmetric on any real link), the identity case (so that its being nearly free is *visible*
 rather than merely asserted), the multipliers (six ``O(N)`` axis vectors, so latency-bound where the
 field rows are volume-bound), and `adapt` on a `FieldTransformPlans`, which is not a transfer at all
-but a **planning pass** on the target and is priced separately for that reason. The practical guidance
+but a planning pass on the target and is priced separately for that reason. The practical guidance
 the class exists to support is unchanged by any of its numbers: a solver should cross the bus during
 setup and stay resident, because a per-step transfer of a ``256^3`` `Float64` field is tens of
 milliseconds against the tens of microseconds its operations take.
@@ -2539,13 +2572,13 @@ julia --project=benchmark -t4 benchmark/runbenchmarks.jl       # threaded lane
 julia --project=benchmark/gpu/rocm benchmark/gpu/rocm/runbenchmarks.jl   # GPU (on hardware)
 ```
 
-The tracked SUITE uses **modest grids (64³, 128³)** for fast, repeatable, regression-sensitive
+The tracked SUITE uses modest grids (64³, 128³) for fast, repeatable, regression-sensitive
 runs; the large characterisation sweep behind §4 (256³/512³) is reachable with `build_suite(; sizes
 = (256,))`. Manifests are gitignored (repo convention); each environment reproduces from its
 `Project.toml`.
 
-**The coverage contract.** Every public operation class is benchmarked (representative members) over **{Float64, Float32} ×
-{representative grid sizes} × {CPU `-t1`, CPU `-t4`, GPU}**, unless a class has an explicit exemption
+**The coverage contract.** Every public operation class is benchmarked (representative members) over {Float64, Float32} ×
+{representative grid sizes} × {CPU `-t1`, CPU `-t4`, GPU}, unless a class has an explicit exemption
 with its reason — the storage class of decision 63 is device-only, because `adapt` to the family one
 already occupies is the identity and a CPU row would time a no-op. New code adds its benchmark to the
 matching per-class file — the performance analogue of the test coverage contract (`TESTING.md` §4).
@@ -2553,7 +2586,7 @@ matching per-class file — the performance analogue of the test coverage contra
 **An adjoint pair is two configurations, never one.** Where an operation ships as a pair — the
 transfer's `interpolate` and `anterpolate`, the transforms' `to_spectral` and `to_physical` — an
 axis the two verbs share (the scheme, the stencil width, the grid, the element type) counts as
-swept only once it has been swept on **each** verb. This is the twentieth axis of `TESTING.md` §4,
+swept only once it has been swept on each verb. This is the twentieth axis of `TESTING.md` §4,
 recorded in both places because a benchmark sweep is what taught it: finding (ad) varied the scheme
 on the gather and left the scatter pinned at `CatmullRom`, so the width-8 scatter was never measured
 at any width, and it is that cell which regressed ``1.45``–``1.48\times`` at ``512^3`` and shipped
@@ -2571,22 +2604,22 @@ julia --project=benchmark benchmark/runbenchmarks.jl save results/cpu-baseline.j
 julia --project=benchmark benchmark/runbenchmarks.jl judge results/cpu-baseline.json   # :regression / :improvement / :invariant
 ```
 
-Because CI runners have no GPU, **GPU tracking is manual**: run the GPU suite on the device and
+Because CI runners have no GPU, GPU tracking is manual: run the GPU suite on the device and
 record the numbers here. Adding a platform = mirror `benchmark/gpu/rocm/` (a `Project.toml` + a
 2-line `runbenchmarks.jl`); the suite needs no changes.
 
-**Two scales.** The **tracked SUITE** (`runbenchmarks.jl`, grids 64³/128³) is the quick,
-regression-sensitive run used with `save`/`judge` above. The **exhaustive characterization**
+**Two scales.** The tracked SUITE (`runbenchmarks.jl`, grids 64³/128³) is the quick,
+regression-sensitive run used with `save`/`judge` above. The exhaustive characterization
 (`benchmark/characterize.sh`) runs the full matrix — every op-class (including FFT) over each
-backend's default grids (**CPU 64³–512³**, **device 64³–256³**, since a device cannot hold 512³ in
-`Float64`), on the **CPU thread sweep 1/2/4/8** (powers of two up to the performance cores) and the
-**GPU** — building **one (grid size, element type) at a time** to bound memory (a 256³ `Float64`
+backend's default grids (CPU 64³–512³, device 64³–256³, since a device cannot hold 512³ in
+`Float64`), on the CPU thread sweep 1/2/4/8 (powers of two up to the performance cores) and the
+GPU — building one (grid size, element type) at a time to bound memory (a 256³ `Float64`
 tensor field is ~1.1 GB; holding all classes for both types at 256³ overflows the 12 GB GPU — gap 6),
 and assembles it into the committed report
 [`benchmark/RESULTS.md`](https://github.com/GrigorySarnitsky/GBGPeriodicFields.jl/blob/master/benchmark/RESULTS.md)
 (the raw per-run JSON under `benchmark/results/` is gitignored). Regenerate it on any platform with
-that one script; it stamps the date, commit, and host. The `characterize.jl` sweep additionally stamps **each
-archive JSON** with its own measurement vintage (`commit=`/`measured=` BenchmarkGroup tags), and
+that one script; it stamps the date, commit, and host. The `characterize.jl` sweep additionally stamps each
+archive JSON with its own measurement vintage (`commit=`/`measured=` BenchmarkGroup tags), and
 `report.jl` prints the per-column vintages in the header — so a column measured at an older commit is
 visible as such instead of silently inheriting the report's HEAD (the 2026-07-22 decision-40
 reductions skew, one host's archive swept hours before a threading feature landed, is the motivating
@@ -2595,19 +2628,19 @@ incident).
 A representative slice — `128³`, `Float64`, minimum time (CPU = Ryzen 9800X3D, GPU = RTX 5070 Ti),
 read from the current `RESULTS.md` rather than measured for this table. The
 last two columns are speedups *in ×*: CPU thread scaling (`-t1` → `-t4`) and the GPU's lead over the
-4-thread CPU. `RESULTS.md` now carries **two CPU thread sweeps** (i7-12700K and Ryzen 9800X3D) and
-**two GPU columns** — the RX 7900 XTX (gfx1100, ROCm, 24 GB) and the RTX 5070 Ti (Blackwell `sm_120`,
+4-thread CPU. `RESULTS.md` now carries two CPU thread sweeps (i7-12700K and Ryzen 9800X3D) and
+two GPU columns — the RX 7900 XTX (gfx1100, ROCm, 24 GB) and the RTX 5070 Ti (Blackwell `sm_120`,
 CUDA, 16 GB); the two retired cards were dropped on 2026-08-07, having been measured in the broken
 `gcsample` regime of §4(s) with no hardware left to re-sweep them on. The 7900 XTX adds a 512³
 `Float32` point, and both cards cover the full 256³ matrix in both element types. At 256³ the two are
 near parity (§4(v)): the median over 71 comparable rows is 1.09× in `Float64` and 1.28× in `Float32`,
 the NVIDIA lead being a small-grid launch-latency effect rather than a throughput one, and the AMD card
-winning **five of the transfer class's eight** ``256^3`` `Float64` rows (§4(v), corrected
-2026-08-31). Across vendors the **reductions** class shows the widest gap and the
+winning five of the transfer class's eight ``256^3`` `Float64` rows (§4(v), corrected
+2026-08-31). Across vendors the reductions class shows the widest gap and the
 clearest architectural signature: the radial reductions (`radial_spectrum`/`radial_correlation`)
 bin on an `Atomix` scatter-add histogram, and CUDA's atomic throughput far outruns RDNA3's —
-`radial_spectrum` on a vector field at 256³ is **≈48× faster** on the 5070 Ti than the 7900 XTX in
-`Float64` (54.973 → 1.144 ms) but only **1.11×** in `Float32` (0.915 → 0.824 ms). Re-measured
+`radial_spectrum` on a vector field at 256³ is ≈48× faster on the 5070 Ti than the 7900 XTX in
+`Float64` (54.973 → 1.144 ms) but only 1.11× in `Float32` (0.915 → 0.824 ms). Re-measured
 2026-08-09 with both cards in the fixed regime of §4(s)/§4(w): the ``\approx 48\times`` is confirmed
 to three significant figures, while the `Float32` figure — previously recorded as ≈3.5× — is not,
 and its collapse sharpens the conclusion rather than weakening it. The cross-vendor gap on this
@@ -2628,12 +2661,12 @@ figures, the staging planes fused away, so the atomics are the whole measurement
 | `interpolate!` Lalescu (3,3) (gather) | 41.63 ms | 10.50 ms | 0.772 ms | 4.0× | 13.6× |
 | `anterpolate!` Catmull–Rom (scatter)  | 22.47 ms | 6.13 ms | 0.169 ms | 3.7× | 36.2× |
 
-Two patterns the speedup columns make plain. **The bandwidth-bound classes barely thread** at this
+Two patterns the speedup columns make plain. The bandwidth-bound classes barely thread at this
 size — the tensor product gains only 1.6× from 4 threads, being DRAM-bandwidth-bound rather than
 compute-bound, confirming §2. (Before decision 38 the cheapest of them, `add!`, *regressed* under
-threading; the slab-threaded rewrite made thread scaling monotone, which is why no row here does.) **The transfer threads well** (≈3.9×
-on the Catmull–Rom gather) because its stencil gather carries more work per byte. And the **GPU leads
-the 4-thread CPU by ~3.5–27×**, the spread itself being the point (and the serial CPU by far more — the Catmull–Rom gather at ``256^3`` `Float64` runs 105.6 ms
+threading; the slab-threaded rewrite made thread scaling monotone, which is why no row here does.) The transfer threads well (≈3.9×
+on the Catmull–Rom gather) because its stencil gather carries more work per byte. And the GPU leads
+the 4-thread CPU by ~3.5–27×, the spread itself being the point (and the serial CPU by far more — the Catmull–Rom gather at ``256^3`` `Float64` runs 105.6 ms
 serial against 1.485 ms on the RTX 5070 Ti, ≈71×, and 1.540 ms on the RX 7900 XTX — parity on that
 row, §4(v)), widest for the light/parallel ops and narrowing toward the bandwidth ratio for the heavy
 streaming ones. (`Float32` is ~0.6–0.7× of these `Float64` times on the GPU; the full
@@ -2645,17 +2678,19 @@ thread sweep — is in `benchmark/RESULTS.md`.)
 
 **Covered:** the public operation classes (FFT, algebra, operators, convolution, transfer, reductions; the device-only storage class of decision 63 is wired into the suite but has not yet been swept into the committed archive — see gap 7)
 parameterised by element type and grid size, runnable on CPU (`-t1`/`-t4`) and GPU (ROCm or CUDA) through one
-device-parameterised suite; the manual save→`judge` regression workflow; and the **exhaustive characterization**
+device-parameterised suite; the manual save→`judge` regression workflow; and the exhaustive characterization
 (`characterize.sh` → committed `benchmark/RESULTS.md`): every op-class (incl. FFT) at each backend's default grids (CPU 64³–512³, device 64³–256³),
 across two CPU 1/2/4/8 thread sweeps (i7-12700K, Ryzen 9800X3D) and two GPUs — RX 7900 XTX (gfx1100,
 ROCm) and RTX 5070 Ti (Blackwell `sm_120`, CUDA); the 7900 XTX is extended to
-a 512³ `Float32` point for the bandwidth-bound classes, and the **9800X3D sweep covers 64³–512³, both
-element types, all classes** — the first data in the CPU production band of `docs/ARCHITECTURE.md`
+a 512³ `Float32` point for the bandwidth-bound classes, and the 9800X3D sweep covers 64³–512³, both
+element types, all classes — the first data in the CPU production band of `docs/ARCHITECTURE.md`
 decision 37 (a 512³ `Float64` CPU sweep needs tens of GB of host RAM, which a 123 GB workstation clears
 with room to spare; it was these lanes that exposed finding (l)). The decision-27 additions (`combine!`, `det!`,
 `symmetric_gradient!`, `weighted_inner`) are wired into their classes and CPU-verified (0 allocations for
 `combine!`/`det!`/`symmetric_gradient!`; the small bounded guard for `weighted_inner`); they enter the
-committed `RESULTS.md` table on its next GPU-host refresh. **Done (2026-07-21):** both GPU archives are
+committed `RESULTS.md` table on its next GPU-host refresh.
+
+**Done (2026-07-21):** both GPU archives are
 refreshed — the RX 7900 XTX (2026-07-20) and the RTX 5070 Ti — so every decision-27/32/33/34 row
 (`combine!`, `det!`, `symmetric_gradient!`, `weighted_inner`, the kernel-composed
 `helmholtz_projection!`/`divergence!`/`combine!` arities, `exponential_convolve!`, and the fused radial
@@ -2670,58 +2705,60 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
 
 1. **CLOSED — the device rows no longer carry a blanket per-sample GC.** This gap used to warn that
    the GPU `reductions`/`convolution` figures were latency rather than throughput, because every device
-   row ran with `gcsample = true`. Finding (s) removed that: the collector is now decided **per row**
+   row ran with `gcsample = true`. Finding (s) removed that: the collector is now decided per row
    from a measured device-pool probe, and only the documented materializers keep it. The committed
    archive is in the fixed regime on both cards, and the old warning's own symptom is gone — a
    ``64^3`` `Float64` `convolve! scalar` reads 33.1 µs on the RX 7900 XTX and 10.8 µs on the RTX
    5070 Ti, against the ``\approx 1.5`` ms floor this gap was written to describe.
 2. **CUDA spans two NVIDIA generations, both on `Enteropia`** (the office box; CPU Ryzen 9800X3D).
    `characterize.jl` now takes a `cuda` backend beside `gpu`/`rocm` (CuArray + `CUDA.reclaim()`, no
-   comgr warm), so the memory-bounded one-class-at-a-time sweep runs on NVIDIA too. The **RTX 5070 Ti**
+   comgr warm), so the memory-bounded one-class-at-a-time sweep runs on NVIDIA too. The RTX 5070 Ti
    (Blackwell `sm_120`, 16 GB) covers
-   the **full 64³–256³ matrix** (both element types, all six classes; ~10.8 GB peak). 512³ exceeds
+   the full 64³–256³ matrix (both element types, all six classes; ~10.8 GB peak). 512³ exceeds
    16 GB — the `mul!` tensor field alone is 4.5 GB and the build OOMs — but unlike AMD's HIP (gap 6),
-   CUDA **OOMs gracefully** (a Julia `OutOfGPUMemoryError`, no context corruption), so probing the
-   ceiling is safe. `Enteropia` now also contributes its **9800X3D** CPU thread sweep beside the
+   CUDA OOMs gracefully (a Julia `OutOfGPUMemoryError`, no context corruption), so probing the
+   ceiling is safe. `Enteropia` now also contributes its 9800X3D CPU thread sweep beside the
    i7-12700K (host `Aiporetne`).
 3. **Automated time-regression detection — BUILT (`benchmark/regress.jl`, 2026-07-22).** One
    canary per execution *mechanism* (twelve: the broadcast route, each fused-kernel class, the
    tree reductions, FFT, transfer gather/scatter, the binning) at ``128^3`` `Float64`,
-   ``\sim``1–2 minutes per backend, judged on minimum times against a **committed** per-host
+   ``\sim``1–2 minutes per backend, judged on minimum times against a committed per-host
    baseline (`benchmark/baselines/<host>-<backend>[-tN].json`) at a 25% tolerance with a hard
    exit code, plus the CPU serial-vs-threaded alarm
    ``t_\mathrm{threaded} \le 1.1 t_\mathrm{serial}`` on every override-governed canary — the alarm
    that finding (l) lacked.
-   Refreeze protocol: an intended slowdown reruns with `--freeze` **in the same commit**, with the
+   Refreeze protocol: an intended slowdown reruns with `--freeze` in the same commit, with the
    reason. Calibration lesson from its first run, recorded so it is not relearned: 20 samples of a
    ``\sim``250 µs canary let minima jitter ``\sim 2\times`` at eight threads and false-alarm;
    the frozen calibration is 100 samples × 5 evals (batch-averaged minima), which held 12/12
    invariant across repeated judges on both backends. Baselines for both hosts are committed —
    Enteropia (cpu-t1, cpu-t8, cuda) and Aiporetne (cpu-t1, cpu-t8, rocm; frozen 2026-07-22 with
-   that host's post-rewrite re-sweep, its freeze-run inversion alarm 8/8 ok). Deliberately **not**
+   that host's post-rewrite re-sweep, its freeze-run inversion alarm 8/8 ok). Deliberately not
    push-triggered CI (cost policy; shared runners are noise): the `BenchmarkGroup` layout still
    keeps
    [AirspeedVelocity.jl](https://github.com/MilesCranmer/AirspeedVelocity.jl) or
    [PkgBenchmark.jl](https://github.com/JuliaCI/PkgBenchmark.jl) a drop-in if a CI story ever
-   changes. **First live catch (2026-07-24):** the `t1` helmholtz canary flagged at 1.27× baseline,
+   changes.
+
+   **First live catch (2026-07-24):** the `t1` helmholtz canary flagged at 1.27× baseline,
    which turned out not to be a slowdown but a dead-code bug — decision 42 had dropped the kernel's
    squared-wavenumber arguments while leaving the gated `::CPU` loop's signature stale, so the loop
    fell out of dispatch and CPU helmholtz silently reverted to the KA-on-CPU launch decision 40 had
-   escaped. Restoring the loop returned the canary to baseline **without a refreeze** — the check
+   escaped. Restoring the loop returned the canary to baseline without a refreeze — the check
    working exactly as designed, catching an achieved-time regression the allocation and pass audits
    cannot see (decision 47).
 4. **The canary is a ``128^3`` relative instrument, and on an X3D part it is largely cache-resident.**
    Its grid is fixed at ``128^3`` (`benchmark/regress.jl`, unchanged since the lane was built) so a lane
    costs 2–3 minutes and gets run. The consequence, measured on Enteropia 2026-08-05: `add!` moves
    151 MB against a 96 MB L3, so repeated samples keep much of it resident and the single-thread figure
-   reads 63.8 GB/s — well above the ~41 GB/s a Zen 5 core sustains from DRAM (§4(l)). **The canary
-   therefore does not probe the DRAM-bound regime**, which is the one decision 37 names as the CPU
+   reads 63.8 GB/s — well above the ~41 GB/s a Zen 5 core sustains from DRAM (§4(l)). The canary
+   therefore does not probe the DRAM-bound regime, which is the one decision 37 names as the CPU
    path's tuning target; at ``512^3`` the same working set is 9.66 GB and cannot cache. A regression
    that appears only once a field stops fitting would pass this net silently. That regime is covered
    instead by the characterization sweep (`benchmark/characterize.jl`, ``64^3``–``512^3``), which is
    the instrument to reach for when a change plausibly alters memory traffic rather than arithmetic.
-5. **Run-to-run variance** — absolute numbers carry ~10% jitter, and the **atomic-binning canary is
-   the widest**: `radial_spectrum` at `-t8` on Enteropia measured 4.871, 4.793, 4.747 and 4.504 ms over
+5. **Run-to-run variance** — absolute numbers carry ~10% jitter, and the atomic-binning canary is
+   the widest: `radial_spectrum` at `-t8` on Enteropia measured 4.871, 4.793, 4.747 and 4.504 ms over
    four back-to-back repeats against a 4.384 ms baseline (2026-08-05) — an 8% spread with every draw
    above the frozen value, which sits low in its own distribution. Its scatter-add threads outside the
    `with_threading` override and its summation order is nondeterministic, so contention decides the
@@ -2752,37 +2789,37 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    - **The 256³ working set overflows 12 GB VRAM, and HIP segfaults instead of erroring** — the crash
      is `hipMallocFromPoolAsync` in `libamdhip64.so`. Two compounding causes, two fixes: (i) holding
      *all six classes'* fields live for one (size, type) exceeds 12 GB at 256³ (a 4-class sweep fit;
-     adding reductions + convolution did not) → `characterize.jl` builds **one (op-class, size,
-     element-type) at a time**, bounding the working set to a single class (~few GB); (ii) GC returns
+     adding reductions + convolution did not) → `characterize.jl` builds one (op-class, size,
+     element-type) at a time, bounding the working set to a single class (~few GB); (ii) GC returns
      freed device memory to the AMDGPU *pool*, not the OS, so the pool high-water mark accumulates
-     across iterations and 256³ OOMs late (the first pairs fit, the last does not) → **`AMDGPU.reclaim()`
-     between iterations** releases blocks back to the OS. Knock-on: a VRAM-OOM segfault can still
+     across iterations and 256³ OOMs late (the first pairs fit, the last does not) → `AMDGPU.reclaim()`
+     between iterations releases blocks back to the OS. Knock-on: a VRAM-OOM segfault can still
      degrade the HIP context until a reboot / `rocm-smi --gpureset`, after which even small ops segfault
      under load.
    - **A GC-free benchmark loop wedges the allocating reductions** — independent of grid size (seen at
      64³), and the cause of a 4-hour hang. The `lpnorm` reduction materializes a pointwise-magnitude field per call;
      BenchmarkTools' `tune!`/`run` does almost no *host* allocation, so Julia's GC (host-pressure
      triggered) never fires, the dead GPU temps pile into the AMDGPU pool until it hits 12 GB, and the
-     allocator spins — CPU pegged, GPU idle, VRAM maxed, for hours. It is **GC-lag, not a leak**
+     allocator spins — CPU pegged, GPU idle, VRAM maxed, for hours. It is GC-lag, not a leak
      (`GC.gc()` every ~50 calls holds the pool flat; a real solver fires GC every step, so the op is
-     fine in use). Fixed by **`gcsample = true`** for GPU runs (`characterize.jl` and the ROCm runner):
+     fine in use). Fixed by `gcsample = true` for GPU runs (`characterize.jl` and the ROCm runner):
      a GC before each sample bounds the pool — the `reductions` class then completes at ~0.5 GB peak.
      Distinct from the cold-compile hang above — there comgr is *active* (compiling, minutes); here it
      is *idle* (wedged, hours).
 
-   With the per-(op-class, size, type) build the full 64³–256³ GPU column **is** in `RESULTS.md`. The
+   With the per-(op-class, size, type) build the full 64³–256³ GPU column is in `RESULTS.md`. The
    standing limit on that card was the 12 GB ceiling itself: even one class's both-element-type 256³
    fields strain it (hence the one-class-at-a-time build), and 512³ won't fit on that card. If a future
    OOM-segfault degrades the context, reset with `rocm-smi --gpureset` from a console (it can crash an
    active display session) or reboot.
 
    **Update (2026-06-26, RX 7900 XTX, gfx1100, 24 GB).** On RDNA3 256³ is indeed trivial for every class
-   (both element types), and a **512³ `Float32`** point is now in `RESULTS.md` for the bandwidth-bound
+   (both element types), and a 512³ `Float32` point is now in `RESULTS.md` for the bandwidth-bound
    classes (`fft`, `algebra`, `operators`, `convolution`). But 512³ is *not* free even at 24 GB:
    `transfer` is omitted (its NUFFT oversamples ×2 to a 1024³ work grid) and `reductions` is omitted
    (the radial reductions hold a ≈24 GB live set at 512³ — vector fields in both representations + the
    inverse-rfft plans). A 512³ `Float64` sweep of the heavy classes exceeds 24 GB,
-   and a HIP OOM **wedges** the allocator (GPU 0 %, one host core spinning, VRAM full) rather than
+   and a HIP OOM wedges the allocator (GPU 0 %, one host core spinning, VRAM full) rather than
    erroring — the same trap as the cold-compile / GC-free hangs above, and `gcsample` does *not* help
    when the *live* set (not GC lag) is what overflows. So the 512³ column is `Float32` and skips those two.
 
@@ -2791,14 +2828,14 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    decisions 71 and 72 added are filled on all five `Aiporetne` lanes, so `RESULTS.md` has seven class
    sections with no half-filled table left. See finding (x) for the cross-vendor reading, which is the
    comparison this class exists to support. Method note, kept because it is what makes a partial sweep
-   safe: `characterize.jl` **overwrites** the archive it is given, so a class-only sweep must be
+   safe: `characterize.jl` overwrites the archive it is given, so a class-only sweep must be
    written to a separate file and merged. Both halves were done that way — the CUDA one verified 426
-   pre-existing rows bit-identical afterwards, the ROCm one 467 — and the merge is verified in **both
-   directions**, re-merging the pre-merge backup into the merged archive to confirm it adds nothing and
+   pre-existing rows bit-identical afterwards, the ROCm one 467 — and the merge is verified in both
+   directions, re-merging the pre-merge backup into the merged archive to confirm it adds nothing and
    changes nothing, which catches a row silently dropped as well as a row silently altered.
 8. **`aarch64` is a production host architecture with zero coverage.** The recorded production
    target (`docs/ARCHITECTURE.md` decision 37) is NAISS Arrhenius, and its GPU nodes are GH200
-   superchips: the CUDA device is hosted by a 72-core **Grace CPU — ARM, `aarch64`** — while the
+   superchips: the CUDA device is hosted by a 72-core Grace CPU — ARM, `aarch64` — while the
    CPU partition is x86-64 EPYC. The GPU path's host code will therefore eventually build and run
    on ARM, and nothing in this package has ever been compiled, tested, or benchmarked on that
    architecture. No blocker is *known*: the stack is pure Julia plus JLL artifacts published for
@@ -2807,8 +2844,8 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    finding (h)'s `ESTIMATE` mis-planning turns out to reach both x86 microarchitectures in the fleet
    rather than being the Zen 5 artifact it was first recorded as — which is a reason to carry `MEASURE`
    to ARM as a default expectation rather than a reason to assume it is absent — and NEON changes FFTW's
-   codelet landscape entirely. Standing guard until access lands: **never adopt an x86-only
-   dependency or recommendation** — the MKL FFTW provider, which has no `aarch64` build, is the
+   codelet landscape entirely. Standing guard until access lands: never adopt an x86-only
+   dependency or recommendation — the MKL FFTW provider, which has no `aarch64` build, is the
    canonical tempting example — and when it does land, the first step on an Arrhenius node is the
    test matrix, then this benchmark suite.
 
@@ -2836,7 +2873,7 @@ sort's `Int64` keys, the histogram with its prefix sum, and the `Bool` marks of 
 
 - allocating `point_traversal_order`: 18.9 KB at ``10^3`` points, 135.9 KB at ``10^4``, 1.31 MB at ``10^5``,
   13.0 MB at ``10^6`` — linear in the point count, as its four arrays are.
-- in-place `point_traversal_order!`: **1248 bytes at ``10^3`` and 1312 at ``10^6``** — constant, a ratio of
+- in-place `point_traversal_order!`: 1248 bytes at ``10^3`` and 1312 at ``10^6`` — constant, a ratio of
   roughly ``10^4`` at the larger count.
 
 The residue is not the package's: three `KernelAbstractions` launches plus the validation's own leave
@@ -2865,7 +2902,7 @@ counts was `cumsum!`, serial on a host array. Because the block count follows th
 - 9800X3D, ``10^6`` points, default `tile_size`, ``256^3``: build 9.24 ms at one thread and 1.87 at
   eight (4.9×), with the scan flat at 0.08 ms — 1% of the build serially, 4% at eight threads.
 - Same at ``512^3`` (2.1M blocks): build 3.41 ms at four threads and 2.85 at eight, with the scan at
-  0.69–0.70 ms — **20% and 25%** of the build. This is the default tile size at the grid decision 37
+  0.69–0.70 ms — 20% and 25% of the build. This is the default tile size at the grid decision 37
   names for the CPU, not a corner.
 - At `tile_size = 1` on ``256^3`` (16.8M blocks) it reached 55% of the build at eight threads.
 

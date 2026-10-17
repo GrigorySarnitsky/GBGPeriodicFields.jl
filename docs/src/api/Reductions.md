@@ -7,7 +7,7 @@ Order   = [:module]
 
 ## Integral reductions
 
-Five of the reductions on this page also take a leading fiber map — the **mapped** form, as in
+Five of the reductions on this page also take a leading fiber map — the mapped form, as in
 `mean(det, A)` or `maximum(norm, u)`, which reduces a nonlinear invariant without building it as a
 section. It is documented on [`integral`](@ref), which names the five. `Statistics` gives `var` and
 `std` no such spelling, so neither does this package.

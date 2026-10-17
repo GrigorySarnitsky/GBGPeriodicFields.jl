@@ -1,33 +1,33 @@
 """
     Reductions
 
-This module holds the **L² / measure structure** on [sections](@ref GBGPeriodicFields.GBGPeriodicFields), the third kind of operation beside the
+This module holds the L² / measure structure on [sections](@ref GBGPeriodicFields.GBGPeriodicFields), the third kind of operation beside the
 fiberwise algebra and the differential operators. Periodic convolution and the grid↔point transfer belong to this same
 family, as two further roles of the one integration structure. A reduction integrates a section over
-its **base** against the base's measure — the extensive one for `integral`, its
+its base against the base's measure — the extensive one for `integral`, its
 unit-mass normalization for the intensive reductions: a [`Grid3D`](@ref GBGPeriodicFields.Fields.Grid3D) uses its uniform quadrature (the cell
-volume), and a [`PointSet`](@ref GBGPeriodicFields.Points.PointSet) uses its **counting** measure (unit weight per point,
+volume), and a [`PointSet`](@ref GBGPeriodicFields.Points.PointSet) uses its counting measure (unit weight per point,
 as a `PointSet` is grid-free). One set of formulas serves both fields and point-values,
 dispatched on [`AbstractFiberSection`](@ref).
 
-The measure reductions act on **fields in physical representation and point-values** — representation-free, physical-space
-quantities. Several also act on fields in **spectral representation**, returning the identical physical
+The measure reductions act on fields in physical representation and point-values — representation-free, physical-space
+quantities. Several also act on fields in spectral representation, returning the identical physical
 value with no inverse transform: `inner`/`l2norm` by Parseval's theorem, `integral`/`mean` from the
 zero (DC) Fourier mode, and the scalar-only `std`/`var` from Parseval. The remaining reductions (`lpnorm`, `cov`, `maximum`/`minimum`/`extrema`)
 stay physical-only.
 
 The parts follow, each linking to where its formula lives.
 
-- [`integral`](@ref) — the **extensive** integral, the one quantity that scales with the base measure.
-- [`mean`](@ref) — the **intensive**, **fiber-preserving** arithmetic average over the ``N`` grid cells or
+- [`integral`](@ref) — the *extensive* integral, the one quantity that scales with the base measure.
+- [`mean`](@ref) — the *intensive*, fiber-preserving arithmetic average over the ``N`` grid cells or
   the ``M`` points (it extends `Statistics`; the `mean` of a vector field is a `FiberVector`).
 - [`std`](@ref), [`var`](@ref), [`cov`](@ref) — the base moments (extending `Statistics`, `corrected = true`
-  by default). The `std` and `var` reductions are **scalar-only**: the sample standard deviation and variance
+  by default). The `std` and `var` reductions are scalar-only: the sample standard deviation and variance
   are unambiguous
-  only for a scalar section. The coordinate-free second moment of a **vector** field is the covariance
+  only for a scalar section. The coordinate-free second moment of a vector field is the covariance
   tensor `cov` (``R``, a symmetric `FiberTensor2`), of which a
   per-component variance would be only the basis-dependent diagonal.
-- [`inner`](@ref) — the **normalized** L² inner product ``\\langle\\cdot,\\cdot\\rangle``, a scalar that
+- [`inner`](@ref) — the normalized L² inner product ``\\langle\\cdot,\\cdot\\rangle``, a scalar that
   averages the fiber contraction over the ``N`` grid cells or the ``M`` points. [`l2norm`](@ref) and
   [`lpnorm`](@ref) are the norms derived from it, and [`weighted_inner`](@ref) is its spectral
   generalization, weighting the pairing by a kernel multiplier.
@@ -35,7 +35,7 @@ The parts follow, each linking to where its formula lives.
   scalar section; the mapped forms below lift that restriction for any order the reductions serve
   (``R \\le 2``: scalar, vector and second-order tensor sections are the supported surface, and a
   fiber-preserving reduction raises above it rather than returning a wrong answer).
-- The **mapped forms** — `integral`, `mean`, `maximum`, `minimum` and `extrema` also accept a leading function, applied to the fiber
+- The *mapped forms* — `integral`, `mean`, `maximum`, `minimum` and `extrema` also accept a leading function, applied to the fiber
   value at every base point: `mean(det, A)` averages a determinant over the base and
   `maximum(norm, u)` takes a supremum of magnitude, each in a single pass that never builds the mapped
   quantity as a section. Naming that map is also what makes an order statistic well posed on a vector
@@ -46,7 +46,7 @@ The parts follow, each linking to where its formula lives.
   physical-space two-point correlation over ``|r|``, each also in a two-field co-spectrum form.
 
 !!! note "The moments extend `Statistics`; the order statistics extend `Base`"
-    `mean`, `std`, `var` and `cov` **extend** `Statistics` rather than being owned here, and
+    `mean`, `std`, `var` and `cov` extend `Statistics` rather than being owned here, and
     `maximum`, `minimum` and `extrema` extend `Base`. Either way they are used exactly as their
     standard-library counterparts are, and `using GBGPeriodicFields` alone puts all of them in scope:
     the top-level module re-exports the four `Statistics` generics, as it does `dot` and `norm` from
@@ -122,7 +122,7 @@ _cell_measure(::AbstractPointValues{T}) where {T} = one(T)
 """
     _fiberwise(section, whole_reduce, over_base_reduce)
 
-Apply a reduction that **keeps the fiber and integrates the base away**, returning a fiber value:
+Apply a reduction that keeps the fiber and integrates the base away, returning a fiber value:
 a scalar for tensor order `0`, a `FiberVector` for `1`, a `FiberTensor2` for `2`. The `whole_reduce(data)` helper
 is used for the scalar case (reduce the whole array); `over_base_reduce(data, base_dims)` reduces only
 the leading base dimensions for higher orders. The (tiny) reduced array is copied to the host before
@@ -149,7 +149,7 @@ end
     _FiberGather{V}(fiber_map)
 
 A callable that assembles the fiber value of type `V` from its components and applies `fiber_map` to
-it. It exists as a struct rather than a closure so the component count is a **type-level** quantity:
+it. It exists as a struct rather than a closure so the component count is a type-level quantity:
 an anonymous `(values...) -> fiber_map(V(values))` leaves the tuple length uninferrable, `V(values)`
 then cannot be built in registers, and the reduction allocates per base point — measured at about four
 and a half times the tensor section's own size. The `Vararg{Any, N}` signature restores that inference.
@@ -186,7 +186,7 @@ are the contiguous per-component slices of a fiber-last section, so each is a un
 """
     _fiber_loop_reduce(fiber_map, combine, components, V, ::Val{NC}, lo, hi)
 
-Reduce base points `lo:hi` on the **CPU**, assembling each fiber value of type `V` from `components`,
+Reduce base points `lo:hi` on the CPU, assembling each fiber value of type `V` from `components`,
 applying `fiber_map`, and combining with `combine`. The recursion splits until a leaf of
 `_FIBER_REDUCTION_BLOCK` points, which runs as one vectorized loop.
 
@@ -223,10 +223,10 @@ _spawn_depth() = Threads.nthreads() == 1 ? 0 : (8 * sizeof(Int) - leading_zeros(
 """
     _fiber_tree_reduce(fiber_map, combine, components, V, ::Val{NC}, lo, hi, depth)
 
-Threaded form of [`_fiber_loop_reduce`](@ref) with the **identical reduction tree**: it splits at
+Threaded form of [`_fiber_loop_reduce`](@ref) with the identical reduction tree: it splits at
 the same midpoints the serial recursion uses and combines left-before-right, evaluating the top
 `depth` levels as spawned tasks and every subtree below as the untouched serial recursion — so the
-result is **bitwise-identical to serial at every thread count** (the tree is a function of the
+result is bitwise-identical to serial at every thread count (the tree is a function of the
 element count alone, never of the schedule).
 """
 function _fiber_tree_reduce(fiber_map::FiberMap, combine::Combine, components, ::Type{V},
@@ -411,10 +411,10 @@ _reduce_fiber_broadcast(fiber_map::FiberMap, combine::Combine, components, ::Typ
 """
     _fiber_mapreduce(fiber_map, combine, section)
 
-Reduce with `combine` over the base, applying `fiber_map` to the **fiber value** at each base point:
+Reduce with `combine` over the base, applying `fiber_map` to the fiber value at each base point:
 the scalar itself for tensor order `0`, the `FiberVector` for `1`, the `FiberTensor2` for `2`. This
-backs the mapped forms of the reductions, so a nonlinear fiber invariant is reduced **without
-materializing it as a section** — the mapped value exists only per base point, in registers.
+backs the mapped forms of the reductions, so a nonlinear fiber invariant is reduced without
+materializing it as a section — the mapped value exists only per base point, in registers.
 
 The fiber is gathered from the section's per-component arrays, because the fiber-last layout makes each
 component a contiguous slice but places the components of one base point a whole base apart, so a fiber
@@ -466,7 +466,7 @@ end
     integral(fiber_map, section)
 
 The base integral ``\\int f \\,\\mathrm{d}\\mu`` of a section ``f``, passed as `section`
-(`integral`, ``\\int\\,\\mathrm{d}\\mu``) — the measure-weighted sum of the section over its base. It is the one **extensive** reduction, the only one that
+(`integral`, ``\\int\\,\\mathrm{d}\\mu``) — the measure-weighted sum of the section over its base. It is the one extensive reduction, the only one that
 scales with the base measure; reach for [`inner`](@ref) or [`mean`](@ref) when you want an intensive,
 size-independent average instead. On a [`Grid3D`](@ref GBGPeriodicFields.Fields.Grid3D) the sum uses the uniform cell-volume quadrature, and on
 a [`PointSet`](@ref GBGPeriodicFields.Points.PointSet) it uses the unit-weight counting measure:
@@ -482,8 +482,8 @@ a [`PointSet`](@ref GBGPeriodicFields.Points.PointSet) it uses the unit-weight c
 where ``N`` is the number of grid cells and ``|\\Omega|`` the domain volume. The result is
 fiber-preserving: a scalar for a scalar section, a `FiberVector` for a vector section, and a
 `FiberTensor2` for a tensor section. For a band-limited field the grid quadrature is exact, because the
-periodic trapezoidal rule integrates the represented modes exactly. For a field in **spectral
-representation** the same value comes from the zero (DC) Fourier mode with no inverse transform,
+periodic trapezoidal rule integrates the represented modes exactly. For a field in spectral
+representation the same value comes from the zero (DC) Fourier mode with no inverse transform,
 ``\\int_\\Omega f\\,\\mathrm{d}\\mu = \\tfrac{|\\Omega|}{N} \\hat f(0)``, since the DC coefficient
 ``\\hat f(0) = \\sum_x f(x)`` is real for a real field.
 
@@ -509,7 +509,7 @@ The mapped form is the cheaper route on both backends — one pass that allocate
 materialized section plus a second pass over it — by roughly two and a half times on a CPU and a
 quarter on a GPU. It gets there by different means on each, chosen internally: a fixed reduction tree
 over vectorized blocked loops on a CPU, a single fused pass on a GPU. That tree's shape does not
-depend on the thread count, so a CPU result is **bitwise identical** however many threads it runs on.
+depend on the thread count, so a CPU result is bitwise identical however many threads it runs on.
 
 !!! note "The fiber map's own cost can dominate"
     The fiber map's own cost can outweigh the choice of route. `LinearAlgebra.norm` applied to a fiber
@@ -545,19 +545,19 @@ mean
 """
     var(f; corrected = true)
 
-The sample **variance** of a **scalar** section over its base: the Bessel-corrected mean (dividing by
+The sample variance of a scalar section over its base: the Bessel-corrected mean (dividing by
 one less than the count, the standard correction that makes the sample variance an unbiased estimate of
 the population one) of the squared
 deviation from the average, ``\\tfrac{1}{N-1}\\sum_x (f(x) - \\langle f\\rangle)^2`` over a grid's ``N`` cells and
 ``\\tfrac{1}{M-1}\\sum_p`` over a point set's ``M`` points (matching `Statistics.var`'s default correction).
 
-Both `var` and `std` are **scalar-only**: the sample variance is unambiguous only for a scalar section. A vector
+Both `var` and `std` are scalar-only: the sample variance is unambiguous only for a scalar section. A vector
 field's coordinate-free second moment is the covariance tensor [`cov`](@ref); a per-component variance
 would be only its basis-dependent diagonal, so it is not offered — calling `var`/`std` on a vector or
 tensor section raises a clear error pointing to `cov`.
 
 In physical representation it runs as two fused passes — the mean, then the squared deviations — with no
-intermediate deviation section (the numerically stable form). In **spectral** representation it is read
+intermediate deviation section (the numerically stable form). In spectral representation it is read
 from Parseval: the *population* moment is
 ``\\langle f, f\\rangle - \\langle f\\rangle^2 = N^{-2}\\sum_{\\text{stored } k \\ne 0} \\alpha(k) |\\hat f_k|^2`` — the
 fluctuation energy, with ``N`` the number of grid cells, ``\\alpha(k)`` the half-spectrum multiplicity
@@ -583,10 +583,10 @@ var
 """
     std(f; corrected = true)
 
-The sample **standard deviation** of a **scalar** section, extending `Statistics.std` and taking its
+The sample standard deviation of a scalar section, extending `Statistics.std` and taking its
 `corrected` keyword as that function does: the square root of [`var`](@ref), over the same
 bases `var` serves — a [`Grid3D`](@ref GBGPeriodicFields.Fields.Grid3D) or a [`PointSet`](@ref GBGPeriodicFields.Points.PointSet) — and, for a field, in spectral representation as
-well. Point values are representation-free, so that last clause reaches fields alone. Like `var` it is **scalar-only** —
+well. Point values are representation-free, so that last clause reaches fields alone. Like `var` it is scalar-only —
 ``\\operatorname{std} = \\sqrt{\\operatorname{var}}`` has no canonical form for a vector (the matrix square root of the covariance is not a standard deviation);
 use [`cov`](@ref) for the vector second central moment.
 
@@ -665,7 +665,7 @@ std(section::AbstractFiberSection; corrected::Bool = true) = _var_scalar_only(se
 """
     cov(u; corrected = true)
 
-The **covariance tensor** ``R_{ij} = \\langle u'_i u'_j\\rangle`` of a vector section over its base,
+The covariance tensor ``R_{ij} = \\langle u'_i u'_j\\rangle`` of a vector section over its base,
 where ``u' = u - \\bar u`` is the fluctuation about the base mean — the
 coordinate-free second central moment of a vector-valued field or point set, the vector analogue of the
 scalar [`var`](@ref). It returns one symmetric `FiberTensor2`: the diagonal holds the per-component
@@ -745,14 +745,14 @@ std(field::ScalarFieldSpectral; corrected::Bool = true) = sqrt(var(field; correc
 """
     inner(f, g)
 
-The **normalized L² inner product** ``\\langle f, g\\rangle`` of two compatible sections
+The normalized L² inner product ``\\langle f, g\\rangle`` of two compatible sections
 (`inner`, ``\\langle\\cdot,\\cdot\\rangle``) — the fiber contraction ``f \\cdot g`` averaged over the
 base, returning a scalar. It is intensive (it matches `mean`), which makes it the natural pairing for
 homogeneous turbulence, where kinetic energy is ``\\tfrac{1}{2}\\langle u, u\\rangle``. For the norms derived
 from it use [`l2norm`](@ref) or [`lpnorm`](@ref); to resolve the pairing over a wavenumber or separation
 shell use [`radial_spectrum`](@ref) or [`radial_correlation`](@ref).
 
-For two fields in **spectral representation** `inner` returns the same value by Parseval's theorem with
+For two fields in spectral representation `inner` returns the same value by Parseval's theorem with
 no inverse transform, counting twice each stored mode whose conjugate the real transform omits. This ``p = 2`` inner and
 `l2norm` are representation-invariant by Parseval, while `lpnorm` is physical-only.
 
@@ -926,7 +926,7 @@ end
 """
     l2norm(f)
 
-The **normalized L² norm** ``\\lVert f\\rVert_2`` of a section (`l2norm`, ``\\lVert\\cdot\\rVert_2``)
+The normalized L² norm ``\\lVert f\\rVert_2`` of a section (`l2norm`, ``\\lVert\\cdot\\rVert_2``)
 — the root-mean-square of the fiber magnitude ``|f|`` over the base, and the ``p = 2`` case of
 [`lpnorm`](@ref). It is ``\\sqrt{\\langle f, f\\rangle}`` built on [`inner`](@ref), so it inherits both
 bases: the grid cell-volume average and the point-set counting average.
@@ -967,7 +967,7 @@ end
     weighted_inner(f, g, w::SpectralKernel)
     weighted_inner(f, weights::Tuple{Vararg{SpectralKernel}})
 
-The **L² pairing** ``\\langle f, w g\\rangle`` of a field `f` with a field `g` filtered by a real
+The L² pairing ``\\langle f, w g\\rangle`` of a field `f` with a field `g` filtered by a real
 Fourier multiplier `w`, both in spectral representation
 (`weighted_inner`, ``\\langle\\cdot, w \\cdot\\rangle``). It applies the spectral symbol `w` to `g`
 and reduces against `f` in one fused pass, materializing no weighted field — the reduction-dual of
@@ -997,16 +997,16 @@ even length, its Nyquist plane; ``2`` otherwise — the folded rfft axis is the 
   agree to rounding, a device reduction summing in its own order. The results are returned in the
   order given. An empty tuple answers `()` without reading the field, and every refusal the
   single-weight form makes is made here in any position.
-- `w` — the weight: a kernel in **any** of the four storage classes of a [`SpectralKernel`](@ref GBGPeriodicFields.Fields.SpectralKernel), holding a **real** multiplier
+- `w` — the weight: a kernel in any of the four storage classes of a [`SpectralKernel`](@ref GBGPeriodicFields.Fields.SpectralKernel), holding a real multiplier
   ``w(k)``. All four give bitwise-identical results. The
   multiplier must be real, because ``\\langle f, w g\\rangle`` is an inner product only then: a kernel
-  whose type says complex — [`translation_kernel`](@ref GBGPeriodicFields.Convolution.translation_kernel)'s phase, for one — is **rejected** rather than
+  whose type says complex — [`translation_kernel`](@ref GBGPeriodicFields.Convolution.translation_kernel)'s phase, for one — is rejected rather than
   silently contributing its real part. One class is exempt, and the exemption is a hazard in its own
   right — see the warning below. Build it with the kernel builders: a band mask ([`spectral_band`](@ref GBGPeriodicFields.Convolution.spectral_band)/[`spectral_cutoff`](@ref GBGPeriodicFields.Convolution.spectral_cutoff)) gives an in-band (co-)energy, and `radial_kernel(identity, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``|k|^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
 
 It is spectral-only, a Parseval reduction like the spectral `inner`.
 
-It equals the naive ``\\texttt{inner}(w \\star f, w \\star g)`` **only** when ``w`` is an idempotent
+It equals the naive ``\\texttt{inner}(w \\star f, w \\star g)`` only when ``w`` is an idempotent
 projection (a sharp band mask, ``w^2 = w``); for a general ``w`` it is the single-weight pairing
 ``\\langle f, w g\\rangle`` above, not ``\\lVert w \\star f\\rVert^2``. The co-spectrum-like mixed form is
 symmetric in `f`, `g` and may be negative.
@@ -1025,7 +1025,7 @@ a scatter-add binning pass (and, for the correlation, an inverse transform).
     against a stored number swaps one for the other.
 
 !!! warning "A complex [`StoredKernel`](@ref) weight is silently reduced to its real part"
-    Three of the four kernel classes **throw** on a complex multiplier, their type settling the question
+    Three of the four kernel classes throw on a complex multiplier, their type settling the question
     for free. A `StoredKernel` cannot: its storage is `Complex{T}` by construction, so a materialized
     `spectral_cutoff` and a materialized `translation_kernel` have the same type. Telling them
     apart needs a full extra pass over the coefficients, which this reduction's single pass does not
@@ -1364,9 +1364,9 @@ end
     radial_spectrum(f, multipliers)
     radial_spectrum(f, g, multipliers)
 
-The **radial (shell-binned) power spectrum** resolves a field's L² energy over wavenumber-magnitude
-shells. Write ``P(\\kappa)`` for the one-argument **power spectrum** and ``P_{fg}(\\kappa)`` for the
-two-argument **co-spectrum** (cross-power) of two compatible, equal-order fields.
+The radial (shell-binned) power spectrum resolves a field's L² energy over wavenumber-magnitude
+shells. Write ``P(\\kappa)`` for the one-argument *power spectrum* and ``P_{fg}(\\kappa)`` for the
+two-argument *co-spectrum* (cross-power) of two compatible, equal-order fields.
 
 # Arguments
 
@@ -1377,7 +1377,7 @@ It is spectral-only, a Parseval reduction like the spectral
 `inner`.
 
 It returns `(shells, spectrum)`, a pair of `Vector{T}` in the section's own scalar type and on the
-**host** whatever backend the field lives on.
+host whatever backend the field lives on.
 Here `shells` are the bin-center
 wavenumber magnitudes ``\\kappa``, and `spectrum[m + 1]` sums the Parseval-weighted fiber (co-)energy over the
 modes in shell ``m``, whose centre ``\\kappa_m`` is `shells[m + 1]` (vectors count from 1, shells from 0):
@@ -1391,12 +1391,12 @@ P_{fg}(\\kappa_m) = \\frac{1}{N^2} \\sum_{\\substack{k  :  \\mathrm{round}(|k|/\
 
 with ``c`` indexing the fiber components, ``\\alpha(k)`` the Parseval weight (``1`` on
 the folded axis's zero and even-length Nyquist planes, ``2`` otherwise), shell width ``\\Delta k`` (the box
-fundamental), and the prefactor the inverse square of the total point count. Each form **refines** [`inner`](@ref):
+fundamental), and the prefactor the inverse square of the total point count. Each form refines [`inner`](@ref):
 ``\\sum_\\kappa P(\\kappa) = \\langle f, f\\rangle`` and ``\\sum_\\kappa P_{fg}(\\kappa) = \\langle f, g\\rangle``
 — the L² (co-)energy split across isotropic ``|k|``-shells one fundamental wavenumber wide (the box's smallest nonzero wavenumber, ``\\Delta k = 2\\pi / \\max_a L_a``). The one-argument
 form is the ``g = f`` case (``\\mathrm{Re}(\\hat f \\overline{\\hat f}) = |\\hat f|^2``); the co-spectrum
-is **symmetric** (``P_{fg} = P_{gf}``, ``\\mathrm{Re}`` being conjugation-symmetric) and, unlike the
-spectrum, **may be negative** in a shell (anticorrelated modes). In physical terms the kinetic-energy
+is symmetric (``P_{fg} = P_{gf}``, ``\\mathrm{Re}`` being conjugation-symmetric) and, unlike the
+spectrum, may be negative in a shell (anticorrelated modes). In physical terms the kinetic-energy
 spectrum is ``E(\\kappa) = \\tfrac{1}{2} P(\\kappa)`` (integrating to the turbulent kinetic energy, half
 the L² energy); the package keeps the neutral name and leaves the physics to the caller.
 
@@ -1411,10 +1411,10 @@ refinement); on a de-aliased field high-``|k|`` shells are empty. On a non-cubic
 beyond the inscribed sphere of the sampled band — shell index ``\\min_a k_a^{\\mathrm{Nyq}} / \\Delta k``,
 with ``k_a^{\\mathrm{Nyq}} = \\lfloor N_a/2 \\rfloor 2\\pi/L_a`` each axis's Nyquist wavenumber from its point count and length — are
 sampled by corner modes only; the total
-still equals `inner`. The shell **width** carries a second anisotropy artefact worth knowing: ``\\Delta k``
+still equals `inner`. The shell width carries a second anisotropy artefact worth knowing: ``\\Delta k``
 is taken from the box's largest side, so on a strongly anisotropic box it is finer than the mode spacing
 ``2\\pi/L_a`` along every shorter axis, and a systematic fraction of shells is then empty — the profile
-combs, though its sum is unaffected. The two shells meet at a half-integer ``|k|/\\Delta k``, which an anisotropic box hits exactly; such a mode is assigned by `round`'s **ties-to-even**, so the boundary belongs to neither shell by a fixed convention but to whichever has even index. The interval is deliberately not written half-open for that reason — a half-open bracket would claim round-half-up, which is not what the code does. The reduction is GPU-portable: a single
+combs, though its sum is unaffected. The two shells meet at a half-integer ``|k|/\\Delta k``, which an anisotropic box hits exactly; such a mode is assigned by `round`'s ties-to-even, so the boundary belongs to neither shell by a fixed convention but to whichever has even index. The interval is deliberately not written half-open for that reason — a half-open bracket would claim round-half-up, which is not what the code does. The reduction is GPU-portable: a single
 scatter-add binning pass over the modes that derives each mode's shell, fiber contraction, and
 Parseval weight from its index — no full-grid staging array is built — costing more than a plain
 reduction like `inner` only by the binning — whose accumulators take atomic (concurrency-safe) updates,
@@ -1518,10 +1518,10 @@ end
     radial_correlation(f, plans)
     radial_correlation(f, g, plans)
 
-The **radial (shell-averaged) two-point correlation** of a field is the physical-space dual of
+The radial (shell-averaged) two-point correlation of a field is the physical-space dual of
 [`radial_spectrum`](@ref) under the Wiener–Khinchin theorem — the statement that the autocorrelation
-and the power spectrum are a Fourier-transform pair. The one-argument form is the **autocorrelation** ``C(r)``, and the
-two-argument form is the **cross-correlation** ``C_{fg}(r) = \\langle f(x)\\cdot g(x+r)\\rangle`` of two
+and the power spectrum are a Fourier-transform pair. The one-argument form is the *autocorrelation* ``C(r)``, and the
+two-argument form is the *cross-correlation* ``C_{fg}(r) = \\langle f(x)\\cdot g(x+r)\\rangle`` of two
 compatible, equal-order fields.
 
 # Arguments
@@ -1554,11 +1554,11 @@ separation each is [`inner`](@ref): ``C(0) = \\langle |f|^2\\rangle = \\texttt{i
 ``C_{fg}(0) = \\langle f\\cdot g\\rangle = \\texttt{inner}(f, g)`` — `inner` resolved over physical
 separation, exactly as `radial_spectrum` resolves it over ``|k|`` (a Fourier pair up to the convention's
 ``1/N``: ``\\mathcal F C = |\\hat f|^2/N``, ``\\mathcal F C_{fg} = \\overline{\\hat f} \\hat g/N``). The one-argument form is the ``g = f`` case; the
-radial binning **symmetrizes** the cross-correlation — the ``\\pm r`` folding of the min-image shells
+radial binning symmetrizes the cross-correlation — the ``\\pm r`` folding of the min-image shells
 averages ``C_{fg}(r)`` with ``C_{fg}(-r) = C_{gf}(r)``, so the result equals ``\\tfrac{1}{2}(C_{fg} + C_{gf})``
 and is symmetric in ``f, g``.
 
-Separations run from ``0`` to the minimum-image **corner** ``\\sqrt{\\sum_a r_a^2}``, with each axis's
+Separations run from ``0`` to the minimum-image corner ``\\sqrt{\\sum_a r_a^2}``, with each axis's
 reach, from its point count and spacing, ``r_a = \\lfloor N_a/2\\rfloor \\Delta x_a`` (``= L_a/2`` on an even axis, half a cell less on an
 odd one; ``\\sqrt{3} L/2`` for an even cubic box) at the finest spacing ``\\min_a \\Delta x_a``, the
 ``\\min(i, N_a - i)`` fold making ``C`` periodic and even (``C(r) = C(L - r)``). This is the
@@ -1608,7 +1608,7 @@ end
 """
     lpnorm(section, p = 2)
 
-The **normalized ``L^p`` norm** ``\\lVert f\\rVert_p`` of a section ``f``, passed as `section`
+The normalized ``L^p`` norm ``\\lVert f\\rVert_p`` of a section ``f``, passed as `section`
 (`lpnorm`, ``\\lVert\\cdot\\rVert_p``),
 where ``|f|`` is the pointwise fiber magnitude (the fiberwise `norm`) — the ``L^p`` average of ``|f|`` over
 the base. The exponent `p` selects the norm, positional with a default as in `LinearAlgebra.norm(x, p)`,

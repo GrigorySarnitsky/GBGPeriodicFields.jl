@@ -16,7 +16,7 @@ makes is checked against something independent of the package.
 A test that compares one package routine to another package routine only proves they
 agree, not that either is correct.
 
-That bar is **enforced, not stated** (decision 55). Every public value-returning operation carries a
+That bar is enforced, not stated (decision 55). Every public value-returning operation carries a
 recorded oracle provenance in `test/oracle_registry.jl`, and two assertions hold the line: an
 operation with no entry fails the suite, and so does one whose only coverage is other package
 operations. The rule existed here for a year before anything checked it, which is how
@@ -57,14 +57,14 @@ a mechanical property, `generated_analytic.jl` obtains it by construction rather
 
 **The public method set is the spec.** Two mechanisms enforce this:
 
-- the **parity baseline** (`test/method_parity.jl`) locks the method counts two ways. The
+- the parity baseline (`test/method_parity.jl`) locks the method counts two ways. The
   per-generic list (206 public methods) is *enumerated* — it names 28 generics in two modules — and
   is therefore blind to anything not on the list: decisions 48, 49 and 51 each added public surface
-  that never moved it. Beside it sits a **derived** baseline (decision 53), one frozen count per
+  that never moved it. Beside it sits a derived baseline (decision 53), one frozen count per
   module over every function that module owns, so *any* new method anywhere moves a number and must
   be refrozen deliberately — the pass-audit protocol applied to the method table. Prefer adding to
   the derived one; the enumerated one stays because it localizes a change to the generic that moved.
-  The derived count asks about **ownership** (`m.module === mod`) over the surface
+  The derived count asks about ownership (`m.module === mod`) over the surface
   `public_surface.jl` derives, not about a module's namespace: a method defined under a qualified
   name — `Base.inv(kernel::SeparableKernel) = …` — creates no binding to scan, so a namespace-based
   count silently missed it (decision 56). The two baselines count different denominators and are
@@ -86,7 +86,7 @@ new test belongs.
 
 | | `Pkg.test()` | `test/exhaustive/` |
 |:---|:---|:---|
-| the question | did this change break something we **know** about? | is there something we **do not** know about? |
+| the question | did this change break something we know about? | is there something we do not know about? |
 | the verdict | binary — green, or the change does not ship | a report, read by a person |
 | may be non-green | **never** | yes, while a known limitation stands |
 | cadence | every change | occasionally, on demand |
@@ -107,19 +107,19 @@ Four rules follow, and they settle placement without further argument:
    aliasing failures cannot sit in the gate: they would have to be fixed or suppressed, and a
    suppressed failure is worse than an absent test because it reads as a pass.
 
-The two are connected by a lifecycle: **the survey discovers, a fix lands, the gate pins it forever**,
+The two are connected by a lifecycle: the survey discovers, a fix lands, the gate pins it forever,
 and rule 3's guards are what stop a new operation from skipping the first step.
 
 Getting the split backwards fails in both directions, and both have happened here. Products in the gate
 slow it until someone trims coverage; oracles in the survey let regressions ship because nobody ran it.
 
-Note that the GPU suite and the benchmarks are opt-in for an **unrelated** reason — they need hardware,
+Note that the GPU suite and the benchmarks are opt-in for an unrelated reason — they need hardware,
 or a quiet machine. "Opt-in" is not the axis; gate-versus-survey is.
 
-The survey is a **report, not a gate that has been silenced**: it runs blind to what the package has
+The survey is a report, not a gate that has been silenced: it runs blind to what the package has
 decided, prints everything that does not work, and where a failure matches a recorded decision or a
 documented contract it prints the citation *beside* the failure rather than in place of it. It also
-reports what it could **not** construct, since a lane whose silence reads as a pass is the failure the
+reports what it could not construct, since a lane whose silence reads as a pass is the failure the
 whole file exists to prevent. See `test/exhaustive/README.md`.
 
 ## 2. Layout
@@ -132,9 +132,9 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   component-offset alignment lane, decision 76; plans and multipliers built from an array family,
   decisions 93 and 94, bitwise against the field-built ones and canonical alike; the sampling
   constructors' `array_family` keyword, refusing a mismatched precision or a complex family (decision 100);
-  the real-field **reality condition** of
+  the real-field reality condition of
   decision 71 — `reality_residual` against an elementwise oracle written from the definition, over
-  both element types, tensor orders 0/1/2, permuted folds and an **odd** folded axis, which has one
+  both element types, tensor orders 0/1/2, permuted folds and an odd folded axis, which has one
   self-conjugate plane rather than two, plus the pair-consistency property, the self-paired corners
   and the round-trip repair, plus decision 83's `reality_projection!`: the identity on an exact
   spectrum, an elementwise pair-mean oracle over the ORIGINAL coefficients, off-plane coefficients
@@ -148,34 +148,34 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   physical-only absence),
   `differentialoperators.jl` (the differential operators, incl. the fused `symmetric_gradient`), `convolution.jl` (periodic convolution + the kernel/coordinate builders
   `spectral_cutoff` / `spectral_band` / `radial_kernel` / `translation_kernel`, and the
-  **kernel storage classes** — `convolve!` is walked over **all four** classes (`StoredKernel`,
+  kernel storage classes — `convolve!` is walked over all four classes (`StoredKernel`,
   `SeparableKernel`, `RadialKernel` and the `ProductKernel` that composing across the families gives),
-  each required to agree **bitwise** with its materialized twin, with the class list derived from the
+  each required to agree bitwise with its materialized twin, with the class list derived from the
   type hierarchy so a fifth class fails until it is given a specimen (and a small testset pins the
   hierarchy's head public, since decision 65 exports `SpectralKernel` — the type every kernel-taking
   signature dispatches on — beside the four classes that were already exported); the builders themselves
   are single-carrier operations since decision 66, so they sit in `context_entrypoints.jl`'s exemption
   list rather than its invocation list, a foreign kernel being caught where it meets a field; the kernel-composed
   `helmholtz_projection` and `divergence` arities are walked over the separable and radial classes but
-  **not** the product one; and `weighted_inner` is walked over **all four** classes since decision 62, each
+  not the product one; and `weighted_inner` is walked over all four classes since decision 62, each
   required to agree bitwise with its own materialized form (the two-class signature it had before was a
   narrow signature, not a constraint — and both rationales recorded for it were wrong). Tensor orders 0/1/2 and the composition cases pinning which class each
   pairing lands in are covered alongside),
   `interpolation.jl` (the point-data types),
   `pointvalues_algebra.jl` (the point-value M2 + M3 surface, incl. `det` and the representation-free `map!` / `map`),
-  `hdf5.jl` also covers **transfer-scheme persistence** (decision 75 — nine schemes round-tripped by `===` plus a bitwise behavioural check, eight malformed-group refusals, the `NUFFT` refusal, and a completeness guard over every concrete scheme type, itself verified by perturbation),
+  `hdf5.jl` also covers transfer-scheme persistence (decision 75 — nine schemes round-tripped by `===` plus a bitwise behavioural check, eight malformed-group refusals, the `NUFFT` refusal, and a completeness guard over every concrete scheme type, itself verified by perturbation),
   `displacement.jl` (spatial motion, decision 73 — `displace!` against a raw-array oracle, the fused torus arity bitwise against cover-then-`wrap!`, and the wrap contract's endpoint / non-finite / origin pins),
   `caller_counts.jl` (operand counts the caller chooses, decision 88 — `add!`/`subtract!`, `map!`, `displace!` and the tuple `weighted_inner` past their group sizes and past 32 operands, bitwise against the ungrouped arithmetic, with the destination aliasing a later operand),
   `interpolation_transfer.jl` (the physical-domain spline transfer kernels, smooth `LalescuSpline` and ``C^0`` `LagrangeSpline`),
   `transfer_spectral.jl` (the spectral-domain transfer schemes — the exact `DirectDFT` and the fast `NUFFT`),
   `argument_shapes.jl` (decision 101's argument shapes), and
   `reductions.jl` (the L²/measure reductions + the multiplier-weighted `weighted_inner`, including its
-  **tuple-of-weights** form (decision 72) — fused bitwise-equal to the separate calls for every count
+  tuple-of-weights form (decision 72) — fused bitwise-equal to the separate calls for every count
   from one to five over a heterogeneous tuple holding one weight of each storage class, the order
   property that reversing the weights reverses the results and nothing else, `@inferred` for the
   concrete `NTuple`, both refusals in any position, and the empty tuple — + the radial reductions `radial_spectrum` / `radial_correlation`, incl. the two-field co-spectra, on fields and point-values; and — decision 49 — the scalar-only `std`/`var` with their spectral Parseval form, the scalar-only errors, and the covariance tensor `cov` vs a per-point covariance with its symmetry and per-component diagonal),
   `rdf.jl` (the Phase-2 point pair-correlation: `assignment_window` + the FFT g(r) recipe vs direct counting),
-  `display.jl` (decision 82 — the display layer by properties, the sharpest being **discrimination**:
+  `display.jl` (decision 82 — the display layer by properties, the sharpest being discrimination:
   two objects a check refuses must render differently),
   `shared_modes.jl` (decision 85 — the resolution verbs, against three independent oracles: an
   ANALYTIC one, where a field of named modes embedded into a finer grid is compared with the same
@@ -185,7 +185,7 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   across resolutions — plus the excluded Nyquist shell, the untouched non-shared modes, and every
   structural refusal including the transposed argument order), plus
   `eltype_genericity.jl` (Float64/Float32),
-  the cross-file **permuted-layout lane** (decision 41) — a `permuted rfft layout` testset in
+  the cross-file permuted-layout lane (decision 41) — a `permuted rfft layout` testset in
   `fields.jl` (a transform round-trip + both multiplier families vs `rfftfreq`/`fftfreq`, odd and
   even folds), `differentialoperators.jl` (analytic gradient/Laplacian), `convolution.jl` (the
   translation kernel's circshift oracle, a live Nyquist factor on the folded axis),
@@ -194,23 +194,23 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   persistence) — every layer whose correctness rests on the fold following `fft_dims`,
   `adjointness.jl` (operator structure on random fields),
   `randomized.jl` (property-based: algebraic laws on random fields / point-values / kernels),
-  `allocations.jl` (a **comprehensive** `@allocated` audit, both element types. Two bars, and the
-  difference matters: most rows are pinned **below a field**, which is what catches a materialized
-  temporary, while the four radial-symbol operators are pinned at **literally zero** on the serial
+  `allocations.jl` (a comprehensive `@allocated` audit, both element types. Two bars, and the
+  difference matters: most rows are pinned below a field, which is what catches a materialized
+  temporary, while the four radial-symbol operators are pinned at literally zero on the serial
   lane since decision 70 — the generous bar is what let 144 B a call hide under it, visible only to
   a consumer counting bytes per step. The audit covers the *entire* in-place `!` surface — the differential operators (incl. `symmetric_gradient!`), transforms, `convolve!`, the M2+M3 algebra `add!`/`combine!`/`mul!`/`multiply!`/`divide!`/`dot!`/`cross!`/`transpose!`/`sym!`/`skew!`/`tr!`/`det!` over physical+spectral, all tensor orders, the constant/α/β/reversed variants, the point-value algebra (incl. `det!`), and the spline `interpolate!`/`anterpolate!` — allocates ``\sim 0`` bytes; the hot-loop reductions (physical `inner`, the fused `weighted_inner`, `maximum`, `integral`/`mean`, and the spectral zero-mode `integral`/`mean`) do not materialize a field; and the documented allocators are bounded — `norm!`/`lpnorm`/`radial_correlation` (its power field + the allocating transform; `dev!` left the list when decision 39 fused its trace into a register, and `std`/`var` left it when decision 49 rewrote them as two fused passes — measured at 16 bytes, not a field; `radial_spectrum` is pinned tight, its staging fused into the binning kernel by decision 34), and the spectral vector `inner`'s ``O(N^2)`` Parseval-correction planes, rocBLAS offering no `dotc` over a strided `ROCArray` view; guards the GPU hot-loop discipline, decisions 24/25/34),
   `pass_audit.jl` (the element-traffic ledger, decision 36: a `CountingArray` harness measures every
   audited operation's exact per-array read/write counts against a frozen fused-ideal table — an
   above-ideal count must carry a named holder — catching the unfused-recompute class no other layer
   sees; CPU-only, `PASS_AUDIT_PRINT=1` regenerates the cells),
-  **Both ledgers derive their own completeness** (decision 53): every exported in-place (`!`)
+  Both ledgers derive their own completeness (decision 53): every exported in-place (`!`)
   operation must have a row in `allocations.jl` and in `pass_audit.jl`, or be named in that file's
   exemption list with a reason, the requirement being read from the export list at run time rather
   than remembered. A new in-place operation therefore cannot ship without a deliberate decision, and
   a stale exemption naming a nonexistent operation fails too. It found four operations audited
   nowhere while their own siblings were — `subtract!` beside `add!`, `skew!`/`dev!` beside `sym!`,
   `norm!` beside `det!`/`tr!`.
-  `metadata_sweep.jl` (decision 53: a **generated** sweep asserting that every field-producing
+  `metadata_sweep.jl` (decision 53: a generated sweep asserting that every field-producing
   operation propagates the grid, spectral layout, element type and tensor order of its inputs, over
   four folds and both element types — 1016 assertions with a free oracle, since it checks metadata
   rather than numbers. It also varies *order-carrying argument slots independently*, the sampling the
@@ -219,7 +219,7 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   — dropping the layout in `materialize_kernel` or in `similar_field`'s vector arity fails it, and
   both of those survived the whole suite before it existed),
   `generated_analytic.jl` (decision 53: closed-form oracles over a fixture family that is
-  **asymmetric by construction** — every component/axis slot draws a distinct amplitude, frequency
+  asymmetric by construction — every component/axis slot draws a distinct amplitude, frequency
   and phase, so a transposed index, a swapped axis or a dropped term shows up by signature rather
   than by luck of the fixture. One rule per operator, written once as a formula in the fixture's own
   parameters and instantiated automatically, so the oracle stays free while the symmetry that hid
@@ -230,9 +230,9 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   function a package module owns methods of, extensions of external generics included — which the two
   ledgers and the oracle registry each derive their required set from),
   `context_matrix.jl` and `context_entrypoints.jl` (decision 58: the context-mismatch matrix, in two
-  tiers with derived denominators. **Tier 1** takes the participant set from `methods(_context_grid)`
+  tiers with derived denominators. Tier 1 takes the participant set from `methods(_context_grid)`
   and checks every ORDERED PAIR against every mismatch axis, so a new participant adds a row and a
-  column on its own and one with no builder fails rather than sitting out. **Tier 2** derives the
+  column on its own and one with no builder fails rather than sitting out. Tier 2 derives the
   (operation, carrier-kind) pairs from the method table and requires each to be invoked or exempted
   with a reason. The two are complementary and each was proven so: neutering the shared predicate
   fails Tier 1; removing a single entry point's check while the predicate stands fails only Tier 2.
@@ -251,8 +251,8 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   `aqua.jl` (package checks),
   `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane; covers
   the `KernelAbstractions` kernels separately — bitwise for the disjoint-write gather, to a tolerance
-  for the two `Atomix` accumulators — and asserts the decision-40 reductions **bitwise
-  thread-count-invariant**, in-process and across a subprocess at a different `-t`),
+  for the two `Atomix` accumulators — and asserts the decision-40 reductions bitwise
+  thread-count-invariant, in-process and across a subprocess at a different `-t`),
   and `jet.jl` (`JET` `@test_call` static analysis of the public operations), and `hdf5.jl` (the
   `write_field`/`read_field` and `write_points`/`read_points` HDF5 persistence round trips — every field
   type, every point type, the self-description attributes, and the corrupted-group error paths for both
@@ -274,7 +274,7 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   `RULE.TEST.ALLOC_ZERO`, `PASS_AUDIT`, `ORACLE_INDEPENDENT` and `METHOD_PARITY` bind the package.
   Each file keeps its own rows, frozen counts and exemptions; only the machinery moved.
 - **`test/Project.toml`** — the test environment's dependencies, deliberately
-  **backend-free** (see §5).
+  backend-free (see §5).
 - **`test/gpu/`** — the opt-in GPU suite (see §5): one shared `suite.jl` and a thin entry per lane — `rocm/`, `cuda/`, and `cuda-unified/`, which runs the same suite with every CUDA array in unified memory (§4, axis 17).
 - **Doctests** — the Getting-started tutorial (`docs/src/tutorial.md`) is written as `jldoctest`
   blocks, run and verified by `doctest = true` in `docs/make.jl` (outside `Pkg.test()`): a third
@@ -293,26 +293,26 @@ the field's backend. Compare with `field_data(result) ≈ expected`.
 `atol = 0` by default:
 
 - For an ``O(1)`` result, bare `≈` is correct.
-- For a result that is **mathematically ~zero**, bare `≈` degenerates to an almost-exact
+- For a result that is mathematically ~zero, bare `≈` degenerates to an almost-exact
   comparison and will fail on nothing but rounding. Either assert
-  `maximum(abs, data) < 1e-12`, or pass an explicit `atol`. **Also choose inputs so the
-  expected result is not accidentally zero** — e.g. an axis-aligned field
+  `maximum(abs, data) < 1e-12`, or pass an explicit `atol`. Also choose inputs so the
+  expected result is not accidentally zero — e.g. an axis-aligned field
   ``(\sin x, \sin y, \sin z)`` is irrotational *and* longitudinal, so both `curl` and the
   Helmholtz projection return ~0 and test nothing. Use a field whose components depend on
   more than one coordinate.
-- For **cross-backend** comparison (GPU vs CPU), compare with
+- For cross-backend comparison (GPU vs CPU), compare with
   `isapprox(Array(device), host; rtol, atol)` carrying a small absolute floor — never
   bitwise. The two run the same *source expression* but not necessarily the same
   arithmetic: a device compiler may contract `x + c * v` into a fused multiply-add, one
   rounding where the host takes two, so results differ in the last bit. Measured for
   `displace!` on CUDA, where the device result equals the host's `muladd` form exactly
-  (`PERFORMANCE.md` finding (z)). Bitwise is a **same-backend** contract — it is what
+  (`PERFORMANCE.md` finding (z)). Bitwise is a same-backend contract — it is what
   thread-count invariance asserts — and claiming it across backends is what made the
   first `displace!` GPU assertions fail. A wrapped coordinate needs more than a
-  tolerance: compare the difference **modulo the box**, since a last-bit disagreement
+  tolerance: compare the difference modulo the box, since a last-bit disagreement
   arriving at the wrap can place the two sides on opposite edges and read as a whole box
   length.
-- The same trap appears for **inner products of independent fields** (e.g. ``\langle \nabla\varphi, u\rangle``): they
+- The same trap appears for inner products of independent fields (e.g. ``\langle \nabla\varphi, u\rangle``): they
   are near-orthogonal, so the common value of two equal inner products is small relative
   to the operand magnitudes. Scale the floor by the Cauchy–Schwarz product ``\lVert a\rVert \lVert b\rVert``, not
   by the (tiny) result.
@@ -325,38 +325,38 @@ backend parity → trusted CPU reference. Never assert an operator only by inver
 
 For each public operation, a test must establish:
 
-- [ ] **Physical-space correctness** against an analytic or hand-computed result.
-- [ ] **Spectral-space behaviour** — correctness where the operation is linear in the
-      field (valid in both representations); an asserted **intentional absence**
+- [ ] *Physical-space correctness* against an analytic or hand-computed result.
+- [ ] *Spectral-space behaviour* — correctness where the operation is linear in the
+      field (valid in both representations); an asserted intentional absence
       (`@test_throws MethodError`) where it is nonlinear (physical-only).
-- [ ] **Both element types** — `Float64` and `Float32`. (`Float32` is the realistic GPU
+- [ ] *Both element types* — `Float64` and `Float32`. (`Float32` is the realistic GPU
       precision; consumer GPUs run `Float64` far slower.)
-- [ ] **An anisotropic domain** — at least one test with ``L_x \ne L_y \ne L_z``, so the ``2\pi/L``
+- [ ] *An anisotropic domain* — at least one test with ``L_x \ne L_y \ne L_z``, so the ``2\pi/L``
       wavenumber scaling is actually exercised and a dropped length factor is visible.
-- [ ] **The in-place `!` form** with a caller-supplied destination, including the
-      **aliased in-place branch** for the by-construction alias-safe operations (cross, transpose, sym/skew/dev,
+- [ ] *The in-place `!` form* with a caller-supplied destination, including the
+      aliased in-place branch for the by-construction alias-safe operations (cross, transpose, sym/skew/dev,
       the curl wrapper) — and, for `mul!`, the LinearAlgebra no-alias contract. An op whose kernel is
       alias-safe *by construction* (the one-pass `helmholtz_projection!`, decision 32) asserts the
-      aliased call **bitwise equal** to the non-aliased one instead — a stronger check than the
+      aliased call bitwise equal to the non-aliased one instead — a stronger check than the
       guard's tolerance.
-- [ ] **Element traffic** (decision 36): a new or rewritten operation gets a `pass_audit.jl` row —
+- [ ] *Element traffic* (decision 36): a new or rewritten operation gets a `pass_audit.jl` row —
       its exact per-array read and write counts measured through the `CountingArray` harness and
       frozen beside the fused ideal, with a named holder for any deliberate gap. This is the layer
       that catches an unfused recompute, which correctness, allocation, and static analysis all pass.
-- [ ] **Allocation-free** (invariant 13): every in-place `!` operator gets an `@allocated` assertion in
+- [ ] *Allocation-free* (invariant 13): every in-place `!` operator gets an `@allocated` assertion in
       `allocations.jl` — on preallocated buffers with a distinct destination it allocates ``\sim 0``
-      field-sized bytes, both element types. Run **on the CPU**: there a materialized field's full bytes
+      field-sized bytes, both element types. Run on the CPU: there a materialized field's full bytes
       are counted, whereas GPU `@allocated` reports only the host wrapper of a device buffer and would miss
       the materialization that wedges a hot loop (the code is generic, so a field-sized materialization
       is backend-symmetric — though a device run also carries small, size-independent launch bookkeeping
       the CPU audit cannot see, absorbed by the fraction-of-a-field threshold because it does not scale
       with the grid). A deliberate materializer (`norm!`/`lpnorm`, `radial_correlation`, the
       mixed spectral `inner(f, g)`) instead gets a *bounded* guard that catches an ``O(N)``/``O(\text{shells})`` regression.
-- [ ] **Both α/β branches** for the five-argument kernels — overwrite (``\beta = 0``, which must
+- [ ] *Both α/β branches* for the five-argument kernels — overwrite (``\beta = 0``, which must
       ignore the destination's prior contents, NaN included) and accumulate (``\beta \ne 0``).
-- [ ] **GPU parity** — the result matches the CPU path on a device array, under
+- [ ] *GPU parity* — the result matches the CPU path on a device array, under
       `allowscalar(false)`.
-- [ ] **Metadata survives anything that ALLOCATES its result** — the grid, the Fourier layout, the
+- [ ] *Metadata survives anything that ALLOCATES its result* — the grid, the Fourier layout, the
       origin and the tensor order. An operation that returns a fresh section must carry all four, and
       the way to guarantee it is to build the result through the package's own allocator rather than
       through a two-argument constructor, which defaults the layout. This axis was missing when `map`
@@ -366,19 +366,21 @@ For each public operation, a test must establish:
       non-zero origin, both element types, both representations and all three tensor orders.
 
 **The array-family axis, and a vendor limit on it.** Moving a section between array families
-(decision 63) is exercised on CPU with a **custom adaptor**, because adapting to the family a section
+(decision 63) is exercised on CPU with a custom adaptor, because adapting to the family a section
 already occupies is deliberately the identity and would test nothing. The device half is in the GPU
 suite, which now moves whole workspaces — field, multipliers, kernels and plans — through the shipped
-interface rather than through hand-written twins. **A permuted `RealFourierLayout` cannot be
+interface rather than through hand-written twins.
+
+**A permuted `RealFourierLayout` cannot be
 PLANNED on CUDA:** `cuFFT` rejects any non-strictly-increasing FFT region, so only the default
 ``(1, 2, 3)`` fold reaches `plan_rfft` there, and a permuted-fold device test that transforms would
-fail in the vendor library rather than in anything the package controls. Everything that does **not**
+fail in the vendor library rather than in anything the package controls. Everything that does not
 build a plan is unaffected, and the GPU suite exercises exactly that: it moves a permuted-fold
 spectral field to the device and checks `inner` and `radial_spectrum` against the host. So the
 restriction is on the transform, not on the layout — a device test needing an actual transform on a
 folded layout must use the default one.
 
-**Grid coverage.** Use a **mixed-parity** grid (even and odd axis lengths, e.g.
+**Grid coverage.** Use a mixed-parity grid (even and odd axis lengths, e.g.
 `(8, 7, 6)`) so the Nyquist split is exercised; where the Nyquist mode matters, include a
 field that actually populates it and confirm the derivative of a real field stays real.
 
@@ -392,7 +394,7 @@ operation's coverage is judged against the full axis list:
 
 1. representation (physical/spectral, including the asserted intentional absences);
 2. tensor order ``R``;
-3. element type (`Float64`/`Float32`) **on the CPU lane** — GPU parity alone leaves the default
+3. element type (`Float64`/`Float32`) on the CPU lane — GPU parity alone leaves the default
    `Pkg.test()` blind to the `Float32` numerics;
 4. rfft layout — the fold must follow a non-default `fft_dims` (the permuted-layout lane, §2);
 5. axis parity (even and odd, folded and unfolded);
@@ -411,30 +413,32 @@ operation's coverage is judged against the full axis list:
     CPU lane must also cover the non-default shapes);
 14. thread count (bitwise for the gated routes, tolerance for the two `Atomix` accumulators);
 15. kernel storage class, for every entry point that takes one — `StoredKernel`, `SeparableKernel`,
-    `RadialKernel` and the cross-family `ProductKernel` must agree **bitwise** with the materialized
+    `RadialKernel` and the cross-family `ProductKernel` must agree bitwise with the materialized
     twin, since decision 60 made these four an abstract hierarchy rather than one stored form. The
     lane exists (§2); this row records it as an axis, because the class is chosen by the *builder*
     a consumer calls and so varies independently of every axis above it;
-16. multiplier provenance — **canonical** (derived from the grid by the convenience constructor) versus
-    **custom** (supplied through the six-array form, which validates lengths and not values). Decision 61
+16. multiplier provenance — *canonical* (derived from the grid by the convenience constructor) versus
+    *custom* (supplied through the six-array form, which validates lengths and not values). Decision 61
     made this a type parameter, so it selects dispatch: two canonical sets collapse under `convolve`
     while any custom set keeps both operands. It is an axis rather than a case because a kernel built on
     a custom set is admissible input to every kernel-taking entry point, not just to composition.
 17. array family — `Array` on the host against a device array (`CuArray`, `ROCArray`). Decision 63
     made crossing it an explicit operation, `adapt`, so a section, its multipliers, its kernels and its
     plans are all admissible in either family, and decision 69 added `adapt!` for a destination that
-    already exists (sections only). The CPU lane drives `adapt` with a **custom adaptor**, since
+    already exists (sections only). The CPU lane drives `adapt` with a custom adaptor, since
     adapting to the family one already occupies is the identity and would exercise nothing; for
-    `adapt!` the gate proves everything **except** the crossing — destination returned and filled,
+    `adapt!` the gate proves everything except the crossing — destination returned and filled,
     metadata untouched, each mismatch refused, the aliased no-op, and zero allocation — because a
     host-only run has no second family to cross into. The crossing itself, in both directions and for
-    the point layer, is the GPU suite's. **Partial NA on one combination, with its reason:** a permuted
-    `RealFourierLayout` cannot be **planned** on CUDA, `cuFFT` rejecting a non-strictly-increasing FFT
+    the point layer, is the GPU suite's.
+
+   **Partial NA on one combination, with its reason:** a permuted
+    `RealFourierLayout` cannot be planned on CUDA, `cuFFT` rejecting a non-strictly-increasing FFT
     region, so a device test that transforms on a folded layout must use the default one. Operations
     that build no plan are unrestricted, and the GPU suite does cross the two axes there. That is a vendor limit
     rather than a package one, and it makes the permuted folds of decision 41 a CPU-side generality.
 
-    On CUDA the axis has a second value inside one family: device against **unified memory**
+    On CUDA the axis has a second value inside one family: device against unified memory
     (decision 84), selected by a CUDA.jl preference rather than by any argument. The lane
     `test/gpu/cuda-unified` refuses to run unless the preference took effect, asserts that every
     allocating route lands in unified memory, runs a working set of 1.25 times the card, and then the
@@ -450,29 +454,29 @@ operation's coverage is judged against the full axis list:
     questions and the axis has a value for each: on the host `FFTW` records an alignment class, and a
     grid whose component stride is not a multiple of 64 bytes is planned `UNALIGNED`; on a device
     `cuFFT` needs only the real pointer aligned to its complex element, which fails exactly when the
-    grid is **odd on all three axes**, and such a grid transforms through a component-sized buffer
+    grid is odd on all three axes, and such a grid transforms through a component-sized buffer
     instead. The file `test/fields.jl` carries the lane — every rank over `(8,8,8)`, `(8,7,6)`, `(7,5,3)` and
     `(9,9,9)`, plus the predicate itself asserted directly — and the GPU suite carries the staged half,
     since the host never reaches it.
 
 19. **stencil width parity**, for any scheme placing a stencil by an integer offset. A width-``W``
     window around a point at ``\mathrm{base} + t``, ``t \in [0, 1)``, has the W nearest nodes at one
-    fixed offset only when ``W`` is **even**; for odd ``W`` that set is centred on ``\mathrm{base}``
+    fixed offset only when ``W`` is even; for odd ``W`` that set is centred on ``\mathrm{base}``
     while ``t < 1/2`` and on ``\mathrm{base}+1`` after, so a fixed offset sits a whole cell off centre.
 
     The NUFFT shipped that way, and every tolerance selecting an odd width missed its target by
     ``10^2``–``10^3``, a tighter request returning a worse result than a looser one. It stayed
-    invisible because **every** `NUFFT(…; tolerance = …)` call in the suite picked an even width, leaving the
+    invisible because every `NUFFT(…; tolerance = …)` call in the suite picked an even width, leaving the
     odd branch never numerically exercised — a parameter with two regimes, tested in one.
     `test/regressions/nufft-odd-width-mis-centered.jl` carries the lane.
 
 20. **the adjoint verb**, wherever an operation ships as a pair — the transfer's `interpolate` and
     `anterpolate`, the transforms' `to_spectral` and `to_physical`, a kernel and its `inv`,
     `write_*` and `read_*`. An axis the two verbs *share* — the transfer scheme, the stencil width,
-    the grid, the element type — is **not** swept until it has been swept on each of them, and
+    the grid, the element type — is not swept until it has been swept on each of them, and
     "swept the axis" is false until then.
 
-    This axis is recorded because a **benchmark** sweep taught it, which is why it is also named in
+    This axis is recorded because a benchmark sweep taught it, which is why it is also named in
     the coverage contract of [`PERFORMANCE.md`](performance.md) §5. Finding (ad) varied the scheme on
     the gather and left the scatter pinned at `CatmullRom`, so the width-8 scatter was never measured
     at any width — and that is the cell which then regressed ``1.45``–``1.48\times`` at ``512^3`` and
@@ -488,7 +492,7 @@ operation's coverage is judged against the full axis list:
     `$(...)` interpolation and an error message use, and the three-argument `MIME"text/plain"` form
     the REPL uses.
 
-    Its acceptance test is **discrimination** — any two objects a compatibility check refuses must
+    Its acceptance test is discrimination — any two objects a compatibility check refuses must
     render differently, a display that collides on exactly the pairs it exists to explain being worse
     than none. Decision 82 measured four mutually incompatible fields rendering as one string. A
     derived gate enforces the axis rather than a list of types, so a new type ships covered or fails.
@@ -527,7 +531,7 @@ sample — the gather is BITWISE equal with and without an order, and again unde
 invariance belongs to the order rather than to the one the builder happens to produce.
 
 The in-place rebuild (decision 80) is checked the same way, and the choice matters: `point_traversal_order!`
-is compared to `point_traversal_order` **block-wise**, not index-wise. Both forms place points within a block
+is compared to `point_traversal_order` block-wise, not index-wise. Both forms place points within a block
 through atomics, which fix no order inside it, so an index-wise comparison would assert a property
 neither form has and would fail intermittently — it would be testing the atomics rather than the
 operation. What the transfer actually sees is the sequence of blocks, and that is deterministic. The
@@ -544,7 +548,7 @@ decided.
 
 **The value lane is audited PER METHOD** by `test/exhaustive/method_ledger.jl`, which asks of every
 `(operation, method)` cell whether an assertion reached it — derived from coverage, not declared. It
-reads 572 covered, 3 closed by a recorded reason, **0 uncovered**. So a new operation needs a row that
+reads 572 covered, 3 closed by a recorded reason, 0 uncovered. So a new operation needs a row that
 actually dispatches to each of its methods, and the survey fails when a cell has neither a row nor a
 recorded reason.
 
@@ -558,7 +562,7 @@ reference implementations.
 
 ## 5. GPU testing
 
-GPU testing is **opt-in and dependency-free for the package**. The default `Pkg.test()`
+GPU testing is opt-in and dependency-free for the package. The default `Pkg.test()`
 stays backend-free and portable; a GPU backend is only ever a *test* dependency. This is
 possible because the data layer is generic over `AbstractArray`, FFT plans are built
 through `AbstractFFTs` (dispatched on the array type), and allocations inherit their
@@ -567,7 +571,7 @@ backend via `similar` — so a field on a `ROCArray`/`CuArray` just works.
 - **Per-backend environments** live under `test/gpu/` (`rocm/` and `cuda/`). Each
   is instantiated only on matching hardware (AMD at home, NVIDIA at the office); a no-GPU
   CI box never installs a vendor stack.
-- A single **backend-agnostic** `test/gpu/suite.jl` holds the test logic. A thin
+- A single backend-agnostic `test/gpu/suite.jl` holds the test logic. A thin
   per-backend entry script (`test/gpu/<backend>/runtests.jl`) supplies `to_device`,
   `device_functional`, `GPU_BACKEND`, and calls `<Backend>.allowscalar(false)` before
   including the suite. With scalar indexing disabled, any stray scalar index into device
@@ -596,7 +600,7 @@ Adding a backend = mirror `rocm/` (see `test/gpu/README.md`); the suite needs no
 
 ## 6. Maintenance
 
-- After any code-generation change, re-verify the **method set is unchanged**: update the
+- After any code-generation change, re-verify the method set is unchanged: update the
   counts in `test/method_parity_baseline.toml` only with a deliberate, reviewed reason, and keep
   `detect_ambiguities` empty.
 - Keep the test summary in `CLAUDE.md` (roadmap item 4) roughly current.
@@ -609,7 +613,7 @@ Adding a backend = mirror `rocm/` (see `test/gpu/README.md`); the suite needs no
   (`MethodError`, `BoundsError`, undefined variables). It is left uncapped in
   `test/Project.toml` so each CI Julia version resolves a compatible JET. Note it analyzes
   the *running* version, so it does not catch version-divergence (that is the CI matrix's job).
-- CI (`.github/workflows/CI.yml`) is **manual-only** — `workflow_dispatch` plus release tags, **not**
+- CI (`.github/workflows/CI.yml`) is manual-only — `workflow_dispatch` plus release tags, not
   every push: each commit is authored locally and the full matrix is run before pushing, so a
   push-triggered run would only re-verify what is already green (a tagged release additionally exercises a
   from-scratch clean-environment resolve, the one thing a single local run cannot give). The matrix is
@@ -634,14 +638,14 @@ end-to-end (the derivative wavenumber zeroed vs the squared wavenumber kept at t
 Nyquist mode); M2 + M3 algebra and contractions in both representations, including the weighted
 combination `combine!` (physical + spectral, alias-safe) and the physical-only determinant `det`
 (against a per-point LU oracle, with its spectral absence asserted); the spectral
-zero-mode constant invariant; **transfer-scheme HDF5 persistence** (decision 75) — the parameter round trip asserted with `===` and reinforced behaviourally, every malformed-group path refused for its own reason, and a perturbation-verified guard that a new scheme family cannot ship unpersistable; the **allocating constructors** (decision 74) — each `(family, grid[, layout])` field
+zero-mode constant invariant; transfer-scheme HDF5 persistence (decision 75) — the parameter round trip asserted with `===` and reinforced behaviourally, every malformed-group path refused for its own reason, and a perturbation-verified guard that a new scheme family cannot ship unpersistable; the allocating constructors (decision 74) — each `(family, grid[, layout])` field
 type-identical to its data-built twin and to `similar_field` of that twin, across both element
 types, two layout folds, orders through ``R = 4``, the default-layout arity, a transform round trip
 through freshly allocated scratch, and the two refusals (a parameterized family disagreeing with the
-grid's element type; a complex parameter); the **point-value algebra** — the `Points` module's
+grid's element type; a complex parameter); the point-value algebra — the `Points` module's
 M2 + M3 mirror of the *physical* field surface (storage-wise broadcasting), checked per-point
 on CPU across `Float64`/`Float32` (`test/pointvalues_algebra.jl`) with the point-data types in
-`test/interpolation.jl`; **spatial motion** (`test/displacement.jl`, decision 73) — `displace!`
+`test/interpolation.jl`; spatial motion (`test/displacement.jl`, decision 73) — `displace!`
 against an independent raw-array oracle over both element types and one-to-three terms, the
 destination/source form with its source preserved and its aliased call agreeing, the fused torus
 arity bitwise-equal to cover-then-`wrap!`, in-box membership on an anisotropic box, the wrap
@@ -671,10 +675,10 @@ projection (decision 42; the full-spectrum Nyquist-content identities live in
 `Reductions` module, below); and GPU
 parity on ROCm across `Float64` and `Float32` (`allowscalar(false)`) — the public field
 surface (including the `mul!` ``\beta = 0`` / ``\beta \ne 0`` branches), confirmed on an AMD Radeon, plus
-the **PointValues algebra**, the **interpolation / anterpolation transfer** (gather, atomic
-scatter, accumulate, plus a heavy atomic-contention case), the **spectral transfer** (`DirectDFT`
-and `NUFFT`), **convolution** (apply a Fourier kernel),
-and the **L²/measure reductions** added alongside; and CPU threading — every threaded assignment is bitwise-identical to serial
+the PointValues algebra, the interpolation / anterpolation transfer (gather, atomic
+scatter, accumulate, plus a heavy atomic-contention case), the spectral transfer (`DirectDFT`
+and `NUFFT`), convolution (apply a Fourier kernel),
+and the L²/measure reductions added alongside; and CPU threading — every threaded assignment is bitwise-identical to serial
 (field ops, the codegen contractions/products including `mul!`'s ``\beta=0``/``\beta\ne0`` branches,
 transpose/sym/skew/dev, norms, and the differential operators), exercised in both the
 default and a `JULIA_NUM_THREADS=4` lane (`test/threading.jl`), with the override / cutoff
@@ -685,54 +689,54 @@ is asserted bitwise, including against a subprocess launched
 at a different thread count, while the two `Atomix` accumulators (the anterpolation scatter, the
 shell binning) are held to a tolerance because a nondeterministic summation order perturbs their
 last bits. The `helmholtz_projection!` operator is checked with the gated operations instead, decision 40 having
-given it a CPU loop twin that the `with_threading` toggle does reach, and across thread counts as well ([`ARCHITECTURE.md`](architecture.md) §9); and the **L²/measure reductions**
+given it a CPU loop twin that the `with_threading` toggle does reach, and across thread counts as well ([`ARCHITECTURE.md`](architecture.md) §9); and the L²/measure reductions
 (`test/reductions.jl`): `integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`std`/`var`/`maximum`/`minimum`/`extrema` on physical
 fields and point-values, against analytic oracles (``\langle \sin\rangle = 0``, ``\langle \sin^2\rangle = \tfrac{1}{2}``) and manual references,
 across `Float64`/`Float32`, with the arithmetic-mean semantics on both bases (``\tfrac{1}{N}\sum`` grid, ``\tfrac{1}{M}\sum``
 points), the extensive/intensive relation between `integral` and `mean` — the one is the other times the base measure — (incl. an anisotropic box), the
-energy identity ``\tfrac{1}{2} \texttt{inner}(u,u) = \tfrac{1}{2}\langle |u|^2\rangle``, the **spectral Parseval `inner`/`l2norm`** (equal to the
+energy identity ``\tfrac{1}{2} \texttt{inner}(u,u) = \tfrac{1}{2}\langle |u|^2\rangle``, the spectral Parseval `inner`/`l2norm` (equal to the
 physical inner, scalar/vector/tensor, on even- and odd-``N_x`` grids (``N_x`` the first-axis point
 count) to hit both the Nyquist and
-no-Nyquist branches), the **multiplier-weighted `weighted_inner`** ``\langle f, w g\rangle`` (the
+no-Nyquist branches), the multiplier-weighted `weighted_inner` ``\langle f, w g\rangle`` (the
 ``w \equiv 1`` reduction to `inner`, the ``w = |k|^2`` Dirichlet energy checked against both
 ``-\langle f, \Delta f\rangle`` and ``\langle \nabla f, \nabla f\rangle``, the idempotent-band identity
 ``\lVert w \star f\rVert^2``, and the ``f \leftrightarrow g`` symmetry — scalar/vector/tensor, spectral-only),
-the **spectral zero-mode `integral`/`mean`** (equal to the physical reductions,
+the spectral zero-mode `integral`/`mean` (equal to the physical reductions,
 read from the DC coefficient; scalar/vector/tensor, even/odd grids, with `lpnorm`/`maximum` still
-absent in spectral representation — `std`/`var` are **not** absent, having gained their Parseval form
-in decision 49), the **shell-resolved Parseval inner** `radial_spectrum` (the radial power
+absent in spectral representation — `std`/`var` are not absent, having gained their Parseval form
+in decision 49), the shell-resolved Parseval inner `radial_spectrum` (the radial power
 spectrum ``P(\kappa)`` (``\kappa`` the wavenumber-shell magnitude), checked by the exact refinement ``\sum_\kappa P(\kappa) = \langle f, f\rangle`` over scalar/vector/tensor on
 even-``N_x`` and odd-``N_x`` grids, plus the single-mode shell placement and its spectral-only absence),
 its physical-space dual `radial_correlation` (the Wiener–Khinchin two-point autocorrelation, checked
-against an **independent binned-circshift autocorrelation** and ``C(0) = \texttt{inner}(f,f)``, all orders /
-both grids), the **two-field co-spectra** `radial_spectrum(f, g)` / `radial_correlation(f, g)` (the
+against an independent binned-circshift autocorrelation and ``C(0) = \texttt{inner}(f,f)``, all orders /
+both grids), the two-field co-spectra `radial_spectrum(f, g)` / `radial_correlation(f, g)` (the
 cross-power / cross-correlation, refining the *mixed* `inner(f, g)`: analytical oracles — an orthogonal
 pair ``\cos x \perp \sin x`` ⇒ zero, and ``\cos x \pm \cos 2x`` ⇒ ``\pm\tfrac{1}{2}`` in adjacent shells
-cancelling to ``\texttt{inner} = 0`` (the co-spectrum **may be negative**); the ``f \leftrightarrow g``
-symmetry; the ``g = f`` reduction to the single-field forms (bit-identical); and an **independent
-binned-circshift cross-correlation** on a random pair — scalar/vector/tensor, both grids; the shared
+cancelling to ``\texttt{inner} = 0`` (the co-spectrum may be negative); the ``f \leftrightarrow g``
+symmetry; the ``g = f`` reduction to the single-field forms (bit-identical); and an independent
+binned-circshift cross-correlation on a random pair — scalar/vector/tensor, both grids; the shared
 ``|k|``/``|r|`` shell binning is a single scatter-add pass — `KernelAbstractions` / `Atomix`, device-clean,
 no scalar indexing (decision 25) — so these oracles plus the GPU parity suite also cover that histogram
-kernel), the **mapped forms** (a leading function applied to the fiber value at every base point,
+kernel), the mapped forms (a leading function applied to the fiber value at every base point,
 decision 30: the analytic invariants of a constant diagonal tensor — ``\det = 24``, ``\operatorname{tr} = 9`` —
 the identity map reproducing the bare fiber-valued reductions, the analytic ``\langle \sin^2\rangle = \tfrac{1}{2}``,
 the coincidence ``\max_n \lVert u_n\rVert = \lVert u\rVert_\infty`` linking `maximum(norm, u)` to the
-materializing `lpnorm(u, Inf)`, a random tensor against an **independent explicit per-point reduction**,
+materializing `lpnorm(u, Inf)`, a random tensor against an independent explicit per-point reduction,
 the counting-measure forms on point-values, and the spectral absence of the whole family),
 and the intentional absence of the *measure* reductions in spectral representation;
-and **convolution** (`test/convolution.jl`): periodic convolution as the coefficientwise product
+and convolution (`test/convolution.jl`): periodic convolution as the coefficientwise product
 ``\hat f \cdot \hat g`` with a `StoredKernel`, checked against the translation kernel
-``\exp(-\mathrm{i} k_a m \Delta x_a)`` (a shift of ``m`` cells, with ``\Delta x_a`` the grid spacing along axis ``a``) ``\Leftrightarrow`` `circshift` along **all three axes, on scalar and vector fields** (an independent
-physical oracle), the identity / scaling / cutoff kernels over **scalar, vector, and tensor (R=2)**
+``\exp(-\mathrm{i} k_a m \Delta x_a)`` (a shift of ``m`` cells, with ``\Delta x_a`` the grid spacing along axis ``a``) ``\Leftrightarrow`` `circshift` along all three axes, on scalar and vector fields (an independent
+physical oracle), the identity / scaling / cutoff kernels over scalar, vector, and tensor (R=2)
 fields (the 5-D fiber broadcast), sharp-cutoff idempotence, kernel-composition associativity, the α/β
-accumulate form (incl. R=2), in-place aliasing safety, a **mixed-parity (8,7,6) grid** (odd axis +
-Nyquist), the **lazy exponential kernel** `exponential_convolve!` (decision 33: equality against the
+accumulate form (incl. R=2), in-place aliasing safety, a mixed-parity (8,7,6) grid (odd axis +
+Nyquist), the lazy exponential kernel `exponential_convolve!` (decision 33: equality against the
 same kernel stored and applied with `convolve!`, the independent single-mode eigenvalue oracle
 ``e^{c}\cos x``, the α/β accumulate, the scale-times-field offset, both two-operand forms equal to
 the sequential `combine!`-then-convolve pair, and the in-place filtered accumulate; and, decision 92,
 the radial offset against a factor written from its definition and bitwise against the same offset
 stored as a field), the
-**kernel-composed `combine!`** (fused equals sequential over scalar and vector fields, the
+kernel-composed `combine!` (fused equals sequential over scalar and vector fields, the
 ``b = \texttt{dest}`` accumulate, the kernel aliasing the destination, and the physical absence), the `spectral_band` annular band-pass (`spectral_cutoff` as its `wavenumber_low = 0` case, idempotent, a ``|k|^2``
 membership oracle) and `radial_kernel` (the builder for an arbitrary real function of ``|k|^2``, checked at
 ``\sigma = \mathrm{identity}`` against the analytic sum,
@@ -743,20 +747,20 @@ with edges that are not whole cells; a domain-sized box keeping the mean alone; 
 identity, bitwise; a scalar edge equal to the cube; `assignment_window` equal, bitwise, to the cell-wide
 window composed with itself; and the refusal of negative and non-finite edges);
 and — for `translation_kernel`, the displacement kernel of decision 28 — the same `circshift` oracle but on
-a **random** field, which unlike the band-limited fields above carries Nyquist content and so exercises the
+a random field, which unlike the band-limited fields above carries Nyquist content and so exercises the
 one frequency where the kernel is a real attenuation rather than a phase (a whole-cell displacement, odd and
-even, along each axis), the exact **`DirectDFT` evaluation at the displaced nodes** as the oracle for a
-sub-cell displacement, an analytic displaced cosine, the **reality check** that a displaced half-spectrum
+even, along each axis), the exact `DirectDFT` evaluation at the displaced nodes as the oracle for a
+sub-cell displacement, an analytic displaced cosine, the reality check that a displaced half-spectrum
 survives a transform round trip (the inverse transform is the Hermitian projector, so a kernel built from the
 true Nyquist phase would move), the Nyquist attenuation itself (a half-cell displacement annihilates
 ``\cos(4x)`` on an 8-point ``2\pi`` axis; a whole-cell one flips its sign), unit modulus on the resolved
 band, composition and inversion, the fiber broadcast over vector and tensor fields, and the mixed-parity
 grid;
-the **point pair-correlation** (`rdf.jl`, decision 22 Phase 2): `assignment_window` against its
+the point pair-correlation (`rdf.jl`, decision 22 Phase 2): `assignment_window` against its
 ``\prod \operatorname{sinc}^2`` formula, and the FFT g(r) recipe (anterpolate density → deconvolve →
-`radial_correlation`) validated against an **independent direct ``O(M^2)`` physical-space pair count** on a
+`radial_correlation`) validated against an independent direct ``O(M^2)`` physical-space pair count on a
 clustered set (the clustering peak within ~10% and the g → 1 baseline);
-and **property-based tests** (`randomized.jl`): algebraic laws on **random** fields, point-values, and
+and property-based tests (`randomized.jl`): algebraic laws on random fields, point-values, and
 kernels over several trials — vector-space and contraction/product identities, transpose/sym/skew/dev,
 the reduction laws (inner symmetry, linearity, Cauchy–Schwarz, ``\texttt{integral} = |\Omega|\cdot\texttt{mean}``), convolution
 bilinearity/commutativity, and the operator identities ``\nabla\cdot(\nabla\times u)=0``, ``\nabla\times(\nabla \varphi)=0`` — which catch the

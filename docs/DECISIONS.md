@@ -18,7 +18,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
    `_check_same_domain`; `_check_field_matches_context` for transforms.
 2. `FieldSpectralMultipliers` moved `DifferentialOperators` → `Fields`; explicit
    six-array constructor (validated lengths) plus convenience constructor;
-   host-built wavenumbers copied to the backend; **Nyquist split** between
+   host-built wavenumbers copied to the backend; Nyquist split between
    derivative and squared multipliers (correctness, see [§4](@ref "4. Spectral machinery")).
 3. `FieldAlgebra` rewritten around code generation with the invariant that the
    public method set is reproduced exactly; M2 + M3 delivered and parity-verified
@@ -44,7 +44,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
    may overwrite their source (FFTW c2r destroys input; backend-divergent), so the
    allocating `to_physical`/`to_spectral` copy the input to keep non-`!` calls
    non-mutating (see [§4](@ref "4. Spectral machinery")).
-10. GPU testing is opt-in and **dependency-free for the package**: the data layer is
+10. GPU testing is opt-in and dependency-free for the package: the data layer is
     generic over `AbstractArray`, FFT plans are built through `AbstractFFTs`
     (backend-dispatched on the array type) and allocations inherit their backend via
     `similar`, so a GPU backend is only ever a *test* dependency. It lives in
@@ -57,8 +57,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 11. Test-suite buildout (beyond the GPU work in item 10): element-type genericity
     (`Float32` alongside `Float64`), anisotropic-domain operators (the ``2\pi/L`` scaling),
     in-place and alias-guard coverage, a Nyquist end-to-end test, and the operator
-    **adjointness / structural identities** on randomized band-limited fields
-    (``\nabla\cdot = -\nabla^\top``, self-adjoint curl, negative-**semidefinite** Laplacian — negative-definite
+    adjointness / structural identities on randomized band-limited fields
+    (``\nabla\cdot = -\nabla^\top``, self-adjoint curl, negative-semidefinite Laplacian — negative-definite
     on the zero-mean subspace, its kernel being the constant mode — exactly idempotent Helmholtz
     projection (decision 42) — the discrete energy/entropy structure). Intentional-absence tests are
     symmetric across representations: nonlinear products absent in spectral; the
@@ -66,7 +66,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     operators yet). `Aqua.test_all` was added, which required `[compat]` bounds for every
     dependency. Two deliberate deferrals: a global L²/integration reduction is reserved
     for *separate code* (so adjointness tests use an inline L² inner product), and
-    doctests wait until the package stabilizes and tutorials are written. **The doctest deferral
+    doctests wait until the package stabilizes and tutorials are written.
+
+   **The doctest deferral
     is closed:** `docs/make.jl` sets `doctest = true` and `docs/src/tutorial.md` carries `jldoctest`
     blocks, so the tutorial's examples are executed by the docs build. Coverage detail
     lives in `docs/TESTING.md`.
@@ -81,8 +83,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     since moved again, to 1.12 (decision 31).
     Reductions remain deferred (separate FP-ordering design).
 13. Interpolation-layer design fixed ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")):
-    grid→point **interpolation** as the callable `f(x)` / `f.(xs)` plus the named
-    `interpolate` / `interpolate!`; point→grid **anterpolation** as `anterpolate` /
+    grid→point interpolation as the callable `f(x)` / `f.(xs)` plus the named
+    `interpolate` / `interpolate!`; point→grid anterpolation as `anterpolate` /
     `anterpolate!` — the symmetric named pair, each with allocating and in-place forms, and the
     α/β-accumulate form on the scatter only (the `mul!` convention, since they are the linear maps
     ``W`` / ``W^\top``);
@@ -92,7 +94,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     on the binding; "extrapolation" rejected as a misnomer). Adjointness is explained in
     the module docstring via the function–measure duality (Dirac evaluation vs. pushforward
     of point masses). Method:
-    the **Lalescu local splines** (Lalescu, Teaca & Carati 2010) as in **TurTLE**
+    the Lalescu local splines (Lalescu, Teaca & Carati 2010) as in TurTLE
     (Lalescu et al. 2022) — local Hermite-with-finite-difference
     derivatives, tunable `(neighbours n, smoothness m)`, single (physical)
     representation, GPU-friendly; van Hinsberg B-spline (2012) and NUFFT exact-spectral
@@ -101,82 +103,82 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     conservative transpose (Sundaram & Collins 1996) — required to conserve total water
     and latent heat in the two-way-coupled parcel DNS. Implemented (item 17).
 14. Point-data types fixed ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")) and the math-backend policy recorded. The unstructured base
-    reuses the base/fiber split: `Point{T} = SVector{3,T}` (a position; an **alias** of
-    `FiberVector`, not a wrapper); `PointSet` (`M` positions, **SoA** `(M,3)`, grid-free);
-    and `PointValues` as **three concrete types** mirroring the field zoo —
+    reuses the base/fiber split: `Point{T} = SVector{3,T}` (a position; an alias of
+    `FiberVector`, not a wrapper); `PointSet` (`M` positions, SoA `(M,3)`, grid-free);
+    and `PointValues` as three concrete types mirroring the field zoo —
     `ScalarPointValues` / `VectorPointValues` / `TensorPointValues{R}` under
-    `AbstractPointValues`, SoA, **representation-free**. Naming is domain-neutral by policy:
-    the package is a math backend, so no *particle* / *tracer* type and **no concept of time**
+    `AbstractPointValues`, SoA, representation-free. Naming is domain-neutral by policy:
+    the package is a math backend, so no *particle* / *tracer* type and no concept of time
     (no advection / integration / temporal state) — those are the consumer's. The types live in
     `Interpolation`, importing `Fields` helpers; they are implemented and tested (only the
     transfer kernels of item 13 remain future work — see item 15 for the algebra).
-15. Point-value algebra implemented ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")): `FieldAlgebra`'s code generators are **reused
-    verbatim** over an extended point-value section interface, mirroring the full *physical*
+15. Point-value algebra implemented ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")): `FieldAlgebra`'s code generators are reused
+    verbatim over an extended point-value section interface, mirroring the full *physical*
     field surface (M2 + M3, storage-wise broadcasting) with no duplicated formula; locked by a
-    separate **118-method baseline** (the 198-method field surface byte-unchanged), zero
+    separate 118-method baseline (the 198-method field surface byte-unchanged), zero
     ambiguities, tested on CPU (`test/pointvalues_algebra.jl`) and GPU (ROCm). The shared
     `AbstractFiberSection{T, R}` supertype the fiber-bundle model ([§2](@ref "2. The central principle: the architecture follows established mathematics")) invites — and the lift of
     the inlined norm/sym/skew/dev formulas into a builder — is the planned next step, not yet
     undertaken.
-16. Phase A consolidation **done** ([§2](@ref "2. The central principle: the architecture follows established mathematics"), [§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")). The foundation module **`FiberSections`** holds the
+16. Phase A consolidation done ([§2](@ref "2. The central principle: the architecture follows established mathematics"), [§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")). The foundation module `FiberSections` holds the
     base-agnostic supertype `AbstractFiberSection{T,R}` (the field and point-value types subtype
-    it), the `_assign!` threading primitive, and the **vertical-algebra code generators** — the
+    it), the `_assign!` threading primitive, and the vertical-algebra code generators — the
     single home for every fiberwise formula (norm/sym/skew/dev included, via `_section_scalar_type`),
-    reused verbatim by `FieldAlgebra` and `Points`. The former `Interpolation` module is **split**
-    into **`Points`** (unstructured-base section objects + their generated algebra — a noun peer of
-    `Fields`) and **`Interpolation`** (the transfer maps — an operation peer of
+    reused verbatim by `FieldAlgebra` and `Points`. The former `Interpolation` module is split
+    into `Points` (unstructured-base section objects + their generated algebra — a noun peer of
+    `Fields`) and `Interpolation` (the transfer maps — an operation peer of
     `DifferentialOperators`). The field/point asymmetry is math-mandated (no point differential
     operators, no second representation; the point algebra is a small generated emission folded into
     `Points`). Both parity baselines (198 + 118) held byte-for-byte through every step, zero
     ambiguities. (The transfer kernels themselves followed — item 17.)
 17. Transfer kernels implemented ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")): interpolation (gather ``W``, also the callable `f(x)`) and
     anterpolation (scatter ``W^\top``, with the α/β `mul!` convention) as the Lalescu local splines.
-    **Both hierarchies** are provided: the smooth `LalescuSpline(n, m)` — a two-point Hermite of
+    Both hierarchies are provided: the smooth `LalescuSpline(n, m)` — a two-point Hermite of
     degree ``2m{+}1`` matching the value and the order-``1, \dots, m`` derivatives (centred Fornberg
     finite differences) at the two bracketing nodes, ``C^m`` with ``0 \le m \le 2n`` (`CatmullRom`, the
     cubic ``n=1, m=1``, is the default; ``m=0`` is linear) — and the ``C^0`` `LagrangeSpline(n)`, the
-    degree-``2n{+}1`` interpolant of all ``2n{+}2`` nodes. The smooth weights are **pinned to a tolerance
-    against TurTLE's `beta_n{n}_m{m}`** (`n` ↔ `interp_neighbours`, `m` ↔ `smoothness`; the pin asserts
+    degree-``2n{+}1`` interpolant of all ``2n{+}2`` nodes. The smooth weights are pinned to a tolerance
+    against TurTLE's `beta_n{n}_m{m}` (`n` ↔ `interp_neighbours`, `m` ↔ `smoothness`; the pin asserts
     ``\le`` 1e-12, `test/interpolation_transfer.jl`) — an earlier "interpolate the central ``2(n{-}m){+}2`` nodes" draft was corrected
     after reading the TurTLE source, Lalescu's smooth spline being a *two-point* Hermite, not a
     central-node hybrid. Reproduction is ``\min(2m{+}1, 2n)`` for ``n \ge 1`` (smooth) / ``2n{+}1`` (Lagrange); the
     closed-form Catmull–Rom and the Lagrange cardinal
     basis are independent anchors, with partition of unity (⇒ conservation). Kernels are portable
-    across CPU / CUDA / AMDGPU via **KernelAbstractions** (new dep) with the atomic scatter via
-    **Atomix** (new dep); both index the native arrays linearly, so one kernel serves
+    across CPU / CUDA / AMDGPU via KernelAbstractions (new dep) with the atomic scatter via
+    Atomix (new dep); both index the native arrays linearly, so one kernel serves
     scalar/vector/tensor orders. Adjointness in the counting pairing — ``\sum_p (Wf)_p \cdot q_p = \sum_n f_n \cdot (W^\top q)_n``, the unnormalized sums over the ``M`` points and the ``N`` grid nodes — and conservation hold to roundoff;
     tested on CPU (`test/interpolation_transfer.jl`, Float64/Float32, incl. the TurTLE pin) and GPU
-    (ROCm). Physical-space only. The kernels loop with the **contiguous (x) axis innermost**
+    (ROCm). Physical-space only. The kernels loop with the contiguous (x) axis innermost
     (stride-1 stencil access) — a measured GPU-first choice (≈1.6× at 256³, ≈3.9× for the 512³
     Lalescu on a since-retired card), re-affirmed on CPU in the decision-37 production band: the 512³
     Zen 5 A/B found z-inner ~10% ahead only on the narrow Catmull–Rom stencil and 23% *behind* on
     the wide Lalescu one, so x-inner stands on both platforms and the reopened tiebreak is closed
     (`PERFORMANCE.md` §4b).
-    The measure-consistent adjoint against the two **normalized** pairings is ``(N/M) W^\top`` (``N`` grid
+    The measure-consistent adjoint against the two normalized pairings is ``(N/M) W^\top`` (``N`` grid
     points, ``M`` sample points; the factor is the ratio of the ``1/N`` and ``1/M`` normalizations, not of
     a cell volume) — both base measures are uniform,
     so it is a scalar rescaling of the counting-transpose anterpolation, not a new operation — and is
     verified via `inner` as ``M \texttt{inner}(Wf, q) = N \texttt{inner}(f, W^\top q)`` (`test/interpolation_transfer.jl`, decision 19).
 18. **The L² / measure structure on sections — the third operation family (done).** Advances
-    the reduction deferral of items 6/11/[§9](@ref "9. Performance model and CPU threading"). The package's operations split into **vertical**
-    (fiberwise, pointwise — `dot`, `norm`, `cross`; return sections), **horizontal** (differential —
-    `gradient`, …; return sections), and now **base reductions** — integrate the base away against a
-    **measure** it carries; return a fiber value or a scalar. Math grounding ([§2](@ref "2. The central principle: the architecture follows established mathematics")): a section lives in
+    the reduction deferral of items 6/11/[§9](@ref "9. Performance model and CPU threading"). The package's operations split into vertical
+    (fiberwise, pointwise — `dot`, `norm`, `cross`; return sections), horizontal (differential —
+    `gradient`, …; return sections), and now base reductions — integrate the base away against a
+    measure it carries; return a fiber value or a scalar. Math grounding ([§2](@ref "2. The central principle: the architecture follows established mathematics")): a section lives in
     ``L^2(\mathrm{base}, \mu) \otimes V`` — the fiber ``V`` is a tensor factor, not flattened away — and
     the inner product pairs the two factors — the fiber contraction is the metric pairing on ``V``
-    (cf. **Manifolds.jl** `inner(M,p,X,Y)`, a fiber-level pairing) and the base integral is the
+    (cf. Manifolds.jl `inner(M,p,X,Y)`, a fiber-level pairing) and the base integral is the
     ``L^2(\mathrm{base}, \mu)`` factor —
-    the measure is an explicit object (cf. **Gridap.jl** `Measure`, **MeasureTheory.jl**), and the
+    the measure is an explicit object (cf. Gridap.jl `Measure`, MeasureTheory.jl), and the
     moments are the canonical reductions (cf. `Statistics` `mean`/`std`/`var`). All dispatch on
-    `AbstractFiberSection`, so fields **and** point-values share one set of formulas (`FiberSections`
+    `AbstractFiberSection`, so fields and point-values share one set of formulas (`FiberSections`
     "write it once").
 
     *The measure is a property of the base.* `Grid3D` → uniform Lebesgue quadrature (cell volume
-    ``\prod_i \Delta x_i``); `PointSet` → **counting** measure (unit weight per point) — and this is
+    ``\prod_i \Delta x_i``); `PointSet` → counting measure (unit weight per point) — and this is
     *forced*, not a choice: a `PointSet` is grid-free ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)"), carries no domain), so the only well-defined
     measure is counting. Consequences:
 
-    `integral(f)` is the **extensive** sum against the measure, `mean(f)` the **intensive** average
+    `integral(f)` is the extensive sum against the measure, `mean(f)` the intensive average
     ``\texttt{mean}(f) = \tfrac{1}{\mathrm{count}}\sum f`` — per base:
 
     - `Grid3D` (``N`` cells): ``\texttt{integral}(f) = \int_\Omega f\,\mathrm{d}x = (\lvert\Omega\rvert/N)\sum f``, ``\texttt{mean}(f) = \tfrac{1}{N}\sum f``.
@@ -186,23 +188,23 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (a plain sample mean), ``\tfrac{1}{N}\sum`` over the grid (which, the grid being uniform, equals the
     domain average ``\langle\cdot\rangle``). Names and conventions:
 
-    - `integral(f)` — the **extensive** ``\int f\,\mathrm{d}\mu`` (the one quantity that scales with the base measure).
+    - `integral(f)` — the extensive ``\int f\,\mathrm{d}\mu`` (the one quantity that scales with the base measure).
     - `mean(f)`, `std(f)`, `var(f)` — extend `Statistics` (we own the types ⇒ not piracy);
-      **intensive**, **fiber-preserving** (`mean(VectorField) → FiberVector`, base reduced).
-    - `inner(f, g)` — the **normalized** L² inner product ``\langle f, g\rangle = \texttt{mean}(\texttt{dot}(f, g))`` → **scalar**
+      intensive, fiber-preserving (`mean(VectorField) → FiberVector`, base reduced).
+    - `inner(f, g)` — the normalized L² inner product ``\langle f, g\rangle = \texttt{mean}(\texttt{dot}(f, g))`` → scalar
       (fiber-contracting). *Normalized* (intensive) by deliberate choice: it matches the `mean`
       convention above and the intensive quantities of homogeneous turbulence (kinetic energy
       ``\tfrac{1}{2} \texttt{inner}(u,u) = \tfrac{1}{2}\langle |u|^2\rangle``); for points it is ``\tfrac{1}{M}\sum \texttt{dot}``, consistent with `mean`. Not the
       textbook extensive ``\int f\cdot g\,\mathrm{d}x`` — that is `integral(dot(f,g))` if ever needed.
     - ``\texttt{l2norm}(f) = \sqrt{\texttt{inner}(f,f)}``, generalized as `lpnorm(f, p)` (``p=2`` default; ``p=\infty`` ⇒ sup of the
-      fiber magnitude — the CFL case). Chosen over `norm_L2`; **does not** touch the vertical `norm`.
+      fiber magnitude — the CFL case). Chosen over `norm_L2`; does not touch the vertical `norm`.
     - `maximum`/`minimum`/`extrema` — extend `Base` for scalar sections; vector/tensor sup of
       magnitude via `lpnorm` at ``p = \infty``.
     - **No LinearAlgebra overloading**: `dot`/`norm` stay the vertical pointwise ops (return sections,
       scalar fields); the global `inner`/`l2norm` are package generics returning numbers.
 
     `inner`/`l2norm` are representation-invariant (Parseval): the physical reductions came first, and the
-    **spectral `inner`/`l2norm` are now implemented** — for two fields in spectral representation
+    spectral `inner`/`l2norm` are now implemented — for two fields in spectral representation
     ``\texttt{inner}(\hat f, \hat g)`` equals the physical inner via the rfft half-spectrum Parseval weighting (each mode
     counts twice except those on the ``k_x=0`` plane and, for even ``N_x``, the Nyquist plane — the planes the
     rfft maps to themselves under conjugation, whose partners are already stored, so they count once), computed
@@ -219,6 +221,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     rather than by an `lpnorm` method. (This entry's original wording also grouped `std`/`var` with them;
     decision 49 later found those two physical-only by scoping rather than by validity, and gave them
     their spectral form.)
+
     **Physics stays consumer-side**: energy ``\tfrac{1}{2} \texttt{inner}(u,u)``, enstrophy
     ``\tfrac{1}{2} \texttt{inner}(\omega,\omega)``, dissipation ``\nu \texttt{inner}(\omega,\omega)``, rms ``\sqrt{\texttt{inner}}``, intensities from `std`. The FP-ordering
     concern that deferred reductions (item 11) is real — so they are implemented with a defined summation
@@ -226,61 +229,61 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 19. **The measure taxonomy — one L²/integration structure, three roles for "measure"; the recorded
     foundation for the spectral-multiplier family later realized as `Convolution` (decision 20).** The word *measure* recurs across the package
     (reductions, interpolation, and convolution) not by coincidence but
-    because all three are facets of the **same L²/integration structure on sections** ([§2](@ref "2. The central principle: the architecture follows established mathematics")). This entry
+    because all three are facets of the same L²/integration structure on sections ([§2](@ref "2. The central principle: the architecture follows established mathematics")). This entry
     fixes the taxonomy so the three never get conflated and so the multiplier family starts from a
     recorded design. The math anchor (Grafakos, [*Classical Fourier Analysis*](https://doi.org/10.1007/978-1-4939-1194-3),
-    3rd ed., Graduate Texts in Mathematics **249**, Springer, 2014, Thm 2.5.10): on a uniform
-    periodic box every **homogeneous (translation-invariant) linear operator is a Fourier multiplier** — a
+    3rd ed., Graduate Texts in Mathematics 249, Springer, 2014, Thm 2.5.10): on a uniform
+    periodic box every homogeneous (translation-invariant) linear operator is a Fourier multiplier — a
     coefficientwise ``m(k)`` — and the *bounded* ones are exactly those with symbol ``m(k) \in L^\infty``, where
     ``\lVert T\rVert_{L^2 \to L^2} = \lVert m\rVert_\infty``. So "apply ``m(k)``" is not a convenience — it is the complete representation of
     the translation commutant. The existing operators are all such multipliers: `helmholtz_projection` ([§4](@ref "4. Spectral machinery")),
-    the consumer's 2/3 de-alias mask, and the integrating factor ``\exp(-\nu k^2 \Delta t)`` are the **bounded** ones
-    (``m \in L^\infty``); `gradient`/`curl`/`laplacian` are the **unbounded** multipliers (symbols ``\mathrm{i}a``, ``-|k|^2 \notin L^\infty``),
+    the consumer's 2/3 de-alias mask, and the integrating factor ``\exp(-\nu k^2 \Delta t)`` are the bounded ones
+    (``m \in L^\infty``); `gradient`/`curl`/`laplacian` are the unbounded multipliers (symbols ``\mathrm{i}a``, ``-|k|^2 \notin L^\infty``),
     diagonalized identically but outside the norm identity above.
 
     The roles — each as *what it is; operation(s); the map it performs; status*:
 
     - **base-quadrature**: `Grid3D` cell volume ``\prod_i \Delta x_i`` / `PointSet` counting; ops
       `integral`, `inner`, `mean`, `std`, `lpnorm`, `radial_spectrum` (the ``|k|``-resolved `inner`);
-      section → scalar / fiber / radial profile; **done** (decisions 18, 21).
+      section → scalar / fiber / radial profile; done (decisions 18, 21).
     - **kernel — multiplier**: translation-invariant convolution, symbol ``m(k) \in L^\infty``;
       `convolve` / `convolve!` plus the builders `spectral_cutoff` / `spectral_band` /
       `radial_kernel` (any real symbol of ``|k|^2``); grid → grid
-      (a Fourier multiplier); **done** (`Convolution`, decisions 20, 21).
+      (a Fourier multiplier); done (`Convolution`, decisions 20, 21).
     - **kernel — transfer**: off-grid partition-of-unity convolution (unit mass; signed or positive);
       `interpolate` (``W``) / `anterpolate` (``W^\top``); grid ↔ point (base-change, *not* a
-      multiplier); **done** (decisions 13/17).
+      multiplier); done (decisions 13/17).
     - **sample-space (FDF)**: spatially-filtered fine-grained Dirac density, over the
-      velocity/composition sample space; no package operation; **out** (physics; invariant 12).
+      velocity/composition sample space; no package operation; out (physics; invariant 12).
 
     *Interpolation is the base-changing sibling of the multiplier, not a multiplier.* The gather weights
-    `{W(x_p, x_g)}_g` are a discrete grid measure of **total mass 1** (partition of unity), so
+    `{W(x_p, x_g)}_g` are a discrete grid measure of total mass 1 (partition of unity), so
     ``u(x_p) = \int u\,\mathrm{d}\mu_{x_p}`` is integration of the field against a unit-mass kernel measure centered at
     the point — the same *species* as a homogeneous filter. Two differences make it its own operation
-    ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)"), in `Interpolation`, not under the multiplier family): (i) its codomain is the **unstructured
-    point base**, which has no wavenumbers, so it is a **base-change** (grid↔point), *not* a Fourier
+    ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)"), in `Interpolation`, not under the multiplier family): (i) its codomain is the unstructured
+    point base, which has no wavenumbers, so it is a base-change (grid↔point), *not* a Fourier
     multiplier (it degenerates to one only when points coincide with nodes); (ii) the default
-    `CatmullRom`/`Lagrange` kernels have **negative side-lobes** — a *signed* unit-mass measure (higher
+    `CatmullRom`/`Lagrange` kernels have negative side-lobes — a *signed* unit-mass measure (higher
     reproduction order, but overshoot), while only the linear `m=0` / positive-B-spline end is a genuine
-    **probability measure** (monotone). Reproduction order = number of matched **moments** of the kernel
+    probability measure (monotone). Reproduction order = number of matched moments of the kernel
     measure (0th moment `=1` = partition of unity = constants reproduced). This signed/positive split is
     the *same* dichotomy the LES research surfaces below — evidence the kernel measure is one concept.
 
     *The transfer adjoint is a row-1 (base-measure) statement, and that is why reductions came first.*
     Anterpolation ``W^\top`` is the adjoint of ``W``; "adjoint w.r.t. which pairing?" is answered by the base
     measures. As shipped (decision 17) the adjointness ``\sum_p (Wf)_p \cdot q_p = \sum_n f_n \cdot (W^\top q)_n`` (the unnormalized counting pairing) and conservation
-    ``\sum_g (W^\top q)_g = \sum_p q_p`` hold in the **counting/transpose** pairing (the extensive facet of row 1;
-    conservation = partition of unity). The **measure-weighted L² adjoint** — ``W``, ``W^\top`` adjoint with **both bases carrying their
-    normalized (total-mass-one) measures**, ``\tfrac{1}{N}\sum_n`` on the grid and ``\tfrac{1}{M}\sum_p`` on the
-    points, which is what `inner` computes — is the **bridge from row 1 to the transfer kernel**, and is
-    now **done**: both measures being uniform, it is ``(N/M) W^\top`` (a scalar rescaling, no new
+    ``\sum_g (W^\top q)_g = \sum_p q_p`` hold in the counting/transpose pairing (the extensive facet of row 1;
+    conservation = partition of unity). The measure-weighted L² adjoint — ``W``, ``W^\top`` adjoint with both bases carrying their
+    normalized (total-mass-one) measures, ``\tfrac{1}{N}\sum_n`` on the grid and ``\tfrac{1}{M}\sum_p`` on the
+    points, which is what `inner` computes — is the bridge from row 1 to the transfer kernel, and is
+    now done: both measures being uniform, it is ``(N/M) W^\top`` (a scalar rescaling, no new
     operation). The ``N/M`` is exactly the ratio of those two normalizations; pairing an unnormalized
     cell-volume grid measure against counting points would instead give ``(N/|\Omega|) W^\top``,
     verified via `inner` as ``M \texttt{inner}(Wf, q) = N \texttt{inner}(f, W^\top q)`` (`test/interpolation_transfer.jl`). That the
     reductions had to precede it is recorded here.
 
     *The multiplier family (designed here; realized as `Convolution`, decision 20) carries three research-grounded guardrails.*
-    The deep-research findings on LES filtering do **not** change the design — they justify it and bound
+    The deep-research findings on LES filtering do not change the design — they justify it and bound
     it:
     - **The symbol is data, never parameters** — this is how the family stays inside invariant 12 (no
       time, no physics). The applicator multiplies a field-in-spectral by a precomputed ``k``-array; ``\nu``,
@@ -288,16 +291,16 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       `FieldSpectralMultipliers` wavenumbers ([§4](@ref "4. Spectral machinery")). The viscous factor ``\exp(-\nu k^2 \Delta t)`` is literally the
       heat-kernel probability measure, yet the package never sees ``\nu`` or ``\Delta t``.
     - **Do not restrict to positive ("measure") symbols.** ``L^\infty``-symbol is the right generality;
-      convolution-with-a-finite-measure is a *strict subclass* whose symbol must be **continuous**, and
-      the 2/3 mask and sharp spectral cutoff have **discontinuous** symbols (kernels not in ``L^1``) — so
+      convolution-with-a-finite-measure is a *strict subclass* whose symbol must be continuous, and
+      the 2/3 mask and sharp spectral cutoff have discontinuous symbols (kernels not in ``L^1``) — so
       they are *not* such convolutions yet are valid multipliers we rely on. Positivity of the kernel ⟺
-      positive-definite symbol (**Bochner**) ⟹ probability measure ⟹ realizable SGS stress
-      (**Vreman, Geurts & Kuerten 1994**, realizability *iff* positive filter) ⟹ bona-fide filtered PDF
-      (**Colucci et al. 1998**, the FDF); all of that is **consumer** semantics. No
+      positive-definite symbol (Bochner) ⟹ probability measure ⟹ realizable SGS stress
+      (Vreman, Geurts & Kuerten 1994, realizability *iff* positive filter) ⟹ bona-fide filtered PDF
+      (Colucci et al. 1998, the FDF); all of that is consumer semantics. No
       `PositiveFilter` type, no realizability checks. (`Interpolation` already ships signed kernels by
       default — consistent.)
     - **Homogeneous-only scope.** Variable-width filters are *not* multipliers (commutation error;
-      **Ghosal & Moin 1995**, **Vasilyev, Lund & Moin 1998**) — and the uniform torus admits only
+      Ghosal & Moin 1995, Vasilyev, Lund & Moin 1998) — and the uniform torus admits only
       homogeneous operators anyway, so this is a clarifying boundary, not a gap. Projections are the
       *idempotent* multipliers (the sharp cutoff; `helmholtz_projection` is the matrix-valued one we
       already ship); smoothings are the non-idempotent ones — same family, no special case.
@@ -314,8 +317,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 20. **Convolution — the kernel-multiplier family realized ([§2](@ref "2. The central principle: the architecture follows established mathematics"); the new `Convolution` module).**
     Implements the multiplier designed in decision 19 as periodic (circular) convolution of a field
     with a kernel, in spectral representation: by the convolution theorem on the torus, `f ⋆ g` is the
-    **coefficientwise spectral product** ``\hat f \cdot \hat g``. The kernel `g` is supplied by its transfer function
-    ``\hat g`` as a **`ScalarFieldSpectral`** (decision 19's open "kernel as a field" call, chosen for
+    coefficientwise spectral product ``\hat f \cdot \hat g``. The kernel `g` is supplied by its transfer function
+    ``\hat g`` as a `ScalarFieldSpectral` (decision 19's open "kernel as a field" call, chosen for
     elegance); a scalar kernel broadcasts over the fiber, so one method serves scalar/vector/tensor
     fields, and because a kernel is itself a scalar field in spectral representation, `convolve(g₁,
     g₂)` composes two kernels for free (the `R = 0` case). (Superseded by decision 60: a kernel is now
@@ -327,7 +330,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     differential-operator precedent).
 
     *This completes invariant 1 rather than weakening it.* The coefficientwise spectral product is the
-    operation invariant 1 names but bans **as `*`** (because `*` would read as the spectral *pointwise*
+    operation invariant 1 names but bans as `*` (because `*` would read as the spectral *pointwise*
     product, which it is not). It is offered here under its true name — `convolve`, never `*` — and is
     linear in the field for a fixed kernel; the spectral pointwise product, division, and norms remain
     absent. The `convolve` / `convolve!` / `spectral_cutoff` family are separate generics, so the `FieldAlgebra`
@@ -365,7 +368,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       band energy `= inner(u_band, u_band)` with `u_band = convolve(u, band)`, then a rescaling `convolve`
       — no scalar indexing, and the `inner(f, f)` form is allocation-free (its fused-`abs2` fast path).
     - **`radial_spectrum(f, multipliers)` (`Reductions`; introduced as `shell_spectrum`, renamed in
-      decision 22)** — the **radial (shell-binned) power spectrum**: `inner` decomposed into isotropic
+      decision 22)** — the radial (shell-binned) power spectrum: `inner` decomposed into isotropic
       ``|k|``-shells. Returns `(shells, spectrum)` with the exact refinement `sum(spectrum) == inner(f, f)`
       (same rfft half-spectrum Parseval weighting, now resolved per mode). This is the genuinely new
       reduction — spectral-representation only, like the Parseval `inner` — and the architectural framing
@@ -376,39 +379,41 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       refinement is exact; on a de-aliased field the high-``|k|`` shells are empty.
 
     *Device-clean by construction.* `radial_kernel` / `spectral_band` are broadcast kernel
-    builders (the `spectral_cutoff` pattern); `radial_spectrum` bins via a single **scatter-add** pass — one
+    builders (the `spectral_cutoff` pattern); `radial_spectrum` bins via a single scatter-add pass — one
     portable atomic-histogram kernel over the modes (no scalar indexing), an occasional diagnostic.
     *(Originally a sequence of masked reductions, one per shell, with the histogram scatter deferred as
-    "unneeded"; **decision 25** lifted the deferral — the per-shell masks allocated ``O(N)`` full-grid
+    "unneeded"; decision 25 lifted the deferral — the per-shell masks allocated ``O(N)`` full-grid
     temporaries per call (``N`` the points per axis), which on the GPU the garbage collector cannot reclaim
     promptly, so a single ``256^3`` diagnostic wedged a 12 GB card.)* Tested CPU (`test/convolution.jl` band/coordinate vs the ``|k|^2`` oracle + cutoff equivalence;
     `test/reductions.jl` `sum(radial_spectrum) == inner`, the single-mode shell placement) and GPU (ROCm
     device-vs-CPU parity in `test/gpu/suite.jl`); benchmarked (the `reductions` / `convolution` classes).
     The `examples/HIST_CPU.jl` + `examples/gpu/rocm/HIST_ROCm.jl` demos are refactored onto them, making
     the GPU forcing + spectrum fully on-device. Matrix-valued (anisotropic) shells remain future; the
-    **co-spectrum `radial_spectrum(f, g)`** is now **done** (decision 22, the two-field cross-power). **Renamed `shell_spectrum → radial_spectrum` in
+    co-spectrum `radial_spectrum(f, g)` is now done (decision 22, the two-field cross-power).
+
+    **Renamed `shell_spectrum → radial_spectrum` in
     decision 22 (done); the physical-space dual `radial_correlation` is decision-22 Phase 1, also done.**
 22. **Radial statistics — the spectrum↔correlation duality (Wiener–Khinchin), and the FFT route to
     point pair-statistics (RDF). [Phase 1 (`radial_correlation`), Phase 2 (`assignment_window` + the
     pair-correlation recipe), and the two-field co-spectra (`radial_spectrum(f, g)` / `radial_correlation(f, g)`) all DONE.]**
 
-    *The object.* A field's **two-point correlation function** and its **power spectrum** are one object
-    in two representations, linked by the **Wiener–Khinchin theorem**: on the periodic grid the circular
+    *The object.* A field's two-point correlation function and its power spectrum are one object
+    in two representations, linked by the Wiener–Khinchin theorem: on the periodic grid the circular
     autocorrelation ``C(r) = \langle f(x) \cdot f(x+r)\rangle`` equals ``\mathcal F^{-1}(|\hat f|^2)/N`` exactly — the inverse
     transform of the power spectrum, normalized by the grid-point count ``N`` (the cross-correlation theorem).
-    Radially averaging gives the **isotropic radial statistics**, a Fourier-dual pair — average ``|\hat f|^2``
+    Radially averaging gives the isotropic radial statistics, a Fourier-dual pair — average ``|\hat f|^2``
     over ``|k|``-shells (the spectrum), or ``\mathcal F^{-1}(|\hat f|^2)`` over ``|r|``-shells (the correlation). This is
-    invariant 2 — *physical and spectral are representations of one object* — raised to **second-order
-    statistics**: the spectrum and the correlation function are not two diagnostics but one, viewed in
+    invariant 2 — *physical and spectral are representations of one object* — raised to second-order
+    statistics: the spectrum and the correlation function are not two diagnostics but one, viewed in
     the two representations. The `radial_spectrum` reduction (decision 21, introduced as `shell_spectrum`) is the
     spectral half; this entry designs the physical half and the point application, and fixes the
     terminology so the family is coherent.
 
-    *Terminology (decided; the rename is **done**).* `shell_spectrum` is renamed **`radial_spectrum`**,
-    and the physical dual **`radial_correlation`** is added (Phase 1, **done**). "Radial" is the
+    *Terminology (decided; the rename is done).* `shell_spectrum` is renamed `radial_spectrum`,
+    and the physical dual `radial_correlation` is added (Phase 1, done). "Radial" is the
     isotropic-average qualifier common to both spaces — and to the *radial* distribution function of point
     statistics; "shell" named the binning implementation and does not pair with the physical-space
-    correlation. The two are the **radial reductions**: a Fourier-dual pair in `Reductions`, each mapping
+    correlation. The two are the radial reductions: a Fourier-dual pair in `Reductions`, each mapping
     a field to a 1-D radial profile, named by the quantity's noun per [§2](@ref "2. The central principle: the architecture follows established mathematics") (`spectrum` / `correlation`)
     under the `radial` qualifier. The `radial_spectrum` math is unchanged (`sum == inner`). Physics names
     stay consumer-side: the energy spectrum ``E(\kappa) = \tfrac{1}{2} \texttt{radial\_spectrum}``, the integral/Taylor scales from
@@ -419,68 +424,70 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (full fiber contraction — the trace of the correlation tensor, mirroring `inner`) ``= \mathcal F^{-1}(|\hat f|^2)/N``
     binned over minimum-image ``|r|`` shells. The zero-separation value is ``C(0) = \langle |f|^2\rangle = \texttt{inner}(f, f)`` (the
     second moment — the variance only when ``f`` is mean-free); and for a zero-mean field ``C(r) \to 0``
-    at large ``r``. **The open design point was resolved
-    as the user chose:** `radial_correlation(f, plans)` takes the field in spectral representation **plus
-    its transform plans** (symmetric with how the differential operators take `multipliers`) — `Reductions`
+    at large ``r``.
+
+    **The open design point was resolved
+    as the user chose:** `radial_correlation(f, plans)` takes the field in spectral representation plus
+    its transform plans (symmetric with how the differential operators take `multipliers`) — `Reductions`
     imports `to_physical` from `Fields` to do the one inverse rfft, then bins with the same scatter-add
     machinery as `radial_spectrum` (the single-pass shell histogram; decision 25), in ``r`` instead of ``|k|``. Verified against an independent
     binned-circshift autocorrelation (CPU `test/reductions.jl`, GPU `test/gpu/suite.jl`) and `C(0) = inner`.
 
     *The two-field co-spectra — `radial_spectrum(f, g)` / `radial_correlation(f, g)` (done).* The mixed
-    second-order statistics of two compatible, equal-order fields, refining the **mixed** `inner(f, g)` exactly as
-    the single-field forms refine `inner(f, f)`. The **co-spectrum** bins the Parseval-weighted cross-power
+    second-order statistics of two compatible, equal-order fields, refining the mixed `inner(f, g)` exactly as
+    the single-field forms refine `inner(f, f)`. The co-spectrum bins the Parseval-weighted cross-power
     density ``\sum_c \mathrm{Re}(\hat f_c \overline{\hat g_c})`` (``c`` indexing the fiber components) over ``|k|``-shells (``\sum_\kappa P_{fg} = \texttt{inner}(f, g)``);
-    the **cross-correlation** ``C_{fg}(r) = \langle f(x)\cdot g(x+r)\rangle = \mathcal F^{-1}(\overline{\hat f} \hat g)/N``
+    the cross-correlation ``C_{fg}(r) = \langle f(x)\cdot g(x+r)\rangle = \mathcal F^{-1}(\overline{\hat f} \hat g)/N``
     binned over ``|r|``-shells (``C_{fg}(0) = \texttt{inner}(f, g)``). Two properties fall out of the math and are
-    pinned by tests: each is **symmetric** in ``f, g`` — ``\mathrm{Re}`` is conjugation-symmetric for the spectrum,
+    pinned by tests: each is symmetric in ``f, g`` — ``\mathrm{Re}`` is conjugation-symmetric for the spectrum,
     and the ``\pm r`` folding of the min-image shells symmetrizes the correlation (``C_{fg}(-r) = C_{gf}(r)``, so the
     radial average is ``\tfrac{1}{2}(C_{fg}+C_{gf})``) — and the single-field forms are exactly the ``g = f`` case
     (``\mathrm{Re}(\hat f \overline{\hat f}) = |\hat f|^2``; asserted bit-identical). Unlike the power spectrum the
-    co-spectrum **may be negative** in a shell (anticorrelated modes — the canonical use is a momentum/scalar flux
+    co-spectrum may be negative in a shell (anticorrelated modes — the canonical use is a momentum/scalar flux
     co-spectrum, where sign is physical). Implementation reuses the single-field code: the binning helpers
     (`_radial_spectrum_bin`, `_correlation_field_from` + `_radial_average`) are shared, the two-field methods only swap
     the per-mode density (``|\hat f|^2 \to \mathrm{Re}(\hat f \overline{\hat g})``) / the per-component spectrum
     (``|\hat f|^2 \to \overline{\hat f} \hat g``, Hermitian for real ``f, g`` ⇒ the c2r reconstruction is exactly real).
     (The helper set has since been consolidated: the staging fused into the binning kernels themselves and
     `_correlation_field_from` folded into the correlation methods — decision 34; the sharing structure is unchanged.)
-    These are **new methods on the existing `Reductions` generics** — no export change, the 198/118 parity baselines
+    These are new methods on the existing `Reductions` generics — no export change, the 198/118 parity baselines
     are unchanged. Verified CPU (`test/reductions.jl`: analytical oracles — an orthogonal pair ``\cos x \perp \sin x``
     giving zero, and ``\cos x \pm \cos 2x`` giving ``\pm\tfrac{1}{2}`` in adjacent shells that cancel to ``\texttt{inner} = 0``;
     the ``g = f`` consistency; the ``f \leftrightarrow g`` symmetry; and an independent binned-circshift cross-correlation
     on a random pair) + GPU (ROCm device-vs-CPU parity, `test/gpu/suite.jl`); benchmarked (`reductions` class).
 
     *Points → RDF (Phase 2, done).* The pair correlation ``g(r)`` of ``M`` points is computable
-    in ``O(N \log N + M)`` (vs ``O(M^2)`` direct counting) via the **FFT structure-factor estimator** — exactly
-    the implemented recipe: **anterpolate** the points to a grid density (positive/linear assignment), form the
-    overdensity ``\delta = \rho/\bar\rho - 1``, **FFT**, **deconvolve** ``\hat\delta`` by the assignment window
+    in ``O(N \log N + M)`` (vs ``O(M^2)`` direct counting) via the FFT structure-factor estimator — exactly
+    the implemented recipe: anterpolate the points to a grid density (positive/linear assignment), form the
+    overdensity ``\delta = \rho/\bar\rho - 1``, FFT, deconvolve ``\hat\delta`` by the assignment window
     ``\hat W``, then `radial_correlation` of the deconvolved field gives ``\xi(r) = \langle\delta(x)\delta(x+r)\rangle``
     and ``g(r) = 1 + \xi(r)`` (the ``i=j`` self term is the shot noise, isolated in the ``r=0`` shell, so
     ``g`` at ``r>0`` is clean). With ``\hat\rho(k) = \sum_i e^{-\mathrm{i} k \cdot x_i}``,
     ``S(k) = |\hat\rho|^2/M = 1 + \bar n \hat h(k)`` (Ornstein–Zernike) and ``g = 1 + h``. We already owned
-    anterpolate + the transforms + both radial reductions; the **one new neutral primitive is the
-    assignment-window deconvolution**, the rest is the consumer recipe (invariant 12). Three corrections, all
+    anterpolate + the transforms + both radial reductions; the one new neutral primitive is the
+    assignment-window deconvolution, the rest is the consumer recipe (invariant 12). Three corrections, all
     handled:
 
     - **Assignment-window deconvolution (`assignment_window`, `Convolution`).** Scattering with kernel ``W``
       gives ``\hat\rho_g = \hat W(k) \hat\rho``, so the measured spectrum is suppressed by ``|\hat W(k)|^2`` —
-      divide it out (a `convolve` by ``1/\hat W``). Shipped for the **linear (CIC) positive** assignment:
+      divide it out (a `convolve` by ``1/\hat W``). Shipped for the linear (CIC) positive assignment:
       ``\hat W(k) = \prod_a \operatorname{sinc}^2(k_a\Delta x_a/2)``, no in-band zeros. (Higher positive
       B-splines / the signed-kernel closed forms remain future.)
     - **Shot noise.** The ``i=j`` self term is a constant ``+1`` floor in ``S(k)`` (a ``\delta(r)`` at the
       origin): in the binned ``g(r)`` it lands entirely in the ``r=0`` shell, so evaluating ``g`` at ``r>0`` is the
       subtraction (no extra step). Consumer-side by convention.
     - **Aliasing / resolution.** The grid folds high-``k`` at Nyquist — trust ``k \lesssim \tfrac{2}{3} k_\mathrm{Nyq}``, and ``g(r)``
-      below a few grid cells is unreliable regardless of corrections. FFT-RDF resolves **intermediate /
-      large-scale clustering** (e.g. inertial-range preferential concentration), *not* a sharp contact
+      below a few grid cells is unreliable regardless of corrections. FFT-RDF resolves intermediate /
+      large-scale clustering (e.g. inertial-range preferential concentration), *not* a sharp contact
       peak (interlacing — Sefusatti et al. 2016 — is a future refinement). This matches the intended consumer
       use; it is a documented boundary, not a defect.
 
     *Verified (`test/rdf.jl`):* `assignment_window` against its ``\prod \operatorname{sinc}^2`` formula
-    (even/odd grids, both element types), and the full recipe against an **independent direct ``O(M^2)``
-    physical-space pair count** on a clustered point set — the recipe recovers the clustering peak (within
+    (even/odd grids, both element types), and the full recipe against an independent direct ``O(M^2)``
+    physical-space pair count on a clustered point set — the recipe recovers the clustering peak (within
     ~10% of direct counting) and the ``g \to 1`` baseline (the normalization).
 
-    *Decision-19 tie-in.* A density estimate wants the **positive (probability-measure)** end of the
+    *Decision-19 tie-in.* A density estimate wants the positive (probability-measure) end of the
     kernel taxonomy (the linear ``m = 0`` / a B-spline), not the signed default `CatmullRom`, so ``g(r) \ge 0``
     and ``\hat W(k)`` has no in-band zeros (no division blow-up in the deconvolution). Decision 19's recorded
     signed/positive split becomes a concrete, motivated choice here.
@@ -489,15 +496,19 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (harmonic analysis / spatial statistics). The names RDF, structure factor, pair correlation, and the
     shot-noise / normalization conventions (which encode "what a particle is") stay consumer-side — the
     package ships the primitives and a documented recipe (`test/rdf.jl`, validated against direct pair
-    counting), **not** a `radial_distribution_function` function: that scoping held.
+    counting), not a `radial_distribution_function` function: that scoping held.
 
-    *Phasing — all done.* **Phase 1:** `radial_correlation(f, plans)` (the field duality; neutral, no new
+    *Phasing — all done.* Phase 1: `radial_correlation(f, plans)` (the field duality; neutral, no new
     math), ``\Delta r`` = the finest grid spacing, minimum-image ``|r|`` binning, ``C(0) = \texttt{inner}``
-    exact. **Phase 2:** `assignment_window` (the linear/CIC ``\prod \operatorname{sinc}^2`` deconvolution
+    exact.
+
+    **Phase 2:** `assignment_window` (the linear/CIC ``\prod \operatorname{sinc}^2`` deconvolution
     window, `Convolution`) + the documented point-RDF recipe, validated against direct ``O(M^2)`` counting.
+
     **Co-spectra (done):** the two-field `radial_spectrum(f, g)` / `radial_correlation(f, g)` (the
     cross-power / cross-correlation pair — momentum/scalar fluxes; new methods on the existing generics that
     reuse the single-field binning, refining the mixed `inner(f, g)`; symmetric, may be negative — see above).
+
     **Future (deferred until a consumer makes them concrete):** higher positive-B-spline / signed-kernel
     window transforms and interlacing (sharper small-``r`` ``g``); and — the "meaningful fibers over the
     radial coordinate" — the anisotropic / tensor-valued radial spectra ``E_{ij}(\kappa)`` and the
@@ -506,7 +517,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 23. **Spectral-domain transfer — `DirectDFT` (exact) and the native `NUFFT` (fast). [Both DONE.]**
 
     *The object.* The transfer layer ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")) had one scheme family — the physical-domain local splines.
-    This adds the **spectral-domain** transfer: evaluation/deposition between Fourier coefficients and
+    This adds the spectral-domain transfer: evaluation/deposition between Fourier coefficients and
     scattered points, the exact off-grid form of the field. Both families are unified under a new
     supertype `AbstractTransferScheme`, sharing the `interpolate`/`anterpolate` verbs and the adjoint
     contract (the counting-transpose pairing, which the ``N/M`` rescaling above turns into the exact
@@ -520,24 +531,24 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     \alpha(k) \mathrm{Re}(\hat f(k) e^{\mathrm{i} k\cdot(x_p-o)})`` (the rfft half-spectrum reconstruction, with
     the Parseval weight ``\alpha`` of decision 18 — ``1`` on the ``k_x=0``/even-Nyquist planes, ``2`` else),
     type-1 ``(W^\top q)(k) = \sum_p q_p e^{-\mathrm{i} k\cdot(x_p-o)}``. It is the *definition* of the
-    spectral-domain pair, so it is at once a transparent exact baseline, the **divergence-free
-    reference** (it reproduces the band-limited field exactly — verified ``\sim 10^{-16}`` off-grid —
-    where the splines break ``\nabla\cdot u=0``), and the **oracle** that will validate `NUFFT`. It
+    spectral-domain pair, so it is at once a transparent exact baseline, the divergence-free
+    reference (it reproduces the band-limited field exactly — verified ``\sim 10^{-16}`` off-grid —
+    where the splines break ``\nabla\cdot u=0``), and the oracle that will validate `NUFFT`. It
     matches `to_physical` at the grid nodes and `to_spectral` from node samples (both exact to round-off),
     and satisfies ``M \langle W\hat f, q\rangle_{\mathrm{pts}} = N \langle \hat f, W^\top q\rangle_{\mathrm{grid}}`` (the
     measure factor, as for the splines — decision 17). Two simple KernelAbstractions kernels (type-2
     over points, type-1 over modes — no atomics), the per-axis wavenumbers + ``\alpha`` built host→device
     like the multipliers; no FFT, window, or oversampling. Stateless `DirectDFT()`; CPU + GPU-portable.
-    **Standing principle** (beyond this pair): when a fast or approximate method is added, its exact
-    reference ships as a **first-class sibling scheme**, built first — at once the definition a user can
+    Standing principle (beyond this pair): when a fast or approximate method is added, its exact
+    reference ships as a first-class sibling scheme, built first — at once the definition a user can
     reach for at small sizes and the oracle the fast form is validated against — never a `test/`-only helper.
 
     *Native `NUFFT` (decided: own it, no dependency — done).* The fast ``O(N\log N + M)`` windowed
-    gridding form of `DirectDFT`: **spread → FFT → deconvolve**, all reusing existing machinery — the
+    gridding form of `DirectDFT`: spread → FFT → deconvolve, all reusing existing machinery — the
     transfer kernels (spread/gather with an exponential-of-semicircle window in place of the spline
     coefficients), a `FieldTransformPlans` on an oversampled (``\sigma=2``) grid, and a ``1/\hat\psi``
     deconvolution `ScalarFieldSpectral` — ``\psi`` the smooth compact spreading window, ``\hat\psi`` its
-    Fourier transform — built like `assignment_window` (which **is** the ``\hat\psi`` of the linear/CIC
+    Fourier transform — built like `assignment_window` (which is the ``\hat\psi`` of the linear/CIC
     window — so `NUFFT` generalizes the decision-22 RDF deconvolution). The one new ingredient is that
     window ``\psi`` (exp-of-semicircle, GPU-trivial) and its transform ``\hat\psi``
     (host quadrature, the ``z=\sin\theta`` substitution regularizing the endpoint); the stencil width
@@ -546,16 +557,16 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ES rule for the tolerance.
     Verified against `DirectDFT` (and `to_physical`) to the requested tolerance ``\varepsilon``
     (the default requests `tol = 1e-10`; the exponential-of-semicircle window over-delivers, ``\sim 10^{-12}`` measured there) for scalar and
-    vector fields, with the NUFFT pair an **exact adjoint** (``\sim 10^{-15}``).
+    vector fields, with the NUFFT pair an exact adjoint (``\sim 10^{-15}``).
 
     *The Nyquist edge.* The one subtlety: the rfft half-spectrum Nyquist mode of an even axis cannot be
-    split losslessly into the finer oversampled grid (zero-padding a real spectrum). It is **projected
-    out** in the deconvolution, so `NUFFT`'s type-1/type-2 remain exact adjoints on the **resolved
-    band** — exactly the band a spectral solver uses (de-aliasing, or any natural spectral
+    split losslessly into the finer oversampled grid (zero-padding a real spectrum). It is projected
+    out in the deconvolution, so `NUFFT`'s type-1/type-2 remain exact adjoints on the resolved
+    band — exactly the band a spectral solver uses (de-aliasing, or any natural spectral
     decay, zeros the Nyquist), where the transfer is exact to ``\varepsilon``. `DirectDFT` (no
     oversampling) carries the Nyquist exactly; the two agree on the sub-Nyquist band.
 
-    `NonuniformFFTs.jl` was evaluated (it fits — real-data rfft, AMDGPU/KA, batched) but **not adopted**:
+    `NonuniformFFTs.jl` was evaluated (it fits — real-data rfft, AMDGPU/KA, batched) but not adopted:
     owning it keeps the package self-contained and makes the spline transfer and the NUFFT share one
     spread machinery, with `DirectDFT` and a direct ``O(NM)`` DFT as independent ground truth. Tested
     CPU (`test/transfer_spectral.jl`) + GPU parity; method parity 198/118 unchanged (the transfer verbs
@@ -566,16 +577,16 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     internally is invisible to Julia's garbage collector — the collector triggers on *host* memory
     pressure, but the scratch lives in *device* memory — so the device memory pool grows every step
     until it fills VRAM, and the run then wedges (the allocator spins, GPU idle) or `hipMalloc` aborts.
-    The discipline this forces: the in-place ``!`` operators must allocate **nothing**, writing only
+    The discipline this forces: the in-place ``!`` operators must allocate nothing, writing only
     into their preallocated destination. Two changes brought the spectral operators into line. *(a)*
     `_squared_wavenumber_broadcast` — the radial coordinate ``|k|^2 = k_1^2 + k_2^2 + k_3^2`` — now
-    returns a **lazy** `Broadcasted` over the three per-axis squared-wavenumber vectors instead of a
+    returns a lazy `Broadcasted` over the three per-axis squared-wavenumber vectors instead of a
     materialized ``O(N^3)`` array (``N`` the points per axis), so the Laplacian (``-|k|^2\hat f``),
     inverse Laplacian (``-\hat f/|k|^2``) and Helmholtz projection
     (``\hat f_i - k_i (k_j\hat f_j)/|k|^2``) fuse it into their own broadcasts without ever allocating
     it. *(b)* The `laplacian!`, `inverse_laplacian!` and `helmholtz_projection!` kernels were rewritten
     so their former per-call temporaries (the longitudinal coefficient ``k_j\hat f_j/|k|^2``, the safe
-    ``1/|k|^2`` that is ``1`` at the zero mode) are **fused** into the component assignments rather than
+    ``1/|k|^2`` that is ``1`` at the zero mode) are fused into the component assignments rather than
     materialized; the projection recomputes the longitudinal part inline for each component, which is
     safe because the kernel always receives a destination distinct from the source — the aliased
     `helmholtz_projection!(x, x)` allocates its guard temporary upstream ([§7](@ref "7. Aliasing policy")).
@@ -583,8 +594,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     part once per mode and serves the aliased call directly, guard retired — decision 32.)
     Net: each of the three now allocates ``\sim 0`` bytes in place (measured), with identical arithmetic
     and results (the full suite is unchanged) — so a preallocated, in-place pseudospectral step allocates
-    nothing per step and runs on a 12 GB consumer GPU with **no manual `GC.gc()` / `reclaim`, at flat
-    VRAM** (the `examples/` HIST solvers demonstrate this — ``192^3`` Float32 at ``\sim\!34`` ms/step on
+    nothing per step and runs on a 12 GB consumer GPU with no manual `GC.gc()` / `reclaim`, at flat
+    VRAM (the `examples/` HIST solvers demonstrate this — ``192^3`` Float32 at ``\sim\!34`` ms/step on
     a since-retired card). Guarded by `test/allocations.jl` (every in-place spectral operator, transform,
     `convolve!`, and fiber product/shuffle, both element types). The fiber norm, `lpnorm` and `dev!`
     deliberately materialize one field (a pointwise magnitude, or the trace they subtract) and are the
@@ -605,7 +616,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     so the pool climbs. One ``256^3`` correlation snapshot churned several GB; with the live working set
     already ``\sim\!6`` GB, the first snapshot wedged a 12 GB card (the allocator spinning, GPU idle).
 
-    The fix replaces the per-shell loop with a single **scatter-add** pass — one portable
+    The fix replaces the per-shell loop with a single scatter-add pass — one portable
     `KernelAbstractions` + `Atomix` histogram kernel (`_shell_bin_kernel!`, driven by `_bin_by_shell`) that
     sweeps the array once and, per element, atomically adds the value (and a unit population count) into the
     accumulator of its shell, keyed by a precomputed integer shell index. (Decision 34 later fused even
@@ -632,8 +643,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 26. **Allocation-free in-place operators are a standing, exhaustively-enforced contract (generalizing 24
     and 25).** Decisions 24 (the spectral operators) and 25 (the radial binning) each fixed *one* family
     that allocated a per-call temporary the GPU could not afford. This decision promotes the property from
-    a sequence of point fixes to a package-wide invariant: **every in-place `!` operator allocates no
-    field-sized scratch** when called on preallocated buffers with a destination distinct from its sources
+    a sequence of point fixes to a package-wide invariant: every in-place `!` operator allocates no
+    field-sized scratch when called on preallocated buffers with a destination distinct from its sources
     — kernels fuse their temporaries into the assignment, never materialize them. The motivation is the one
     from decision 24: a solver applies these operators thousands of times per step, and on the GPU a
     per-call temporary escapes Julia's garbage collector (which triggers on *host* memory pressure, while
@@ -644,11 +655,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     and asserts a second `@allocated` call stays below a small fraction of one field — across both element
     types, both representations, tensor orders ``R = 0, 1, 2``, the field/constant/reversed and α/β argument
     branches, the point-value algebra, and the spline transfer (the *whole* in-place surface, not a sample).
+
     **It runs on the CPU on purpose:** there a materialized field is a host `Array` and `@allocated` counts
     its full bytes, so a stray temporary trips the threshold; on the GPU the same `similar`/broadcast
     allocates a *device* buffer whose host wrapper is only a few hundred bytes, so GPU `@allocated` would
     report ``\sim 0`` and miss the leak. The operator code is generic over the array type, so a
-    field-sized **materialization** — a `similar` or a broadcast landing in a temporary — is
+    field-sized materialization — a `similar` or a broadcast landing in a temporary — is
     backend-symmetric: seeing it on the CPU is seeing it on the GPU, and the CPU is simply where it is
     visible. That symmetry covers the materialization class, not every byte a device run allocates: a
     `KernelAbstractions` launch also takes a small, size-independent host-side bookkeeping allocation
@@ -682,12 +694,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     [`GBGHomogeneousTurbulence`](https://grigorysarnitsky.github.io/GBGHomogeneousTurbulence.jl) (a thin
     physics solver built on this field layer) asked the package to absorb
     the field-math it hand-rolls hottest, on the principle that a field library should serve its consumer the
-    way **numpy/BLAS serve scientific Python** — not only composable primitives, but *fused* kernels for the
+    way numpy/BLAS serve scientific Python — not only composable primitives, but *fused* kernels for the
     recurring composites. The reason is concrete: Julia fuses within a single broadcast or `mapreduce` but
-    **not across function-call boundaries**, so a chain like `gradient!` → `sym!` → `inner` is three separate
+    not across function-call boundaries, so a chain like `gradient!` → `sym!` → `inner` is three separate
     passes that each materialize a tensor-sized intermediate — and on a memory-bound GPU consumer that
     intermediate's peak footprint, not the bandwidth, is the binding constraint. The rule for what to absorb:
-    **fuse away the intermediate the consumer never needs, or supply a genuinely missing primitive** — never
+    fuse away the intermediate the consumer never needs, or supply a genuinely missing primitive — never
     add an operation "for completeness" (invariant 1). An adversarial triage kept four and deferred one; each
     kept operation is general field math with no time, particles, or physics (invariant 12 — the physics
     names stay consumer-side).
@@ -698,27 +710,27 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       pass. It was a genuine gap: `add!` is unit-weight (``a+b``) and `multiply!` scales a single field, so
       the weighted combination (an axpby) had no form and the consumer reached into field storage with
       hand-rolled broadcasts at nine call sites. It completes the package's own ``\alpha/\beta`` accumulation
-      convention (already on `mul!`/`convolve!`); being linear in the fields it is defined in **both**
+      convention (already on `mul!`/`convolve!`); being linear in the fields it is defined in both
       representations, and being coefficientwise it is alias-safe with no guard (``a`` or ``b`` may be
       `dest`). It is a new verb rather than a five-argument `add!`, to keep `add!`'s constant-variant dispatch
-      clean. It stays **field-only** — the consumers are field updates, and the package does not add a
+      clean. It stays field-only — the consumers are field updates, and the package does not add a
       point-value method for symmetry alone.
-    - `det`/`det!` (`FieldAlgebra`) is the fiberwise determinant, the **third principal invariant** ``I_3``
+    - `det`/`det!` (`FieldAlgebra`) is the fiberwise determinant, the third principal invariant ``I_3``
       (the signed factor by which the tensor scales volumes as a linear map) — the sibling of the trace
       ``\operatorname{tr}`` (the first invariant ``I_1``) the
       package already carried; the gap was the missing invariant, not a completeness fill. The second
       invariant ``I_2`` stays absent, having no consumer — and a consumer that wants it can build it
       from the two that ship, as ``I_2 = \tfrac{1}{2}(I_1^2 - \operatorname{tr}(A^2))``. Being cubic
-      in the components it is **nonlinear**, so it is physical-space only (there is no spectral
+      in the components it is nonlinear, so it is physical-space only (there is no spectral
       determinant), exactly like `norm`. It reuses the shared per-component formula builder in
-      `FiberSections`, so it lands on **both** fields and point-values (mirroring ``\operatorname{tr}``, which
+      `FiberSections`, so it lands on both fields and point-values (mirroring ``\operatorname{tr}``, which
       already lived on both) with the formula written once.
     - `symmetric_gradient`/`!` (`DifferentialOperators`) forms the symmetric part of a vector field's
       gradient, ``S_{ij} = \tfrac{1}{2} (\partial_{x_j} u_i + \partial_{x_i} u_j)`` for a vector field ``u``,
-      **directly** — spectrally ``\hat S_{ij} = \tfrac{\mathrm{i}}{2} (k_j \hat u_i + k_i \hat u_j)`` with the
+      directly — spectrally ``\hat S_{ij} = \tfrac{\mathrm{i}}{2} (k_j \hat u_i + k_i \hat u_j)`` with the
       same Nyquist-correct derivative wavenumbers ``k`` as `gradient` — skipping the full nine-component
-      gradient tensor ``\nabla u`` that `sym(gradient(u))` builds only to symmetrize. It is the **fused
-      symmetric peer of `curl`**, which already extracts the *antisymmetric* part of ``\nabla u`` (as a
+      gradient tensor ``\nabla u`` that `sym(gradient(u))` builds only to symmetrize. It is the fused
+      symmetric peer of `curl`, which already extracts the *antisymmetric* part of ``\nabla u`` (as a
       vector). The name is the charter-neutral mathematical one; the fluids name "strain rate" stays in the
       consumer, exactly as the package says `curl` where the consumer says "vorticity".
     - `weighted_inner(f, w)` / `weighted_inner(f, g, w)` (`Reductions`) is the multiplier-weighted L² inner
@@ -727,7 +739,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       \overline{\hat g_c})`` (with ``\alpha(k)`` the rfft half-spectrum Parseval weight — a fixed
       per-mode function, distinct from the scalar accumulation weight ``\alpha`` of `combine!` above —
       ``N`` the grid-point count, and ``c`` the fiber index) — the field ``g`` filtered by ``w`` and paired with ``f`` in one
-      fused pass with no filtered field materialized. It is the **reduction-dual of `convolve`** (apply a
+      fused pass with no filtered field materialized. It is the reduction-dual of `convolve` (apply a
       spectral symbol, then reduce) and generalizes `inner` (the ``w \equiv 1`` case); ``w = |k|^2`` gives the
       ``H^1``/Dirichlet energy ``\langle f, -\Delta g\rangle``. Spectral representation only, like the
       Parseval `inner`. The consumer formed in-band energy every step as `convolve!` into scratch then
@@ -735,14 +747,14 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     *The deferral.* A fifth request, a quadratic-form reduction ``\langle v, A v\rangle =
     \texttt{mean}(v_i A_{ij} v_j)`` (a vector field ``v`` contracted through a second-order tensor field
-    ``A``), was **declined for now**: its own request flagged it "for completeness of the fused-reduction
+    ``A``), was declined for now: its own request flagged it "for completeness of the fused-reduction
     set", its saving is a single *vector* intermediate at diagnostic cadence, and its consumer (the enstrophy
     production ``\langle \omega_i S_{ij} \omega_j\rangle``, the vorticity ``\omega`` through the strain ``S``)
     is not yet live — so by the [§2](@ref "2. The central principle: the architecture follows established mathematics") rule against speculative structure it waits until that consumer
     lands, when it is a small addition on the existing `inner` machinery.
 
-    *Scope and verification.* The public method set grows to **206** field methods (from the 202 the
-    earlier trace addition left, `combine!` adding 2 and `det`/`det!` 1 each) and **122** point-value
+    *Scope and verification.* The public method set grows to 206 field methods (from the 202 the
+    earlier trace addition left, `combine!` adding 2 and `det`/`det!` 1 each) and 122 point-value
     methods (from 120 — the same earlier trace addition that took the field surface 198 → 202 carried
     `tr`/`tr!` onto point-values, 118 → 120 — `det`/`det!` 1 each); `symmetric_gradient` and
     `weighted_inner` live in other modules and leave those baselines untouched. Each operation carries the
@@ -751,41 +763,41 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (`combine!`/`det!`/`symmetric_gradient!` allocation-free; `weighted_inner` allocation-light — only a
     small per-axis weight vector, far cheaper than the radial reductions
     `radial_spectrum`/`radial_correlation`, which build an ``O(N)`` shell-index pass), and a benchmark.
-    That `combine!` stays field-only and the quadratic form waits both follow the same rule: **the consumer,
-    not symmetry, decides where an operation lives.**
+    That `combine!` stays field-only and the quadratic form waits both follow the same rule: the consumer,
+    not symmetry, decides where an operation lives.
 
 28. **Spectral translation — `translation_kernel`, and the reality condition a complex kernel must meet.**
     The sibling consumer `GBGHomogeneousTurbulence` asked for a fifth kernel builder: the multiplier that
-    **translates** a field by a physical displacement ``h = (h_1, h_2, h_3)`` (a length
+    translates a field by a physical displacement ``h = (h_1, h_2, h_3)`` (a length
     per axis, in the box's units), carrying a field ``f`` at position ``x`` to the displaced field
     ``f(x - h)``. Its consumer is phase-shift de-aliasing, where the nonlinear product is evaluated a
     second time on a half-cell-displaced grid and averaged with the unshifted evaluation — the memory-lean
     alternative to padding the grid; it also serves shift-and-average filters and the relocation of a probe.
 
-    *Why the package owns it.* Translation is a **coordinate-only** operation on the field, with no physics
+    *Why the package owns it.* Translation is a coordinate-only operation on the field, with no physics
     in it — the exact sibling of the derivative and cutoff multipliers the package already owns — and by the
     shift theorem it *is* a convolution: with the Dirac delta displaced to ``h``, whose transfer
     function is the pure phase ``\hat g(k) = e^{-\mathrm{i}  k\cdot h}`` at wavenumber ``k``. So it needs
     no new operation, only a new kernel (decision 20): `convolve!` already applies a scalar kernel to any
-    tensor order, with its accumulation weights, alias-safely. **Only the builder was missing** —
+    tensor order, with its accumulation weights, alias-safely. Only the builder was missing —
     the package exposes no function-of-wavenumbers constructor, and the allocation helper `similar_field` is
     internal, so a consumer cannot build the kernel without reaching into the package's internals.
 
-    *The correctness trap — the real reason it belongs here.* A kernel must leave a **real** field real. The
+    *The correctness trap — the real reason it belongs here.* A kernel must leave a real field real. The
     rfft half-spectrum stores only the modes whose first wavenumber component is non-negative; the rest are
     implied by the reality of the field, ``\hat f(-k) = \overline{\hat f(k)}``. Multiplying by a kernel
     preserves that symmetry — and so returns a field rather than a complex impostor — exactly when the kernel
     is itself Hermitian, ``\hat g(-k) = \overline{\hat g(k)}``, equivalently when its physical-space form
     ``g`` is real. The four kernels shipped before this one are real and even in ``k``, so they satisfy the
     condition without anyone having to think about it. The translation phase does not, at one frequency per
-    axis: the **Nyquist** frequency of an even-length axis (with ``N_a`` points and spacing ``\Delta x_a``
+    axis: the Nyquist frequency of an even-length axis (with ``N_a`` points and spacing ``\Delta x_a``
     along axis ``a``), the mode that is its own conjugate partner and where the kernel is therefore forced to
     be real. The two obvious candidates each fail, and they fail *differently*:
-    - The **true phase** ``e^{-\mathrm{i}  k\cdot h}`` built from the signed wavenumbers is complex at
+    - The true phase ``e^{-\mathrm{i}  k\cdot h}`` built from the signed wavenumbers is complex at
       Nyquist for a fractional displacement, so it returns coefficients that are no real field's — the
       inverse transform then silently keeps only their Hermitian part. (Whole-cell displacements are safe:
       the factor there is ``(-1)^m`` for a displacement of ``m`` cells, which is real.)
-    - The **Nyquist-zeroed derivative wavenumbers** — the ones `gradient` uses, and the fix the request
+    - The Nyquist-zeroed derivative wavenumbers — the ones `gradient` uses, and the fix the request
       itself proposed — do keep the kernel real (the factor becomes ``1``), but the value is *wrong*: they
       leave the Nyquist mode unmoved, where a one-cell shift must flip its sign.
 
@@ -796,12 +808,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ``m`` cells, and to ``0`` for a half-cell one, a displaced Nyquist mode being genuinely not representable
     on the same grid. Splitting the phase into its even and odd parts,
     ``e^{-\mathrm{i} k_a h_a} = \cos(k_a h_a) - \mathrm{i} \sin(k_a h_a)``, states the rule in
-    one line: **the even (cosine) part takes the true wavenumber, the odd (sine) part takes the derivative
-    wavenumber.** Those are exactly the package's two multiplier families (invariant 5: squared wavenumbers
+    one line: the even (cosine) part takes the true wavenumber, the odd (sine) part takes the derivative
+    wavenumber. Those are exactly the package's two multiplier families (invariant 5: squared wavenumbers
     keep the true value at Nyquist, derivative wavenumbers are zeroed there), so the builder is a
     three-factor broadcast and the Nyquist correction falls out of a convention already in place for the very
     same reason — an odd function of ``k`` must vanish at Nyquist to keep a real field real, which is why the
-    derivative multiplier is zeroed there. The `translation_kernel` builder is the first operation to use **both**
+    derivative multiplier is zeroed there. The `translation_kernel` builder is the first operation to use both
     families, and it confirms that split rather than excepting it.
 
     *Consequences, documented on the operation.* The kernel is a pure phase of unit modulus on every resolved
@@ -818,7 +830,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `convolve!` at zero allocation.
 
     *Verification.* Two independent oracles pin the operator, and each rejects one of the wrong kernels: a
-    whole-cell displacement equals `circshift` **on a random field**, which carries content at every mode
+    whole-cell displacement equals `circshift` on a random field, which carries content at every mode
     including Nyquist; and a sub-cell displacement equals the exact `DirectDFT` evaluation of the field at
     the displaced nodes ``x_n - h`` (decision 23). The random field matters — the band-limited fields the
     older convolution tests use pass with *any* of the three candidate kernels, which is precisely how a
@@ -831,8 +843,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
 29. **HDF5 field persistence — `write_field` / `read_field`, a weak-dependency extension.** The sibling
     consumer [`GBGStreamingStatistics`](https://grigorysarnitsky.github.io/GBGStreamingStatistics.jl) ships `write_histogram` / `read_histogram` to persist its durable
-    summaries to HDF5; the request was the field analogue, so a solver can **checkpoint a field for
-    restart**, dump a **full-resolution snapshot** for later analysis, or hand a field to another tool as
+    summaries to HDF5; the request was the field analogue, so a solver can checkpoint a field for
+    restart, dump a full-resolution snapshot for later analysis, or hand a field to another tool as
     easily as it dumps statistics. The demos already hand-rolled HDF5 for their plotted curves; this makes
     the fields themselves first-class.
 
@@ -840,18 +852,18 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     I/O, not an operation on sections, so the rule that design changes be justified by established
     mathematics ([§2](@ref "2. The central principle: the architecture follows established mathematics")),
     which governs the *operation set*, does not bar it — and the mechanism keeps it out of the way:
-    `write_field` / `read_field` are a **weak-dependency package extension** (`[weakdeps]` HDF5 +
+    `write_field` / `read_field` are a weak-dependency package extension (`[weakdeps]` HDF5 +
     `[extensions]`, methods in `ext/GBGPeriodicFieldsHDF5Ext.jl`), so the HDF5 binary never enters the core
     and a user who does not persist pays nothing. Bare `function write_field end` stubs and their docstrings
     live in `Fields`, so `?write_field` and the manual work without HDF5 loaded; the methods appear only when
     it is. This mirrors the sibling exactly.
 
     *The line held (invariant 12 — no time).* A field is a self-describing object — its numeric array plus
-    its `Grid3D` geometry, Fourier layout, element type, and tensor order — so it maps onto **one HDF5
-    group**: the array is the dataset `data`, and everything else is attributes (a `type` tag, a schema
+    its `Grid3D` geometry, Fourier layout, element type, and tensor order — so it maps onto one HDF5
+    group: the array is the dataset `data`, and everything else is attributes (a `type` tag, a schema
     `version`, the grid geometry, the `fft_dims`, the element type, the tensor order, the representation).
-    The primitive is **one field at a time**, and — the load-bearing choice — it takes an *open* `File` or
-    `Group`, never a path. So the consumer bundles a whole **iteration snapshot** (velocity, vorticity, …)
+    The primitive is one field at a time, and — the load-bearing choice — it takes an *open* `File` or
+    `Group`, never a path. So the consumer bundles a whole iteration snapshot (velocity, vorticity, …)
     into one file under separate names and attaches *its own* `time` / `iteration` attributes: the package
     serializes the fields, the consumer owns the bundling and every notion of time. There is no `Snapshot`
     type and no clock in the field layer. A field group and a `GBGStreamingStatistics` histogram group share
@@ -863,7 +875,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     a host field the consumer moves to a device if wanted. On read, `read_field` dispatches on the stored
     `type` tag and reconstructs through the public constructor: the element type follows the stored array (real or
     complex), the tensor order follows its dimensionality, and the grid spacing is recomputed bit-for-bit, so
-    the reload is **exact**. The sugar `parent[name] = field` is `setindex!` for `write_field`, made strictly
+    the reload is exact. The sugar `parent[name] = field` is `setindex!` for `write_field`, made strictly
     more specific than HDF5's own array-writing `setindex!` so it never clashes.
 
     *Scope.* Every field type (the six: scalar / vector / tensor × physical / spectral); no compression or
@@ -880,8 +892,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 30. **Mapped reductions — a leading function on five of the measure reductions.** The consumer
     `GBGHomogeneousTurbulence` audited its memory and found a recurring shape: to average a nonlinear
     invariant of a tensor field — the determinant of a strain tensor, the magnitude of a velocity — it had
-    to build that invariant as a **whole section** first and then reduce it, paying one field of scratch
-    for a single number. Here a *section* is a field or a set of point-values, and its **fiber value** at a
+    to build that invariant as a whole section first and then reduce it, paying one field of scratch
+    for a single number. Here a *section* is a field or a set of point-values, and its fiber value at a
     base point is the scalar, vector, or ``3 \times 3`` tensor sitting over that point. So five reductions
     gained a form taking a leading function, applied to the fiber value at every base point:
     `mean(det, A)` averages a determinant, `maximum(norm, u)` takes a supremum of magnitude, and the
@@ -890,10 +902,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *The standard library sets the surface, including where it stops.* The mapped spellings mirror
     `Statistics`' `mean(f, itr)` and `Base`'s `sum`/`maximum`/`minimum`/`extrema` with a leading function,
     so `mean`, `maximum`, `minimum`, `extrema`, and the package's own `integral` (the extensive peer of
-    `mean`) take one. `Statistics` gives `var` and `std` **no** such method, so neither does this package:
+    `mean`) take one. `Statistics` gives `var` and `std` no such method, so neither does this package:
     inventing a spelling the standard library declines to have would be exactly the "for completeness"
     addition invariant 1 exists to refuse. Being a nonlinear map of the fiber, the mapped forms are
-    **physical-only**, like `lpnorm` and `std` before them.
+    physical-only, like `lpnorm` and `std` before them.
 
     *It reconciles an older deliberate absence rather than overturning it.* The bare
     `maximum`/`minimum`/`extrema` are scalar-section-only on purpose: the supremum of a vector or tensor
@@ -929,8 +941,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     a measured ``5.6\times`` on the reduction alone — more than materializing an extra section costs in
     traffic. A GPU has no such loop to forfeit: its reduction is thread-parallel and bandwidth-bound, so
     index arithmetic hides behind memory latency and the section write and read-back that fusing skips
-    is pure profit. The implementation therefore reduces through a **vectorized blocked loop over the
-    component arrays on a CPU** and **one fused pass over a lazy `Broadcasted` on a GPU**. Measured with
+    is pure profit. The implementation therefore reduces through a vectorized blocked loop over the
+    component arrays on a CPU and one fused pass over a lazy `Broadcasted` on a GPU. Measured with
     the same map on both sides (`mean(det, A)` against `mean(det(A))`, ``N = 128``, `Float64`), the fused
     route then costs 5.1 ms against 13.0 ms on a CPU and 0.55 ms against 0.69 ms on a GPU — cheaper on
     both, allocating nothing against one full section. The CPU loop blocks pairwise like Base's own
@@ -952,12 +964,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     floor is now 1.12, so the matrix differs only in thread count (`-t1` against `-t4`) and the local
     pre-commit run is a single lane.
 
-    *What the measurement showed, which is the opposite of the obvious guess.* On 1.11 the package **runs
-    faster** — every operation measured, on a ``64^3`` grid in `Float64`, in the **threaded** lane (so these absolute
+    *What the measurement showed, which is the opposite of the obvious guess.* On 1.11 the package runs
+    faster — every operation measured, on a ``64^3`` grid in `Float64`, in the threaded lane (so these absolute
     times are not comparable with §4(l)'s single-thread column, and none of them needs to be — the
     comparison here is one Julia version against another on one fixed configuration): `mean(det, A)` 0.241 ms against
     0.251, the threaded assignment `add!` 0.296 against 0.338, `radial_spectrum` 1.743 against 2.288,
-    `inner` 0.012 against 0.017. What is slower is **compilation**, by a wide margin and concentrated in
+    `inner` 0.012 against 0.017. What is slower is compilation, by a wide margin and concentrated in
     exactly the generated and broadcast-heavy surfaces this package is built from: first-call cost for
     `add!` (the `_assign!` primitive) is ``4.5\times`` higher on 1.11, and the `KernelAbstractions` binning
     path ``1.4\times``. That is why the two slowest testsets were `threading.jl` and the radial-diagnostic
@@ -994,10 +1006,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `KernelAbstractions` kernel (the package's third KA site, after the transfer kernels and the shell
     binning): per mode, the three source values are read into registers, the longitudinal factor is
     computed once, and the three destinations are written. Three reads for three writes, and
-    **alias-safe by construction** — all of a mode's reads precede its writes, and modes are disjoint —
+    alias-safe by construction — all of a mode's reads precede its writes, and modes are disjoint —
     so the guard and its temporary are retired ([§7](@ref "7. Aliasing policy")) and the aliased call is
     bitwise-identical to the non-aliased one. Two implementation notes worth recording: the sources are
-    deliberately **not** marked `@Const`, whose no-other-writes promise the aliased call would break;
+    deliberately not marked `@Const`, whose no-other-writes promise the aliased call would break;
     and the KA launch keeps a small size-independent host-side bookkeeping allocation (measured
     ``\sim``1.5–7 KB, thread-count-dependent), which the allocation audit's fraction-of-a-field
     threshold absorbs — the field-sized temporary is what is gone. Measured on the 12700K, the rewrite
@@ -1016,18 +1028,20 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     multiplier, and the fused form computes it in the operator's own pass. The consumer pattern it
     serves is mask-de-aliasing: every de-aliased right-hand side in a pseudospectral solver is the
     operator followed immediately by `convolve!` with the de-alias kernel, so fusing saves that pass's
-    full read and write of the destination (two passes of the field's class per evaluation). **The
+    full read and write of the destination (two passes of the field's class per evaluation).
+
+    **The
     `α`/`β` pair is load-bearing, not completeness**: the fused form *replaces* a `convolve!` that
     carries `α`/`β` — IT already rides the ``-\nabla\cdot`` sign of its scalar advection on
     `convolve!`'s `α` — so shipping less would strand the very chains being fused; and `β` collapses
     IT's phase-shift de-aliasing tail entirely, as two projection calls — the primary with the de-alias
-    kernel at ``\alpha = 1/2``, the displaced evaluation with the **composed** kernel (de-alias ∘
+    kernel at ``\alpha = 1/2``, the displaced evaluation with the composed kernel (de-alias ∘
     shift-back, built once at setup by the kernel composition `convolve(g₁, g₂)`) at
     ``\alpha = 1/2``, ``\beta = 1`` — eliminating
     the standalone shift-back, average, and truncation passes (four passes per evaluation at wiring
     time; two more were already banked consumer-side by rewriting the average as `convolve!`'s
-    five-argument form). The `curl!` operator deliberately does **not** get the kernel arity: IT's curls feed
-    transforms directly, so there is no consumer — the absence is the §2 **no-speculative-structure**
+    five-argument form). The `curl!` operator deliberately does not get the kernel arity: IT's curls feed
+    transforms directly, so there is no consumer — the absence is the §2 no-speculative-structure
     rule, *not* invariant 1. The distinction matters and the two must not be blurred: invariant 1's
     absences are mathematical statements a user can rely on (a spectral `*` is invalid and always will
     be), while this one is merely unbuilt — `curl!` is exactly as composable with a kernel as
@@ -1046,11 +1060,11 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *The exponential family.* `exponential_convolve!` (allocating `exponential_convolve`) applies the
     exponential radial kernel ``\exp(c |k|^2 + s \hat w)`` — ``c`` a real coefficient on the squared
     wavenumber ``|k|^2``, ``\hat w`` an optional real per-mode exponent field with real scale ``s`` —
-    evaluated **lazily from the three one-dimensional wavenumber arrays** inside the fused assignment.
+    evaluated lazily from the three one-dimensional wavenumber arrays inside the fused assignment.
     The kernel is never built, so against the stored-kernel route (`radial_kernel` →
     consumer broadcast → `convolve!`) it removes the kernel's residency, its build pass, and its full
     field read per application, reading ``O(N)`` wavenumber rows instead (``N`` the points per axis).
-    The measured trade is a **reuse question** ([`PERFORMANCE.md`](performance.md) finding (k)): with a
+    The measured trade is a reuse question ([`PERFORMANCE.md`](performance.md) finding (k)): with a
     varying exponent — the consumer's case, whose stage substeps differ — the lazy form beats
     rebuild-then-apply by ``\approx 1.4\times`` on the GPU; with one fixed kernel applied many times
     the stored route keeps a ``\approx 1.1\times`` (GPU) to ``\approx 1.7\times`` (CPU) edge, the
@@ -1067,9 +1081,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (invariant 12) — the consumer folds them into the dimensionless ``c``, and the name "rate" was
     declined (a rate is per-unit-time, and the array that would cross is the dimensionless product,
     not the rate). Working the consumer's stage structure sharpened the offset into its final shape:
-    a **scalar** exponent offset does not exist, because ``\exp(c|k|^2 + s_0) = e^{s_0} \exp(c|k|^2)``
-    folds into the accumulate weight ``\alpha`` — a deliberate absence; and the **per-mode** offset
-    enters as **scale times field** (``s \hat w``, not a pre-scaled array), because the consumer's
+    a scalar exponent offset does not exist, because ``\exp(c|k|^2 + s_0) = e^{s_0} \exp(c|k|^2)``
+    folds into the accumulate weight ``\alpha`` — a deliberate absence; and the per-mode offset
+    enters as scale times field (``s \hat w``, not a pre-scaled array), because the consumer's
     substeps vary per stage — with a bare offset array every stage would pay a full array rebuild,
     while the scalar ``s`` is free and the resident ``\hat w`` is built once.
 
@@ -1084,12 +1098,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     found not to be an instance of this form at all (its kernel lands on one operand), and is served
     instead by decision 32's ``\beta`` accumulate; the correction is recorded there. With
     ``b === \texttt{dest}`` the method computes the kernel-filtered accumulate in place
-    (coefficientwise, hence alias-safe with no guard), which is why it carries **no** second trailing
+    (coefficientwise, hence alias-safe with no guard), which is why it carries no second trailing
     accumulate pair — two ``\alpha``/``\beta`` roles in one signature is the glyph-collision failure
     mode, and the aliasing provides the accumulate for free.
 
-    *Naming and the method-set bookkeeping.* The kerneled combination is a **method of `combine!`
-    with a trailing kernel argument** — the decision-32 composition idiom (`divergence!` and
+    *Naming and the method-set bookkeeping.* The kerneled combination is a method of `combine!`
+    with a trailing kernel argument — the decision-32 composition idiom (`divergence!` and
     `helmholtz_projection!` compose the same way) — not a new verb; the earlier `weighted_inner`
     naming (decision 27) is the *reductions* family's convention and stands there. The method is
     defined in `Convolution`, and the honest reason is narrower than "include order": `DifferentialOperators`
@@ -1099,7 +1113,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `combine!`'s kernel form is a convolution applied to a combination — a `Convolution` operation
     taking a `FieldAlgebra` verb's arguments. Placing it here happens to leave the `FieldAlgebra`
     method-parity baseline untouched, the parity count filtering on the defining module. That is an
-    observation about a consequence and **never a reason**: a baseline exists to notice movement, so
+    observation about a consequence and never a reason: a baseline exists to notice movement, so
     avoiding movement is not a design goal, and placement follows the operation's mathematics. A change
     that moves a count refreezes it with the reason (decision 53's protocol) rather than being reshaped
     to avoid it. Validity:
@@ -1117,7 +1131,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     integer shell-index array, and a Parseval-weighted array — before the decision-25 scatter-add pass
     consumed them (measured 1.6 of the consuming solver `GBGHomogeneousTurbulence`'s units at ``256^3``, reproduced here; the cross-power form
     staged a fourth, fiber-shaped, plane), and `radial_correlation` staged a separation-magnitude and
-    a shell-index array of its own. All of it is now derived **per element inside the kernels**: the
+    a shell-index array of its own. All of it is now derived per element inside the kernels: the
     spectral kernel computes a mode's ``|k|`` from the three one-dimensional squared-wavenumber arrays
     (the same left-associated sum the lazy ``|k|^2`` broadcast evaluates, so shell assignment is
     bitwise-unchanged), contracts the fiber inline (``\sum_c |\hat f_c|^2``, or
@@ -1125,7 +1139,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     field `nothing`-dispatched away), and reads the rfft Parseval weight off the plane index; the
     physical kernel derives the minimum-image separation from the grid index and folds the ``1/N``
     correlation normalization into the tiny per-shell average. The shell count is computed
-    **analytically from the corner**: the separable ``|k|^2`` (and the min-image ``|r|``) is maximized
+    analytically from the corner: the separable ``|k|^2`` (and the min-image ``|r|``) is maximized
     componentwise, so the corner value is the same floating-point sum the kernel forms for that
     element — three ``O(N)`` reductions over one-dimensional arrays (spectrum) or pure host
     arithmetic (correlation), and no bin can overflow by construction. Each kernel allocates only the
@@ -1149,7 +1163,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     because a decline is a decision, not a gap.
 
     *No general fusion API.* After two rounds of fusion requests the natural follow-up was "expose a
-    general fusion mechanism and stop shipping one-offs." Declined, on five grounds. **(a)** The
+    general fusion mechanism and stop shipping one-offs." Declined, on five grounds.
+
+    **(a)** The
     general mechanism already exists de facto — Julia's dot-broadcast fuses over fields — and it is
     precisely the problem: it is unguarded, able to express what the method set deliberately withholds
     (a `.*` of two fields in spectral representation is the banned coefficientwise product), and no
@@ -1157,26 +1173,34 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     and the banned field product are indistinguishable at the type level. (Decision 60 later made a
     kernel its own type, so that particular pair *is* now distinguishable; the ground stands anyway,
     since a `.*` of two fields remains expressible and unguarded.) The broadcast layer is
-    therefore internal machinery, not a public contract ([§8](@ref "8. Broadcasting")). **(b)** The
-    public method set is the spec (invariant 1); a fusion surface erases it. **(c)** Verification does
+    therefore internal machinery, not a public contract ([§8](@ref "8. Broadcasting")).
+
+    **(b)** The
+    public method set is the spec (invariant 1); a fusion surface erases it.
+
+    **(c)** Verification does
     not fuse: each named operation carries alias analysis, the `α`/`β` branch, Nyquist reasoning
     (decision 28 needed *both* wavenumber families to keep a displaced field real), the Hermitian
     reality condition, allocation pins, device parity, and bitwise threading identity — a
     client-composed kernel carries none of them, and the consumer's own architecture ("raise, don't
-    reimplement") exists because it does not want to own kernel correctness. **(d)** The triage
+    reimplement") exists because it does not want to own kernel correctness.
+
+    **(d)** The triage
     protocol is where correctness happens: across two rounds it caught a wrong signature, a missing
     `β`, an invariant-12 boundary violation, and produced two fusions larger than requested — a
-    compiler would have delivered none of that. **(e)** Demand is measurably exhausted: everything
+    compiler would have delivered none of that.
+
+    **(e)** Demand is measurably exhausted: everything
     that survived triage instantiates one structure — sections in spectral representation as a module
     over the ring of Fourier symbols — whose operations the named set now covers (ring multiplication
     is kernel composition, the ring-weighted combination is decision 33, operator ∘ symbol is
     decision 32), and with the five items landed IT's frozen pass ledger sits at its fused ideal.
-    Two **validity-closed escalation paths** are recorded for when demand materializes, not built:
+    Two validity-closed escalation paths are recorded for when demand materializes, not built:
     radial real symbols ``\sigma(|k|^2)`` as closure kernels (real and even by construction, hence
     Hermitian-safe and Nyquist-unambiguous; `exponential_convolve!` is the family's first instance,
     and a third functional form — a Gaussian filter, hyperviscosity ``\exp(-\nu (|k|^2)^p \tau)`` —
     is the trigger to generalize); and a stdlib-shaped physical `map!(φ, dest, sections...)` (since
-    **built** — decision 48), the
+    built — decision 48), the
     section-valued sibling of the mapped reductions (every pointwise fiber map is valid in physical
     representation), waiting for a consumer needing a fiber map outside the shipped algebra.
 
@@ -1204,7 +1228,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     deliberately not raising it now — that its post-wiring ledger sits *near but not at* the fused
     ideal: the residual is the two-output stage update
     ``(\hat h, \hat u) \leftarrow (\hat N + a \hat h,\ \mathcal E \odot (\hat u + b \hat h))`` — a
-    module map with **two outputs** sharing an intermediate, outside the ring structure the shipped
+    module map with two outputs sharing an intermediate, outside the ring structure the shipped
     set closes (not ring multiplication, not the ring-weighted combination, not operator ∘ symbol) —
     of order 13 % of its pass traffic under the mask strategies. If the regenerated ledger confirms it
     once the five items are wired, it returns as a round-3 request with consumer evidence, per the
@@ -1225,32 +1249,32 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     analytically transcribed per-step pass ledger with a fused-ideal bound (live-ins read once,
     live-outs written once, intermediates free) and a named-holder gap register; that is the honest
     form for a *schedule* its author owns. The package has no schedule (invariant 12), so its unit is
-    the **operation** — and, per its own testing philosophy (verify against ground truth, never the
+    the operation — and, per its own testing philosophy (verify against ground truth, never the
     code's own account), it *measures* rather than transcribes: a test-local `CountingArray`
     (`getindex`/`setindex!` under atomic counters) slides beneath the field types through the generic
     storage of invariant 6, flows through the field broadcast, `_assign!`, and the
     KernelAbstractions CPU kernels alike, and every audited call asserts each participating array's
-    **exact absolute element counts** — absolute, not per-array multiples, because legitimate
+    exact absolute element counts — absolute, not per-array multiples, because legitimate
     patterns break multiples (`sym!` reads an off-diagonal twice and a diagonal once). Beside each
-    frozen count sits the fused ideal, and a count above its ideal must carry a **named holder** or
+    frozen count sits the fused ideal, and a count above its ideal must carry a named holder or
     the suite fails — the gap register transplanted intact. CPU-only, like the allocation audit and
     for the same reason: the code is generic, so the pass structure is backend-independent, while
     launch counts and achieved bandwidth stay benchmark-side. Excluded with reasons — each exclusion cut to its
-    true width: the transform **interiors** (FFTW's internal passes are FFTW's; plans reject wrapped
+    true width: the transform interiors (FFTW's internal passes are FFTW's; plans reject wrapped
     storage — but an operation *containing* a transform still audits its countable stages, and
     `radial_correlation`'s input read and its decision-34 physical binning kernel are audited, the
     wrapper never reaching the FFT because `similar` on it yields plain storage); the anterpolation
-    **scatter** (its `Atomix` accumulate needs pointer atomics a wrapper cannot provide — the
+    scatter (its `Atomix` accumulate needs pointer atomics a wrapper cannot provide — the
     *gather* is audited at its exact per-point stencil arithmetic, ``M (2n+2)^3`` field reads per
     component, and extending the atomics onto the wrapper is the recorded route to the scatter); and
     O(N) configuration arrays and point positions (only field- and point-value-shaped storage is
     wrapped, its own scope line).
 
-    *What the first measurement found.* The decision-32/33/34 kernels sit **at their ideals** — the
+    *What the first measurement found.* The decision-32/33/34 kernels sit at their ideals — the
     one-pass projection reads 3 and writes 3 (the audit would have failed the old 9), its ``\beta = 0`` forms provably never read the destination, the KA kernel reads a composed `ĝ` once per mode
     where the broadcast family re-reads a scalar kernel once per fiber component, and the fused
-    radial binning reads the field once. The standing gaps are all one family — **per-component
-    formula granularity**: `gradient!` re-reads its scalar source per output (3×), `curl!` and
+    radial binning reads the field once. The standing gaps are all one family — per-component
+    formula granularity: `gradient!` re-reads its scalar source per output (3×), `curl!` and
     `cross!` read each source component per formula containing it (2×), `symmetric_gradient!` 5×,
     `mul!`'s vector operand 3×, and the broadcast kernels re-read a scalar kernel per fiber
     component — each now frozen with its holder named, so any of them is a known, priced candidate
@@ -1271,8 +1295,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `PERFORMANCE.md` §1) recorded the CPU path as serving "development, testing, and small problems",
     and every platform tiebreak below was licensed by that sentence. It understated the role. The CPU
     path does serve development and small tests — but at those grids performance seldom decides
-    anything, so that role sets no tuning target. The role that does is the opposite of small: **a
-    single large CPU node, running the resolutions that exceed one GPU's memory.** Since distributed
+    anything, so that role sets no tuning target. The role that does is the opposite of small: a
+    single large CPU node, running the resolutions that exceed one GPU's memory. Since distributed
     and multi-GPU execution are out of scope ([§1](@ref "1. Purpose and scope")), the memory ceiling of
     a run is whatever one node holds, and a CPU node holds far more than a GPU. On NAISS Arrhenius —
     the concrete target — a thin CPU node pairs two 128-core AMD EPYC 9755 processors with 768 GB of
@@ -1283,15 +1307,15 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     also distinct machines, so the split is clean: GPU work runs on GPU nodes, CPU work on CPU nodes.
 
     *What this reopens.* Three recorded results rest on the understated premise, and each was measured
-    outside the regime that now matters. The **loop order** ([`PERFORMANCE.md`](performance.md) §4b)
+    outside the regime that now matters. The loop order ([`PERFORMANCE.md`](performance.md) §4b)
     kept the ``x``-inner stencil traversal for the transfer kernels at a measured ``0.75\times`` CPU
     regression, justified on two grounds — that "the CPU's large caches absorb the strided access", and
     that the GPU is the production platform. At ``1536^3`` a single `Float64` vector field is 87 GB
     against 512 MB of L3 per socket, so the first ground fails outright, and the second no longer holds in this
-    band; the regression there is plausibly worse than the measured figure, not better. The **pass
-    audit's standing gaps** (decision 36; since retired by decisions 38/39) — `gradient!` re-reading its source ``3\times``,
+    band; the regression there is plausibly worse than the measured figure, not better. The pass
+    audit's standing gaps (decision 36; since retired by decisions 38/39) — `gradient!` re-reading its source ``3\times``,
     `symmetric_gradient!` ``5\times`` — are close to free while a field is cache-resident and become
-    pure DRAM traffic once it is not, so they price very differently here. And **NUMA first-touch**,
+    pure DRAM traffic once it is not, so they price very differently here. And NUMA first-touch,
     which [§9](@ref "9. Performance model and CPU threading") sets aside as a consumer concern, is a
     two-socket node's dominant risk: `similar` reserves address space without touching pages, so the
     placement is decided by whichever code writes first, and a threaded `_assign!` write distributes
@@ -1306,7 +1330,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *The same target fixes a portability bar: `aarch64`.* Arrhenius's GPU nodes are GH200
     superchips, so the CUDA device is hosted by a Grace CPU — an ARM (`aarch64`) host — and
     production will eventually run on both partitions. The package must therefore stay buildable on
-    ARM, and **no design decision or dependency may be adopted that is x86-only** — the canonical
+    ARM, and no design decision or dependency may be adopted that is x86-only — the canonical
     tempting example is swapping the FFT provider to MKL, which has no `aarch64` build; any
     x86-intrinsic tuning falls under the same bar. Nothing in the current dependency tree is known
     to be x86-only (pure Julia plus JLL artifacts published for `aarch64-linux`), but nothing has
@@ -1331,7 +1355,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     kernel on a device, a slab-threaded stride-1 `@simd` loop on the CPU (the KA CPU backend was
     measured at 17.7 GB/s single-thread, hence the loop) — every source coefficient read once per
     mode, the audit rows at their fused ideals, `curl!`'s alias guard retired (its fused pass reads
-    a mode before writing it), and each verified **bitwise** against captured oracles of the
+    a mode before writing it), and each verified bitwise against captured oracles of the
     replaced broadcasts. The serial trade is recorded honestly: `symmetric_gradient!`'s nine-output
     loop spills registers and gives back ~5% single-threaded at 512³ while gaining 1.54× at eight
     threads; a two-pass split is the fallback if a serial consumer ever needs it.
@@ -1342,11 +1366,11 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     off-diagonals 2×, `det!`'s cofactor rows 2×, the scalar-field action and divisor once per
     output component, `convolve!`'s scalar kernel once per fiber component) and wrapped the index
     shuffles in `_guard_noalias!` — a field-sized temporary on every aliased call. Now a pure
-    scalar **values function** per operation maps one element's source values (plus fiber
+    scalar values function per operation maps one element's source values (plus fiber
     constants) to the tuple of outputs, and one portable executor (`_fiberwise_pass!`) streams it:
     sources read once into registers, every output written from them, the α/β convention owned
     centrally, alias-safe by construction. The backend split follows decision 30 — one
-    KernelAbstractions kernel on a device, a slab-threaded `@simd` loop over the **linear** index
+    KernelAbstractions kernel on a device, a slab-threaded `@simd` loop over the linear index
     range on the CPU — and linear indexing is what makes the executor base-agnostic: contiguous
     component views index identically for a 3-D grid and a 1-D point set, so fields and
     point-values share it, and the values functions are stamped from the same per-component
@@ -1358,7 +1382,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     exponential family's fiber extrusion stays a named holder: its per-mode coefficient is the
     lazy cartesian ``|k|^2``, which the linear executor cannot see — the priced fix is the
     finding-(k) mode-loop hoist. The `dev!` operation stopped materializing its trace (now a per-element
-    register) and left the documented-allocators list. Every routed operation verified **bitwise**
+    register) and left the documented-allocators list. Every routed operation verified bitwise
     against captured oracles (54 cases: both element types, physical and spectral, field and
     fiber-constant patterns, aliased shuffles through the former guard path, α/β accumulates, the
     point-value mirrors), and both parity baselines (206 + 122) are byte-identical — the public
@@ -1368,14 +1392,14 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `helmholtz_projection!` joins the gated loops.** The last §9 deferral closes. Every CPU
     reduction — `inner` (physical and the spectral Parseval forms), `l2norm`, `integral`, `mean`,
     `std`/`var`, `maximum`/`minimum`/`extrema`, and the whole mapped-form family — now reduces
-    through one **fixed midpoint tree**: a binary recursion whose splits are a function of the
+    through one fixed midpoint tree: a binary recursion whose splits are a function of the
     element count alone, its top ``\lceil \log_2 \texttt{nthreads} \rceil + 1`` levels evaluated as
     spawned tasks (through the same `_use_threads` gate as every other route) and its leaves as the
     existing pairwise-blocked `@simd` loops. Because the tree never depends on the schedule, the
-    result is **bitwise-identical at every thread count** — serial equals two threads equals
+    result is bitwise-identical at every thread count — serial equals two threads equals
     sixty-four — which the threading suite asserts both by toggling the override and across a
     subprocess launched at a different `-t`. This is deliberately stronger than the tolerance
-    framing the reductions previously carried: that framing remains for **cross-backend**
+    framing the reductions previously carried: that framing remains for cross-backend
     comparisons (a GPU reduction tree is the device's own), while same-backend CPU values now carry
     an exact contract. The chunk-indexed, fixed-combine design is also the post-task-migration
     idiom (no `threadid()` state anywhere), and accuracy inherits the pairwise story — the tree
@@ -1398,7 +1422,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
 41. **The spectral reductions follow the layout's folded axis** (decided 2026-07-23; a Phase-B
     formula-sweep finding). `_parseval_weight`, the spectral `inner`'s correction planes, and the
-    shell-binning kernel all folded **array dimension 1** unconditionally, while `RealFourierLayout`
+    shell-binning kernel all folded array dimension 1 unconditionally, while `RealFourierLayout`
     admits any `fft_dims` permutation and the transforms and `DirectDFT` were already general — so a
     legal permuted layout silently corrupted the spectral `inner`, `weighted_inner`, and the radial
     family. Generalized: the folded dimension is read from `fft_dims[1]` — the Parseval weight is
@@ -1425,16 +1449,16 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
 42. **The Helmholtz projector joins the derivative family whole — exact idempotency and exact
     solenoidality** (decided 2026-07-23; a Phase-B formula-sweep finding). The one-pass kernel
-    divided the derivative-wavenumber numerator ``a`` by the **true** ``|k|^2``, so at a
+    divided the derivative-wavenumber numerator ``a`` by the true ``|k|^2``, so at a
     mixed-Nyquist mode (``a \cdot a < |k|^2``) the projector was neither exactly idempotent nor
     exactly divergence-annihilating — the identities held sub-Nyquist only, and
     `test/adjointness.jl` deliberately scoped its fixtures to dodge it (its own header conceded the
     restriction). The denominator is now ``a \cdot a``, squared in-register from the same loaded
-    wavenumber values (**both** the KA kernel and the gated `::CPU` loop drop their three
+    wavenumber values (both the KA kernel and the gated `::CPU` loop drop their three
     squared-wavenumber array arguments — the loop was missed on the first pass; decision 47), making
     ``\mathbb P = \mathrm{id} - (a a^{\top})/(a \cdot a)`` the exact orthogonal projector onto the kernel
     of the discrete divergence: ``\mathbb P^2 = \mathbb P`` and ``\nabla\cdot(\mathbb P u) = 0`` at
-    **every** mode, the zero and pure-Nyquist modes passing through as the identity. Sub-Nyquist the
+    every mode, the zero and pure-Nyquist modes passing through as the identity. Sub-Nyquist the
     two families coincide value for value, so resolved-band results are bitwise unchanged and every
     existing analytic and parity test holds as-is. The composite
     ``\mathbb P u = u - \nabla \Delta^{-1}(\nabla\cdot u)`` becomes the resolved-band description
@@ -1502,7 +1526,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     encapsulate; and the GPU twin needed a parallel hand-rolled copy differing only in a `dev(...)`
     wrapper, where the allocator carries the backend for free. Both are now exported and documented
     in their own API-page sections, and both examples build their whole workspace through them. The
-    allocated storage is **uninitialized** (`similar`, not `zeros`), which the docstrings state and
+    allocated storage is uninitialized (`similar`, not `zeros`), which the docstrings state and
     the examples handle by zeroing what they allocate. The method-parity baselines (206 field / 122
     point-value methods) are untouched: those lock the algebra generics, and these are separate ones.
 
@@ -1574,20 +1598,20 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *No numerical harm occurred*, because CPU and GPU both ran the one correct KA kernel: parity and
     the full-spectrum Nyquist tests passed throughout. Three things did break. Decision 40's stated
     reach — cutoff and `with_threading` governing helmholtz — was false for a day. The
-    `with_threading` bitwise assertion added for a 2026-07-24 consistency finding was **vacuous**: it
+    `with_threading` bitwise assertion added for a 2026-07-24 consistency finding was vacuous: it
     toggled an override the live path ignores, comparing a path against itself. And the operation ran
     slower, which is what surfaced it — the canary lane (`benchmark/regress.jl`), on its first live
     exercise, flagged the `t1` helmholtz canary at 1.27× its frozen baseline, the exact
     achieved-time regression the allocation and pass audits cannot see.
 
     The fix drops the three squared arguments from the loop and squares ``a`` in-register, mirroring
-    the kernel; the loop is verified **bitwise-equal** to the KA kernel on a Nyquist-bearing field,
-    and divergence-annihilating at every mode. The canary returned to baseline **without a refreeze**
+    the kernel; the loop is verified bitwise-equal to the KA kernel on a Nyquist-bearing field,
+    and divergence-annihilating at every mode. The canary returned to baseline without a refreeze
     — proof the baseline was right and the code had drifted, not the reverse. The gap that let a
-    dispatch fall through unseen is closed by a **dispatch-target guard** in `test/threading.jl`: a
+    dispatch fall through unseen is closed by a dispatch-target guard in `test/threading.jl`: a
     CPU helmholtz call must resolve to the `KernelAbstractions.CPU` specialization, not the
     untyped-backend fallback. The lesson generalizes — an operation with a device kernel *and* a
-    gated CPU twin has **two** bodies to keep in sync, and only the guard makes "they diverged"
+    gated CPU twin has two bodies to keep in sync, and only the guard makes "they diverged"
     visible at test time rather than in a benchmark weeks later.
 
 48. **`map!` / `map` — the arbitrary-fiber-map escape hatch, physical-only by construction**
@@ -1606,15 +1630,15 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     not a closure, so the input count stays type-level, exactly `_FiberGather`'s reasoning for the
     reductions. The public methods live where the vertical algebra lives: `FieldAlgebra` for physical
     fields, `Points` for point-values (both over the shared `_map_pass!` driver), extending
-    `Base.map!` / `Base.map` (not piracy — the types are ours). It is **physical-only** for fields: an
+    `Base.map!` / `Base.map` (not piracy — the types are ours). It is physical-only for fields: an
     arbitrary `φ` is nonlinear, so by invariant 1 there is no spectral method, and the result is aliased in
     spectral representation (the `FieldAlgebra` module warning). Point-values are representation-free and
     carry no such restriction. The allocating `map` infers the output tensor order from `φ`'s return type
     (`Base.promote_op`); when it cannot, it errors and steers to `map!` with a preallocated destination.
 
     Why an escape hatch is allowed at all, against invariant 1's "the method set is the spec": `map!` is
-    **validity-closed** — physical-only-by-construction is its type signature, so it can only ever produce
-    a valid operation, never forge an invalid spectral one. It does **not** subsume the named algebra:
+    validity-closed — physical-only-by-construction is its type signature, so it can only ever produce
+    a valid operation, never forge an invalid spectral one. It does not subsume the named algebra:
     the linear fiber operations (`tr`, `sym`, `skew`, `dev`, `transpose`) exist in *both* representations
     and so cannot route through a physical-only map, and the named nonlinear ones (`det`, `norm`) already
     share the same executor a level down — `map!` serves the *un-named* maps, and the named operations
@@ -1626,25 +1650,25 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     were physical-only by *scoping*, not validity: ``\operatorname{var}(f) = \langle f, f\rangle -
     \langle f\rangle^2 = N^{-2}\sum_{\text{stored }k \ne 0} \alpha(k) |\hat f_k|^2`` (the fluctuation energy, with
     ``\alpha(k)`` the rfft half-spectrum multiplicity and the ``N^{-2}`` the normalization the inner
-    product itself carries; that displayed form is the **population** moment — `corrected = false` —
+    product itself carries; that displayed form is the population moment — `corrected = false` —
     and `var`'s default `corrected = true` returns it scaled by ``N/(N-1)``), both terms already
     Parseval-available, so they were wrongly grouped with the genuinely physical-only `lpnorm`/`maximum`.
-    Second, the per-component value is only the **basis-dependent diagonal** of the covariance tensor
+    Second, the per-component value is only the basis-dependent diagonal of the covariance tensor
     ``R_{ij} = \langle u'_i u'_j\rangle \in \operatorname{Sym}^2(V)`` — the coordinate-free second *central* moment, the primes marking fluctuations about the mean —
     and ``\operatorname{std} = \sqrt{\operatorname{var}}`` has *no canonical vector form* at all: the
     matrix square root of the covariance is not a standard deviation, the per-component root is
     basis-dependent, and ``\sqrt{\operatorname{tr} R}`` is a scalar RMS — three different objects. And
     `var`-as-covariance could not even be uniform (a vector's covariance has tensor order 2, a tensor's order 4;
-    the result would be an order-4 **fiber value**, not a section, so the ``R < 3`` *section* ceiling is
+    the result would be an order-4 fiber value, not a section, so the ``R < 3`` *section* ceiling is
     not what stands in the way — `FiberTensor4` exists as a type. The actual limit is narrower: the
     fiber assembly in `FiberSections` (`_fiber_type`/`_assemble_fiber`) is enumerated through order 2,
-    so an order-4 result has nowhere to be built. The `cov` reduction is therefore defined on **vector** sections
+    so an order-4 result has nowhere to be built. The `cov` reduction is therefore defined on vector sections
     alone, which is where its consumer is).
 
-    So `var`/`std` are now **scalar-only** — the one representation where each is unambiguous — physical
+    So `var`/`std` are now scalar-only — the one representation where each is unambiguous — physical
     *and* spectral (the Parseval form, equal to the physical value; the spectral one-pass loses precision
     to cancellation when the mean dominates its fluctuations, which the docstring notes). A vector or
-    tensor section raises a clear error pointing to `cov`. The new **`cov`** (extending `Statistics.cov`; not
+    tensor section raises a clear error pointing to `cov`. The new `cov` (extending `Statistics.cov`; not
     re-exported at the time, like `mean`/`var`/`std` — all four have been re-exported by the umbrella
     since 2026-08-13, per the naming rule's export policy in §2) returns the symmetric covariance `FiberTensor2` of a
     vector section — its diagonal the per-component variances (the normal stresses, in a turbulence
@@ -1655,32 +1679,32 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     extensions, outside the M2 + M3 surface.
 
 50. **The separable kernels are stored as their per-axis factors, not as fields** (2026-07-28).
-    `translation_kernel` and `assignment_window` build a kernel that **factors over the axes**,
+    `translation_kernel` and `assignment_window` build a kernel that factors over the axes,
     ``\hat g(k) = \prod_a g_a(k_a)``, and both already computed the three one-dimensional factors
     internally before materializing their product into a full field on the last line. That last line is
     now gone: both return a `SeparableKernel` holding the three factors, and the product is evaluated one
     mode at a time inside the pass that consumes it.
 
-    The saving is a *representation* change with no numerical content — every result is **bitwise
-    identical** to the materialized kernel, at every tensor order and on both the overwrite and the
+    The saving is a *representation* change with no numerical content — every result is bitwise
+    identical to the materialized kernel, at every tensor order and on both the overwrite and the
     ``\alpha``/``\beta`` branch, which is what the tests assert against the stored product as oracle. What
     changes is the cost: three ``O(N)`` arrays in place of ``O(N^3)`` coefficients (5 KiB against 16.2 MiB
-    at ``128^3``, ~10 KiB against 129 MiB at ``256^3``), and a pass that reads **no field-sized kernel
-    stream** — the three ``O(N)`` factors are read per mode, so a kernel application drops from three
+    at ``128^3``, ~10 KiB against 129 MiB at ``256^3``), and a pass that reads no field-sized kernel
+    stream — the three ``O(N)`` factors are read per mode, so a kernel application drops from three
     field-sized streams to two.
 
-    Fewer streams did **not** hand back a free speed-up, and finding out why fixed the implementation.
+    Fewer streams did not hand back a free speed-up, and finding out why fixed the implementation.
     Applying the kernel is bandwidth-bound, so the saved stream is worth having only if evaluating the
     product costs less than the read it replaces, and *how* the product is indexed decides that. Handing
     the lazy product to the linear-indexed fiberwise executor makes every element convert a linear index
-    to a cartesian one — an integer division, which a GPU emulates — and that measured **0.29×** a stored
+    to a cartesian one — an integer division, which a GPU emulates — and that measured 0.29× a stored
     kernel at ``256^3``. A hand-written three-dimensional kernel removed the conversion but lost as much
     again to warp fragmentation, because the folded axis is ``N/2 + 1`` — 129 at ``256^3`` — so its rows
-    do not align to a warp (**0.55×** on a scalar field, worse than doing nothing). What works is the
-    plainest form: **one flat broadcast** over the whole section, the per-axis factors carrying singleton
+    do not align to a warp (0.55× on a scalar field, worse than doing nothing). What works is the
+    plainest form: one flat broadcast over the whole section, the per-axis factors carrying singleton
     axes so they extend along the remaining mode axes and along the fiber. Broadcasting indexes them
     cartesian *and* keeps the launch flat and coalesced. Measured against the stored kernel at ``256^3``
-    on an RTX 5070 Ti: **1.37× (scalar) and 1.00× (vector) in `Float32`**, and 0.96× / 0.77× in
+    on an RTX 5070 Ti: 1.37× (scalar) and 1.00× (vector) in `Float32`, and 0.96× / 0.77× in
     `Float64` — the `Float64` shortfall being the extra complex multiplies against a consumer card's
     1/64-rate FP64, which full-rate production hardware does not pay. The lesson is the general one for
     this package: reach for the broadcast route before a hand-written kernel, and measure the launch
@@ -1689,7 +1713,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     code that was already correct.
 
     The mechanism is that a kernel's contribution to a fused pass is fetched through `_kernel_data`,
-    which yields a stored array for a kernel held as a field and an **instantiated `Broadcasted`** for a
+    which yields a stored array for a kernel held as a field and an instantiated `Broadcasted` for a
     separable one. Both the broadcast route and the linear-indexed fiberwise executor consume that lazy
     product exactly as they consume an array — verified including inside the `KernelAbstractions` device
     kernel — so no operator body changed to accept one; the kernel arguments merely widened to a union of
@@ -1703,14 +1727,14 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     storage classes to agree bitwise.
 
     Two operations come with the type. Composition stays inside the family (the factors multiply axis by
-    axis) — but composing two *translation* kernels is deliberately **not** the same operator as one
+    axis) — but composing two *translation* kernels is deliberately not the same operator as one
     kernel for the summed displacement, because at an even axis's Nyquist the real factor
     ``\cos(\pi h_a/\Delta x_a)`` obeys ``\cos a\cos b \ne \cos(a+b)``; displacements compose by addition,
     which is the more correct route as well as the cheaper one. And `inv` gives the reciprocal kernel,
     separable because ``1/\prod_a g_a = \prod_a (1/g_a)`` — the deconvolution an assignment
     window exists for, which retires the one place the point-density recipe reached into kernel storage.
 
-    Deliberately **not** done here: a general `SeparableSymbol(σ₁, σ₂, σ₃)` closure. Per-axis factors
+    Deliberately not done here: a general `SeparableSymbol(σ₁, σ₂, σ₃)` closure. Per-axis factors
     supplied as functions of ``k_a`` would be silently ambiguous about *which* wavenumber family they are
     handed — the true ``|k_a|`` that keeps its Nyquist value, or the derivative ``k_a`` that is zeroed
     there (invariant 5) — which is precisely the trap decision 28 documents. Storing the factors, built by
@@ -1725,7 +1749,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     The kernel costs a closure and three references against ``O(N^3)`` coefficients, and the builders'
     signatures are unchanged, so no call site moves.
 
-    Why the family is closed with no case analysis: ``|k|^2`` is real and **even** in every component,
+    Why the family is closed with no case analysis: ``|k|^2`` is real and even in every component,
     so any real ``\sigma`` of it is real and even too, hence Hermitian-symmetric — the coefficients are
     always some real field's. It also carries the true squared wavenumber at an even axis's Nyquist
     (invariant 5), which is the value a magnitude symbol wants there. This is exactly the argument
@@ -1740,13 +1764,13 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `exponential_convolve!` is its own operation rather than a `radial_kernel` call) — only the closure (``\sigma`` evaluated per mode, on a ``|k|^2`` that
     is itself already lazy over three stored ``O(N)`` axis arrays) or a full field. Which wins follows
     the crossover of `PERFORMANCE.md` finding (o) plus the symbol's own cost: a cheap ``\sigma`` (a
-    mask is one comparison) or one whose parameters **change per call** — the integrating factor, whose
+    mask is one comparison) or one whose parameters change per call — the integrating factor, whose
     substep varies every stage — favours the closure decisively, since a stored kernel must be rebuilt
     and re-read; a fixed expensive ``\sigma`` applied many times can favour materializing, which
     `materialize_kernel` provides.
 
-    Composition follows the families. Two radial symbols multiply into one radial symbol (**refined by
-    decision 61**: unconditionally so only when both operands carry canonical multipliers of the same
+    Composition follows the families. Two radial symbols multiply into one radial symbol (refined by
+    decision 61: unconditionally so only when both operands carry canonical multipliers of the same
     concrete type; any other radial pairing keeps both operands); a radial and
     an axis-factored kernel do not collapse, so `convolve` returns a `ProductKernel` holding both and
     multiplying their per-mode values — the cross-family composition that lets a mask and a
@@ -1754,10 +1778,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     stays "apply a kernel to this scalar field", since a `ScalarFieldSpectral` is also a field.
     (Superseded by decision 60: a field is no longer a kernel, so the lead-argument rule is gone —
     both orders apply and agree bitwise, and composing two kernels is unambiguous by type.)
-    `weighted_inner` accepted a stored or radial kernel as a weight and deliberately **not** a separable
-    one — **superseded by decision 62**, which found that restriction to be no constraint at all and
+    `weighted_inner` accepted a stored or radial kernel as a weight and deliberately not a separable
+    one — superseded by decision 62, which found that restriction to be no constraint at all and
     widened the weight to every class. The reasoning recorded here was already the third attempt at the
-    question and still short of the mark: it correctly called the exclusion **scoping, not validity**
+    question and still short of the mark: it correctly called the exclusion scoping, not validity
     (a real separable ``w`` gives a well-defined ``\langle f, w g\rangle``, so invariant 1 never reached
     it) but still supposed each admitted class would cost its own fused reduction path, which measurement
     disproved — every class already agreed bitwise through the one pass. The two rationales *it* was
@@ -1767,7 +1791,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     was not.
 
     One implementation trap, found on the device and worth the sentence: a symbol closure must capture
-    **values, never a type**. The `spectral_band` builder first captured `T` to write `one(T)`/`zero(T)` in the
+    values, never a type. The `spectral_band` builder first captured `T` to write `one(T)`/`zero(T)` in the
     body, which makes the closure hold a `Type{Float64}` — not a bitstype, so a GPU launch rejects it
     outright. Capturing the two values instead fixes it, and the `radial_kernel` docstring states the
     rule.
@@ -1783,10 +1807,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     operation.
 
     **Two live bugs came out of it, both confirmed by direct execution before any fix.** A `NUFFT` plan
-    used at a *higher* tensor order than the reference it was built from returned **NaN and
-    uninitialized memory** — the spread wrote fewer fibre components than the extract read — where
+    used at a *higher* tensor order than the reference it was built from returned NaN and
+    uninitialized memory — the spread wrote fewer fibre components than the extract read — where
     `DirectDFT` handled the identical call correctly; the plan's own order was never checked, only the
-    field's against the values'. And `extrema` **leaked** the scalar-only restriction that `maximum`
+    field's against the values'. And `extrema` leaked the scalar-only restriction that `maximum`
     and `minimum` enforce: those are absent above ``R = 0`` by not being defined there, which suffices
     because `Base` has no fallback that accepts a section — but `extrema` has one, so it iterated and
     returned the per-component pair the restriction exists to refuse. An absence that relies on the
@@ -1794,14 +1818,14 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     **The audit's sharpest finding was fixture blindness, not missing tests.** The vector gradient's
     testset is named for the index convention ``(\nabla u)_{ij} = \partial_{x_j} u_i``, but its fixture
-    ``u = (\sin x, \sin y, \sin z)`` has a **diagonal** gradient, so transposing the whole operator
+    ``u = (\sin x, \sin y, \sin z)`` has a diagonal gradient, so transposing the whole operator
     passed silently — the name asserted a convention the fixture could not see. The tensor divergence
-    was worse: it had **no analytic oracle at all**, its only value fixture being a tensor of nine
+    was worse: it had no analytic oracle at all, its only value fixture being a tensor of nine
     identical components (hence ``A \equiv A^{\top}``, every index permutation invisible), with every
     other assertion self-referential — threaded against serial, device against host, compressed kernel
     against stored — each comparing one contraction against itself. Both now carry closed-form oracles
-    over deliberately asymmetric fixtures, and **both were verified by re-applying the mutation and
-    confirming the new tests fail**, which is the check that distinguishes a real test from a vacuous
+    over deliberately asymmetric fixtures, and both were verified by re-applying the mutation and
+    confirming the new tests fail, which is the check that distinguishes a real test from a vacuous
     one.
 
     The general lesson is about fixtures rather than counts: a symmetric fixture cannot see an
@@ -1818,7 +1842,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     and 51 each added public surface — `map!`/`map`, `cov`, the kernel builders — and neither the 206
     nor the 122 moved.
 
-    Beside it now sits a **derived** baseline: one frozen count per module, over every function that
+    Beside it now sits a derived baseline: one frozen count per module, over every function that
     module owns, counted across the methods defined in that module. Any new method anywhere moves a
     number, which must then be refrozen deliberately — the pass-audit protocol applied to the method
     table. Verified by adding an untested generic to `Reductions` and confirming the derived baseline
@@ -1861,10 +1885,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `similar_field`'s vector arity fails the first; transposing `gradient`'s packing or contracting
     `divergence`'s wrong index fails the second. All four survived the entire suite beforehand.
 
-    Two lessons generalize past the guards themselves. **A guard needs a guard:** the reachability
+    Two lessons generalize past the guards themselves.
+
+    **A guard needs a guard:** the reachability
     probe first reported a live twin as dead, because the override was less specific than the method
     it meant to replace — so it now asserts each override actually owns a method, separating "stale
-    probe" from "dead twin". And **generate where the oracle is free.** Metadata and asymmetry cost
+    probe" from "dead twin". And generate where the oracle is free. Metadata and asymmetry cost
     nothing per case, which is why those two sweeps are generated; an analytic oracle costs one rule
     per *operator*, not per case, which is why that one is generated too. What genuinely resists
     generation is small: a claim with no value oracle at all, and the ambient method table (whether
@@ -1918,13 +1944,13 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 56. **An external static audit, triaged and answered** (2026-07-30). A manual static review of `src/`,
     `ext/`, `test/`, `docs/` and `benchmark/` at commit `2c6ff752` filed 57 findings. It was read as
     evidence rather than as a work list: a sample was verified against the code first, and that sample
-    already showed three failure modes — **stale** (its benchmark part predates the same day's
-    benchmark commits), **severity-inflated**, and **understated**. The last mattered most, so it is
+    already showed three failure modes — stale (its benchmark part predates the same day's
+    benchmark commits), severity-inflated, and understated. The last mattered most, so it is
     worth naming: what the report called a "partial, meaningless contraction" in `inner` was an
     out-of-bounds read under `@inbounds` that returned a plausible number because the memory beyond
     the array happened to be zero.
 
-    Four findings were **rejected** as recorded trade-offs rather than defects: manual-only CI for the
+    Four findings were rejected as recorded trade-offs rather than defects: manual-only CI for the
     package tests and for the canary lane (a deliberate cost decision after the free tier was
     exhausted), and the absence of `aarch64` and GH200 measurements (already `PERFORMANCE.md` §7 gap
     7). Those are real limitations; none is news, and re-enabling push CI would reverse an explicit
@@ -1949,7 +1975,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     operations, `inner`/`l2norm` and the spline transfer serve higher orders, and general `R` was
     deferred to ship the second-order surface a pseudospectral solver needs. Enforcement at the
     constructor was considered and rejected: it would break the R=3 paths that legitimately work, and
-    it buys nothing, because above the ceiling every entry point either works or **throws** — verified,
+    it buys nothing, because above the ceiling every entry point either works or throws — verified,
     not assumed. A contract lane pins exactly that property, so the boundary is visible and an
     operation that ever starts returning a plausible wrong value there fails a test.
 
@@ -1958,10 +1984,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *different* base indices unsafe — `cross!` on views offset by one along an axis gives the wrong
     answer, serially and threaded. A `mightalias` guard would reject `sym!(A, A)` itself, whose target
     and source component views already have different footprints on one parent, and decision 39 made
-    that case guard-free after measurement. **(FALSE, per decision 59: the target ``(i,j)`` and source
+    that case guard-free after measurement. (FALSE, per decision 59: the target ``(i,j)`` and source
     ``(j,i)`` views select disjoint memory, so `mightalias` is `false` and would not reject the call.
     No guard is still the right answer, for decision 59's different reason. Marked here because this
-    belief deferred the defect for a day.)** Rather than ship a check that might break a measured,
+    belief deferred the defect for a day.) Rather than ship a check that might break a measured,
     load-bearing property, the contract is now stated precisely in the docstring and the failing case
     is recorded here.
 
@@ -1973,10 +1999,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `test/threading.jl` exists to catch. It was invisible because every fixture in that file is backed
     by a plain `Array` — the fixture-blindness of decision 52, in a new place.
 
-    The generalizable lesson is about the **denominator** again. The operation `materialize_kernel` was missing for
+    The generalizable lesson is about the denominator again. The operation `materialize_kernel` was missing for
     an exported kernel class while every completeness ledger read it as covered, because the ledgers
     count operation NAMES and the generic had methods. The fix that matters is not the method; it is
-    that the sweep now takes the **subtype set**, derived from the module namespace, so a new class
+    that the sweep now takes the subtype set, derived from the module namespace, so a new class
     fails until it is given a specimen.
 
 57. **`StoredKernel` — the kernel role, made explicit where it matters** (2026-07-30, user-decided).
@@ -1993,12 +2019,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     the package does not have.
 
     The fix is a marker rather than a restriction, because the ambiguity has a natural resolution:
-    **passing a field as a kernel argument already declares the role.** So `StoredKernel(f)` states it
+    passing a field as a kernel argument already declares the role. So `StoredKernel(f)` states it
     where a caller means it, `inv` is defined on the marker instead of on the field type, and
     composition wraps automatically — `convolve(compressed, f)` yields a product whose stored factor is
     a `StoredKernel`, so a mixed product still inverts with nothing asked of the caller. Application is
     untouched: the union still accepts a bare field everywhere a kernel is taken, so nothing that
-    worked before needs a wrapper. (**Superseded by decision 60**, which is precisely where that
+    worked before needs a wrapper. (Superseded by decision 60, which is precisely where that
     stopped being true: a bare `ScalarFieldSpectral` no longer dispatches as a kernel, so code that
     passed one now *does* need `StoredKernel` — the compatibility this entry preserved was given up
     deliberately, for the type to carry the role.)
@@ -2013,7 +2039,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     The marker is also the shape the kernel protocol wants long-term. With a stored class that is a
     real type, the `SpectralKernel` union could collapse to the abstract supertype and every
     kernel-taking entry point would take one type. That is a breaking change and is not made here; it
-    is now a one-step move rather than a redesign. (**Superseded by decision 60**, which made exactly
+    is now a one-step move rather than a redesign. (Superseded by decision 60, which made exactly
     that move: `SpectralKernel` is now an abstract supertype and every entry point names the one type,
     so the union this entry reasons about no longer exists.)
 
@@ -2036,7 +2062,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     **Tier 1, the protocol product.** The participant set is `methods(_context_grid)`, and every
     ordered pair is checked against every mismatch axis in both argument orders. Adding a participant
     adds a row and a column; adding one without a builder fails a completeness assertion rather than
-    silently sitting out. **Tier 2, the entry-point product.** Every method the package owns is
+    silently sitting out.
+
+    **Tier 2, the entry-point product.** Every method the package owns is
     scanned for a context-carrying parameter, giving (operation, carrier-kind) pairs — the right unit,
     since α/β variants of one call reach one check. Each pair must be invoked or exempted with a
     reason.
@@ -2051,13 +2079,13 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `helmholtz_projection!`, `combine!`, `weighted_inner` — invisible because a slot declared as the
     `SpectralKernel` UNION is a subtype of neither of its halves, so a plain `<:` test walks past it.
     Two more were the allocating kernel forms, invisible one level further up: `SpectralKernel{T}` is a
-    `UnionAll` wrapping that union, so it is not even `isa Union`. (**Superseded by decision 60**: the
+    `UnionAll` wrapping that union, so it is not even `isa Union`. (Superseded by decision 60: the
     union became an abstract supertype, so a plain `<:` test now finds those slots — the derived
     denominator this entry builds is unchanged, but the invisibility it works around is gone.) Both misses were in the *detector*,
     found only because the completeness assertion compares what it derived against what was written by
     hand and complains in both directions. A one-directional check would have reported success.
 
-    The axis worth naming is `domain`: two grids of **identical shape** and different extent. Every
+    The axis worth naming is `domain`: two grids of identical shape and different extent. Every
     array is the same size, every structural check passes, and only a context comparison can tell them
     apart — which is why the operations that lacked one returned plausible wrong answers for months
     rather than failing.
@@ -2071,9 +2099,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     Three fixes were available and two were wrong. A `mightalias` guard on every pass would work but
     puts a per-call test on paths decision 39 measured as guard-free, and leaves invariant 9 needing a
-    caveat forever. A **contiguity** requirement looks right and is not: `reshape(view(flat, 2:end), …)`
+    caveat forever. A contiguity requirement looks right and is not: `reshape(view(flat, 2:end), …)`
     is densely strided, overlaps another dense view at an offset, and still corrupts — verified, not
-    reasoned. Contiguity is the wrong property; **ownership** is the right one.
+    reasoned. Contiguity is the wrong property; ownership is the right one.
 
     So the constructors reject storage with a `SubArray` anywhere in its parent chain. Two sections can
     then share memory only by being backed by the same array, which is the case the passes already
@@ -2085,8 +2113,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     **The cost is one foreclosed pattern**: a consumer keeping solver stages in one buffer and slicing
     `view(stages, :, :, :, :, k)`. Those slices are contiguous and disjoint, hence safe, and they are
-    now refused. Accepted deliberately, on the principle that **relaxing a restriction later is safe
-    and tightening one is breaking** — if a consumer needs it, permitting views that are full in the
+    now refused. Accepted deliberately, on the principle that relaxing a restriction later is safe
+    and tightening one is breaking — if a consumer needs it, permitting views that are full in the
     three base dimensions is a small non-breaking follow-up, and that class provably cannot produce a
     base-index offset.
 
@@ -2099,34 +2127,34 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     belief is why the defect was deferred for a day.
 
     The invariant now says what is true rather than what was hoped: aliasing is safe by construction
-    **because** a section owns its storage. The survey in `test/exhaustive/` checks both halves — that no assignment
+    because a section owns its storage. The survey in `test/exhaustive/` checks both halves — that no assignment
     changes an answer, and that the refusal has not reopened — and the second is mutation-verified:
     removing one constructor's check makes the lane name every reopened case and turn its exit from
     0 to 2.
 
 60. **A field in spectral representation is not a kernel** (2026-08-03, user-decided). `SpectralKernel`
-    was a **union** of `ScalarFieldSpectral` — a scalar field carrying one coefficient per mode — and an
+    was a union of `ScalarFieldSpectral` — a scalar field carrying one coefficient per mode — and an
     abstract `AbstractSpectralKernel` covering the compressed classes. Three things were wrong with
     that. The abstract type *read* broader than the union while being strictly narrower, so its name
     misled at every signature. A `StoredKernel` marker had to exist purely so `inv` could tell a kernel
     from a field, since the two hold identical data. And `convolve` became asymmetric in a way
-    commutativity forbids: `convolve(field, kernel)` **applied** the kernel while
-    `convolve(kernel, field)` **composed**, because argument position was the only thing left carrying
+    commutativity forbids: `convolve(field, kernel)` applied the kernel while
+    `convolve(kernel, field)` composed, because argument position was the only thing left carrying
     the role.
 
-    The union is gone. `SpectralKernel{T}` is now the **abstract supertype** of four concrete classes —
+    The union is gone. `SpectralKernel{T}` is now the abstract supertype of four concrete classes —
     `StoredKernel` (one coefficient per mode), `SeparableKernel` (per-axis factors), `RadialKernel` (the
     real function ``\sigma`` of ``\lvert k\rvert^2``, held as a closure), and `ProductKernel` (two
     factors held unmultiplied). Every signature naming `kernel::SpectralKernel{T}` is unchanged,
-    `materialize_kernel` returns a `StoredKernel`, and **both argument orders of `convolve` apply and
-    agree bitwise at every tensor order**. Composing two convolution operators *is* convolving their
+    `materialize_kernel` returns a `StoredKernel`, and both argument orders of `convolve` apply and
+    agree bitwise at every tensor order. Composing two convolution operators *is* convolving their
     kernels, so composition keeps the same verb and is now unambiguous by type rather than by position.
 
     A field of coefficients is wrapped once, where the kernel is built. Measured at ``64^3``, the
-    wrapper costs 144 bytes at construction and **zero per call**, with `_kernel_data` inlining to a
+    wrapper costs 144 bytes at construction and zero per call, with `_kernel_data` inlining to a
     `getfield` — so the cost objection to requiring the wrapper does not exist. Two package methods
     went (`Fields` 105 → 103, refrozen with the reason), and the materializing
-    `squared_wavenumber_field` was **removed**: ``\lvert k\rvert^2`` is a radial function, so
+    `squared_wavenumber_field` was removed: ``\lvert k\rvert^2`` is a radial function, so
     `radial_kernel(identity, multipliers)` is the same object at a closure's cost rather
     than ``O(N^3)`` coefficients.
 
@@ -2152,12 +2180,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     runtime check was compensating for that at every composition.
 
     The fix puts the guarantee in the type. `FieldSpectralMultipliers` gains a final `Canonical` type
-    parameter recording whether its arrays were **derived from the grid** (the convenience constructor)
-    or **supplied by a caller** (the six-array form). Two canonical sets of the same concrete type, on a
+    parameter recording whether its arrays were derived from the grid (the convenience constructor)
+    or supplied by a caller (the six-array form). Two canonical sets of the same concrete type, on a
     matching grid and layout, hold identical values by construction — same derivation, same inputs — so
     the collapse is unconditional there and is selected by dispatch. Every other pairing, including a
     custom set on either side and two canonical sets of different array types (different backends), keeps
-    both operands. All four cases now infer a concrete type, and the parameter goes **last** so that
+    both operands. All four cases now infer a concrete type, and the parameter goes last so that
     every bare `::FieldSpectralMultipliers` annotation and the one `{T}` accessor are untouched.
 
     **One behaviour change, and it is the one the mathematics asks for**: two separately-built canonical
@@ -2179,7 +2207,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     instantiated broadcastable — coefficients for the stored class, a lazy per-axis product for the
     separable one, a lazy symbol evaluation for the radial one, a lazy product of two for the composite —
     and the fused reduction never asks which class it holds. Running its body unchanged against the two
-    excluded classes gave results **bitwise identical** to the accepted route, before any code was
+    excluded classes gave results bitwise identical to the accepted route, before any code was
     changed. The `Union` was a signature written narrowly and never revisited.
 
     **Two rationales for it were recorded over time, and both were wrong.** The first said a separable
@@ -2193,7 +2221,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     **A complex weight now throws.** ``\langle f, w g\rangle`` is an inner product only for a real ``w``,
     and the previous code took `real(w)` elementwise — so `translation_kernel`, the one complex builder,
     would have been silently accepted with its phase read as a cosine attenuation. The rejection is made
-    where the **type** decides it, through `Base.Broadcast.combine_eltypes` on the kernel's data (plain
+    where the type decides it, through `Base.Broadcast.combine_eltypes` on the kernel's data (plain
     `eltype` of an unmaterialized `Broadcasted` is `Any` and does not infer). The branch is on a
     compile-time-known element type and folds away: measured at ``128^3``, old-versus-new ratios are
     1.001 (radial), 0.997 (separable) and 1.000 (stored) — free, which was the condition set for adding
@@ -2205,7 +2233,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     same type. Separating them needs a full extra pass over the coefficients, which this reduction's
     single-pass contract does not permit, so that class keeps the documented real-part behaviour. The
     rule is therefore *the check is made wherever the type can decide it*, which is a statement about
-    what is knowable for free rather than an inconsistency to tidy away later. **Settled by the user
+    what is knowable for free rather than an inconsistency to tidy away later.
+
+    **Settled by the user
     (2026-08-05): the exemption stands and the ``O(N)`` scan is declined.** Reaching that path takes a
     deliberate act — hand-building a stored kernel's coefficients, or explicitly materializing a complex
     one — and a consumer who does either knows what they are doing; paying a full coefficient scan on
@@ -2223,7 +2253,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     new methods, and the four are the two internal helpers it needed, at two methods each.
 
 63. **Storage families are crossed by `adapt`, the ecosystem's verb, and precision is not crossed at
-    all** (2026-08-10, user-directed). Invariant 14 makes every operation **refuse** a pair of sections
+    all** (2026-08-10, user-directed). Invariant 14 makes every operation refuse a pair of sections
     that disagree in storage family, rather than promoting or transferring one to meet the other. That
     refusal was always half a design: it names what the package will not do implicitly without offering
     the explicit operation that does it. The complement has now shipped, and it is not a new verb.
@@ -2234,7 +2264,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     field types, the three point-value types, `PointSet`, `FieldSpectralMultipliers`, the four spectral
     kernel classes and `FieldTransformPlans`, and re-exports `adapt` so `using GBGPeriodicFields`
     supplies it. Every method rebuilds through the same allocator the rest of the package uses, so the
-    grid, the Fourier layout, the origin and the tensor order propagate **by construction** rather than
+    grid, the Fourier layout, the origin and the tensor order propagate by construction rather than
     by being remembered — the defect that made `map` drop the layout on every permuted fold
     (decision 48).
 
@@ -2242,7 +2272,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     precision excluded, `adapt(CuArray, u)` takes exactly one parameter, and a second spelling is a
     second thing to keep consistent. The decisive argument is a dependency one. Because
     `adapt_structure` dispatches on a generic target, CUDA supplies the `CuArray` storage rule and
-    AMDGPU the `ROCArray` one, so **the package gains both vendors without depending on either** —
+    AMDGPU the `ROCArray` one, so the package gains both vendors without depending on either —
     preserving the rule that vendor stacks stay test-only. A hand-rolled `convert_storage` would need
     that same generic dispatch and would be `adapt` under another name. `Adapt` itself is a
     dependency-free package already reachable through `KernelAbstractions`, and pure Julia, so it is
@@ -2260,15 +2290,15 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     backend and cannot be moved. It was first thought that adapting one would have to refuse and send
     the user to the constructor — wrong, and the question that exposed it was whether a plan requires
     both representations. It does not: the constructor reads no data, only shape, element type and
-    family, and a plan **outlives the arrays it was planned against** (verified on FFTW and cuFFT). A
+    family, and a plan outlives the arrays it was planned against (verified on FFTW and cuFFT). A
     `FieldTransformPlans` stores its own grid and layout and carries `T` (its element type) as a type
     parameter, so it can allocate its own witnesses, plan, and release them. (It also carried `R`, its
-    tensor order, when this was written; **decision 76 removed it** — a transform is a property of the
+    tensor order, when this was written; decision 76 removed it — a transform is a property of the
     base, so one plan pair now serves every rank and the rebuild uses order-0 witnesses.) The struct now also records the planner
     request it was built with, because a rebuild would otherwise fall back to `ESTIMATE` — which
     finding (h) of `docs/PERFORMANCE.md` records as capable of badly mis-planning a single-precision
     transform. Planner flags are an `FFTW` concept and a device rebuild ignores them (`cuFFT` rejects
-    them with an unrelated-looking pointer error) while **retaining** them, so a later move back to the
+    them with an unrelated-looking pointer error) while retaining them, so a later move back to the
     host restores the original intent.
 
     **Adapting to the family one is already in is the identity**, following `Adapt` and `convert`: it
@@ -2294,7 +2324,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     inverse real transform may consume its input as scratch (the transform input contract above:
     `FFTW` destroys it, some device backends happen not to), so the package offered two contracts —
     the destructive in-place `to_physical!(physical, spectral, plans)` and the preserving-but-
-    allocating `to_physical(spectral, plans)` — and the preserving **allocation-free** member was
+    allocating `to_physical(spectral, plans)` — and the preserving allocation-free member was
     missing. Every consumer whose spectral coefficients are a state it keeps (a spectral solver's
     resolved fields, or any field recovered to physical space more than once) was hand-composing
     `copyto!` plus the destructive form; the requesting solver did exactly that in two wrappers and a
@@ -2413,7 +2443,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     **The second argument is the problem.** `Base.similar`'s four canonical forms are `similar(A)`,
     `similar(A, ::Type{T})`, `similar(A, dims)` and `similar(A, ::Type{T}, dims)`: that positional
-    slot means an element type or a set of dimensions. Here it means the **tensor order**, carried as
+    slot means an element type or a set of dimensions. Here it means the tensor order, carried as
     a `Val{R}`, which is neither. Borrowing a name while breaking the convention that gives the name
     its meaning is worse than a distinct name, which promises nothing.
 
@@ -2432,7 +2462,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     subtype `AbstractFiberSection{T, R}` — so `similar`'s eltype-and-dims contract cannot express the
     grid, layout, representation and tensor order that propagating is this operation's whole purpose.
 
-    A narrow additive alternative was considered and declined with it: defining **only**
+    A narrow additive alternative was considered and declined with it: defining only
     `Base.similar(::AbstractFiberSection)`, the no-extra-argument form, which carries no semantic
     collision and would let a newcomer's reflex work while `similar(u, Float32)` failed loudly. It
     would still be a second spelling of one operation, which invariant 1 declines to add for
@@ -2445,13 +2475,14 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     inherited the imprecision through the multipliers type they carry. The rebuilt *value* was always
     right, so nothing computed a wrong answer; what was lost is the point of putting the flag in the
     type at all. Decision 61 did that so `convolve` can collapse two radial kernels over canonical
-    multipliers **statically**, and a non-concrete parameter turns that back into a run-time decision
+    multipliers statically, and a non-concrete parameter turns that back into a run-time decision
     for every kernel that has crossed the bus.
 
     The cause is one line: `adapt_structure` read the flag with `_is_canonical`, an ordinary `Bool`,
     and handed it to a constructor that lifts its *value* into `new{…, canonical}`. Every other
     construction passes a literal, which inference folds, so the defect existed only on the one path
     that forwards the flag from an existing object — which is exactly the path no unit test typed.
+
     **Binding `Canonical` in `adapt_structure`'s own signature was tried first and measured
     insufficient**: constant propagation does not reach through the constructor's length validation.
     The flag is therefore taken as `Val{Canonical}`, so it is in the type domain at the call rather
@@ -2460,7 +2491,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     *Verification.* `test/adapt.jl` asserts both halves for canonical and caller-supplied multipliers
     and for all three kernel classes that can carry them: that the moved object's type is unchanged,
-    and that `Base.return_types(adapt, …)` is **concrete**. The value assertion alone passed
+    and that `Base.return_types(adapt, …)` is concrete. The value assertion alone passed
     throughout the period the type assertion would have failed, which is why the test now makes both.
     The gate moves 6523 → 6533.
 
@@ -2477,11 +2508,11 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     field back on any regular basis had no way to hoist that.
 
     *Measured into the table 2026-08-23, which sharpened the estimate.* On the return trip `adapt!` is
-    **3.48–3.66×** the allocating form at ``256^3`` (both element types, scalar and vector); the first
-    estimate said "about ``4\times``", from a bare-array probe. **Outbound it is a wash**
+    3.48–3.66× the allocating form at ``256^3`` (both element types, scalar and vector); the first
+    estimate said "about ``4\times``", from a bare-array probe. Outbound it is a wash
     (``1.0\times``), which is the diagnosis confirming itself — the device allocation is pooled and
-    cheap, so there was never a page cost to avoid in that direction. And the gain has a **size
-    threshold**: a ``128^3`` `Float64` *scalar* (16.8 MB) shows ``1.01\times`` while the *vector* on
+    cheap, so there was never a page cost to avoid in that direction. And the gain has a size
+    threshold: a ``128^3`` `Float64` *scalar* (16.8 MB) shows ``1.01\times`` while the *vector* on
     the same grid (50 MB) shows ``3.48\times``, consistent with the cause being page faults on fresh
     host pages, which bite only once an allocation is too large for the allocator's reused blocks.
 
@@ -2492,7 +2523,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     is exactly what the implementation calls on the underlying arrays; it is the wrong *public*
     spelling here because the package's only `copyto!` methods are the broadcast entry point. A
     section-to-section `copyto!` that crossed storage families would cross where
-    `destination .= source` **refuses** under invariant 14 — the same two objects giving opposite
+    `destination .= source` refuses under invariant 14 — the same two objects giving opposite
     answers under two spellings, which is the ambiguity decision 60 removed rather than one to add.
 
     **The signature takes no target.** `adapt(to, x)` needs one; `adapt!(destination, source)` does
@@ -2500,7 +2531,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     Everything except the family must match — element type, tensor order, grid, Fourier layout — and
     the check is `_check_adapt_target`, which is `_check_same_domain` minus its backend clause;
     reusing that check would refuse precisely the pair this verb is for. A representation mismatch has
-    **no method** rather than an error, since a physical field and a spectral one are not the same
+    no method rather than an error, since a physical field and a spectral one are not the same
     section, and precision is not converted here for the same reason `adapt` does not convert it. A
     same-family pair is an ordinary copy rather than an error, so generic code need not ask which side
     of the bus it is on, and an aliased call is a guarded no-op.
@@ -2524,7 +2555,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
 70. **The radial-symbol operators allocate nothing, not merely less than a field** (2026-08-23,
     raised by the consuming solver with a reproduction). The operators `laplacian!`, `inverse_laplacian!`,
-    `divergence!` and `exponential_convolve!` each allocated **144 bytes per call**, constant in the
+    `divergence!` and `exponential_convolve!` each allocated 144 bytes per call, constant in the
     grid. The cause is one line repeated: `_squared_wavenumber_broadcast` and
     `_wavenumber_broadcast_view` built their `reshape` wrappers *per invocation*, and a `reshape`
     allocates a 48-byte array header — three of them, every call. The consumer measured 1152 B per
@@ -2532,10 +2563,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     looks like from the outside.
 
     **Why the audit did not see it.** `test/allocations.jl` pinned these under `field_threshold`,
-    which is deliberately generous because its job is to catch a **materialized field** — and 144 B
+    which is deliberately generous because its job is to catch a materialized field — and 144 B
     passes that trivially. So the guard said "no field" while `CLAUDE.md` said "allocates nothing per
     step", and nothing in the tree could tell the two claims apart. A consumer counting bytes per step
-    could. The pin is now split: serial asserts **zero**, which is the claim; the threaded lane keeps
+    could. The pin is now split: serial asserts zero, which is the claim; the threaded lane keeps
     a bound, because `Base.Threads` allocates task state per `_assign!` that is kilobytes and
     grid-independent. Both lanes assert something, since a testset that silently skips is how this
     reappears.
@@ -2557,10 +2588,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     *One test was measuring the wrong thing and is now measuring the right one.* Decision 51's storage
     claim was asserted as `summarysize(cutoff) < 1024`, which broke at 1136. But that bound counted
-    the kernel **plus the multipliers it references**, whose per-axis vectors are ``O(N)`` — a
+    the kernel plus the multipliers it references, whose per-axis vectors are ``O(N)`` — a
     small-grid constant wearing the name of a property. The claim is "a closure and three references",
     so it is now asserted as exactly that: the kernel *references* the caller's multipliers rather
-    than copying them, and what it adds on top of them is **152 bytes at every grid**, compared across
+    than copying them, and what it adds on top of them is 152 bytes at every grid, compared across
     two that differ by 512× in mode count.
 
 71. **`reality_residual` — the contract the half-spectrum cannot enforce** (2026-08-23, requested by
@@ -2568,7 +2599,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ``\hat f(-k) = \overline{\hat f(k)}``, and the real-to-complex layout exploits that by storing
     only half the modes — so for most modes the redundant partner is *not stored* and cannot disagree.
     Two planes are the exception: the folded axis's zero plane, and its Nyquist plane when that axis
-    has even length, are each their own mirror, so within them **both** partners are stored and the
+    has even length, are each their own mirror, so within them both partners are stored and the
     constraint becomes a relation a caller can break. The `reality_residual` diagnostic returns the largest
     discrepancy ``\lvert \hat f(k) - \overline{\hat f(-k)} \rvert`` over those planes, zero exactly
     when the coefficients are a real field's.
@@ -2596,7 +2627,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     **A second vendor and a second CPU confirm both halves of that shape** (measured 2026-08-23). The
     RX 7900 XTX is flat at 238–244 µs across ``64^3``/``128^3``/``256^3``, the same launch-bound
     plateau at a different height, and the i7-12700K grows 80 µs → 362 µs → 1.586 ms → 13.258 ms out to
-    ``512^3``, fourfold per doubling as the area argument requires. The two profiles **cross**: at
+    ``512^3``, fourfold per doubling as the area argument requires. The two profiles cross: at
     ``64^3`` the CPU is about three times faster than the AMD card, and by ``256^3`` the card is about
     six times faster than the CPU, which is what a launch-bound cost meeting an area-bound one looks
     like. A caller choosing where to run this should read the crossover rather than the peak.
@@ -2607,7 +2638,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     written as whole-array `reverse`, `circshift` and `maximum` over one or two planes, so it runs
     through `Base` rather than through the package's threaded assignment primitive, and it structurally
     cannot reach the fixed reduction tree, which lives in a module included after this one. But the
-    binding constraint is that the pass is **allocation-bound**: it allocates ``\approx 6\times`` the
+    binding constraint is that the pass is allocation-bound: it allocates ``\approx 6\times`` the
     plane bytes it reads — three temporaries over each stored plane, from the reversal, the shift, and
     materializing the difference as the reduction's argument — so a threaded reduce alone would leave
     the serial allocation in place, which is the likeliest reading of the ``512^3`` inversion. The fix
@@ -2619,42 +2650,42 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     **Two naming decisions.** It is *not* called `symmetrize!`, though that is the requester's word and
     TurTLE's precedent: the package already exports `sym`, `sym!`, `symmetric_gradient` and
-    `symmetric_gradient!` for the symmetric part of a tensor's **fiber**, and reusing the word for a
-    relation among **spectral** coefficients would put one name on two operations acting on different
+    `symmetric_gradient!` for the symmetric part of a tensor's fiber, and reusing the word for a
+    relation among spectral coefficients would put one name on two operations acting on different
     structures. It is named for the *reality condition* instead, which is the vocabulary
-    `convolve!`'s docstring and decision 28 already use. And it does **not** zero the Nyquist planes as
+    `convolve!`'s docstring and decision 28 already use. And it does not zero the Nyquist planes as
     TurTLE's `symmetrize()` does: invariant 5 keeps Nyquist content deliberately, so a violation there
     is named like any other.
 
     *Verification.* An elementwise oracle written from the definition, sharing no code with the
     implementation — which walks whole planes with `reverse`/`circshift` so it never indexes a device
     array one element at a time, and is checked under `allowscalar(false)` in the CUDA suite. Crossed
-    over both element types, tensor orders 0/1/2, permuted folds, an **odd** folded axis (one
+    over both element types, tensor orders 0/1/2, permuted folds, an odd folded axis (one
     self-conjugate plane rather than two), the pair-consistency property (fixing the partner restores
     zero), the self-paired corners (whose residual is twice the imaginary part), and the round-trip
     repair. `Fields` 119 → 120, refrozen with its reason; the gate gains 170 assertions.
 
 72. **Several weights, one traversal** (2026-08-23, the consuming solver's highest-value request).
-    `weighted_inner(f, (w₁, …, wₙ))` returns one scalar per weight from a **single** pass over the
+    `weighted_inner(f, (w₁, …, wₙ))` returns one scalar per weight from a single pass over the
     coefficients. The requester's variance controller reduces the same field three times at every RK
     stage — against unity, a forced band, and ``\lvert\kappa\rvert^2`` — and it is not the
-    arithmetic it pays for but the **return to the host**: each scalar is a blocking readback, nine of
+    arithmetic it pays for but the return to the host: each scalar is a blocking readback, nine of
     the ten synchronizations in a default run. One call is one readback.
 
     **The tuple is the whole design, and its spelling was not free.** A tuple carries its length in
     its type, so the return is a concrete `NTuple{n, T}` and a caller destructures it. Fusing needs an
-    accumulator per weight, and the obvious spelling — `zip` the operands — **falls back to scalar
-    indexing** and dies under `allowscalar(false)`; broadcasting into an `NTuple` and reducing with a
+    accumulator per weight, and the obvious spelling — `zip` the operands — falls back to scalar
+    indexing and dies under `allowscalar(false)`; broadcasting into an `NTuple` and reducing with a
     tuple `+` stays on the device. That is measured, not assumed. In the committed table it beats the
-    three calls it replaces on **every one of the ten lanes** — **1.16–2.97× on the two CPUs** (median
-    ``1.33``) and **1.51–2.81× on the two GPUs** — before counting the two synchronizations that stop
+    three calls it replaces on every one of the ten lanes — 1.16–2.97× on the two CPUs (median
+    ``1.33``) and 1.51–2.81× on the two GPUs — before counting the two synchronizations that stop
     happening.
 
     **The CPU band was re-derived 2026-08-31; this entry's original ``1.64``–``1.97\times``
     "uniformly" is retired.** Only 4 of 64 CPU cells now fall in that band, and one row (12700K,
     ``256^3`` `Float64`) spans ``1.56`` to ``2.89\times`` across its thread lanes where it read
     ``1.71``–``1.72`` flat. Nothing about the tuple form changed: finding (ac) moved the CPU leg onto
-    the threaded fixed tree, the path **both** compared rows traverse, so the ratio moved without
+    the threaded fixed tree, the path both compared rows traverse, so the ratio moved without
     either arm being touched. The decision stands — the tuple form wins every cell — but a ratio
     between two rows is not stable under a change to the path they share.
 
@@ -2662,7 +2693,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     only the *coefficient* reads are shared: each weight is still evaluated per mode, so a third of the
     traffic was never the target. The NVIDIA card's `Float64` rows are its weakest (1.36× at ``256^3``
     against 1.96× for `Float32`), which is what a consumer card doing double precision at 1/64 rate
-    looks like — compute-bound work has less to gain from reading less. And the AMD card does **not**
+    looks like — compute-bound work has less to gain from reading less. And the AMD card does not
     show that split (1.86× against 2.48× at ``256^3``, and its best figures anywhere), which is the
     same explanation seen from the other side rather than a second one.
 
@@ -2678,24 +2709,24 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     several weights is the same mathematics at several ``w``, so invariant 1 is satisfied by extending
     `weighted_inner` rather than naming something new; a variadic form was declined because
     `weighted_inner(f, w₁, w₂)` sits too close to the two-field `weighted_inner(f, g, w)` for a reader
-    to separate at a glance, where a tuple says *these are weights* structurally. The **two-field**
+    to separate at a glance, where a tuple says *these are weights* structurally. The two-field
     generalization ``\langle f, w g\rangle`` at several weights is deliberately absent: no consumer
     asked, and invariant 1 does not add combinations for completeness. Every refusal the single-weight
     form makes is made here in any position — a complex multiplier, a foreign context — and an empty
     tuple returns `()` without touching the field.
 
-    **Fusion is exact, and one thing a consumer will notice is not.** The fused result is **bitwise
-    identical** to the separate calls, same arithmetic in the same order with only the pass shared.
+    **Fusion is exact, and one thing a consumer will notice is not.** The fused result is bitwise
+    identical to the separate calls, same arithmetic in the same order with only the pass shared.
     But `inner(f, f)` and `weighted_inner(f, unit)` differ in the last ulps — ``1.1\times10^{-14}``
     relative, measured — because `inner` reduces on the threaded fixed tree and this pass does not.
-    That difference is **pre-existing** and belongs to the two routes, not to fusing; it is recorded
+    That difference is pre-existing and belongs to the two routes, not to fusing; it is recorded
     because a consumer replacing `inner(f, f)` with the unit-weight entry will see it and should know
     which of the two it came from.
 
     **The stronger form the request floated — a device-resident scalar pack that `convolve!` accepts
     as a coefficient source — is declined**, on a concrete cost rather than a principle. The
     requester's own arithmetic between the reduction and the use is
-    ``A = (\varepsilon - R)/(2k_f)`` guarded by an emptiness test: a division **and a branch**.
+    ``A = (\varepsilon - R)/(2k_f)`` guarded by an emptiness test: a division and a branch.
     Keeping the scalars on the device would require ``\alpha`` to accept a device handle across every
     α/β signature in the package (invariant 10's contract, dozens of methods) *and* the consumer to
     run a device-side select — the package dictating where a consumer's formula executes, which is
@@ -2703,7 +2734,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     crossings to four, and the remaining three are one per stage.
 
     *Verification.* 344 gate assertions: fused bitwise-equal to the separate calls for every ``n`` from
-    1 to 5 over a **heterogeneous** tuple holding one weight of each storage class, both element types,
+    1 to 5 over a heterogeneous tuple holding one weight of each storage class, both element types,
     tensor orders 0/1/2, permuted folds; the order property (reversing the weights reverses the results
     and nothing else, which is the guard against accumulating into the wrong slot); `@inferred` for the
     concrete `NTuple`; both refusals in any position; the empty tuple; and the `inner` agreement at its
@@ -2737,7 +2768,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       same pass, not a second traversal. Only `domain_size` and `origin` enter; the mesh plays no
       role.
     - **`wrap!` owns the periodic-box subtleties once.** The canonical representative lands in the
-      half-open ``[o_a, o_a + L_a)`` per axis — **origin-aware**, which the consumer's own
+      half-open ``[o_a, o_a + L_a)`` per axis — origin-aware, which the consumer's own
       four-line wrap was not (`mod(X, L)` assumes a zero origin) — with the excluded endpoint
       folded explicitly (floating-point `mod` can return the period itself: `mod(-1e-20, 2π) ===
       2π`, a pinned test), and the fold testing equality rather than order so a non-finite
@@ -2781,7 +2812,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     the consuming solver). Every route to field storage required an existing value in hand: the six
     concrete constructors take a storage array the caller must already have produced on the right
     backend, and `similar_field` (decision 44) copies its context from a reference field. A consumer
-    whose domain frame deliberately owns **no** field-sized arrays — the design this package's own
+    whose domain frame deliberately owns no field-sized arrays — the design this package's own
     lazy kernels enable, and which the solver's memory ledger now *asserts* — therefore had no
     sanctioned route to its first field, and was reading a multipliers axis vector as a
     backend-and-element-type witness for a raw `Base.similar`, reproducing the package's
@@ -2790,8 +2821,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       reference-free completion of the `similar_field` family", but `similar_field`'s identity is
       allocation *from a reference* — "similar" with nothing to be similar to is a contradiction in
       the name (and `Base.similar` itself was declined for these allocators by decision 67, for
-      convention reasons that would apply doubly here). What was missing is **construction from
-      context**, and construction already has a home: the same six constructors now accept a storage
+      convention reasons that would apply doubly here). What was missing is construction from
+      context, and construction already has a home: the same six constructors now accept a storage
       *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produce the storage
       themselves: `VectorFieldSpectral(ROCArray, grid, layout)`. No new export, no new name; the
       representation and tensor order are carried by the type name, as they always were.
@@ -2835,7 +2866,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     argument that carried decision 74, one layer up.
     - **The line is drawn by what an object *is*, not by which types were asked for.** A
       `LalescuSpline` stores `neighbours`, `smoothness` and a weight `SMatrix` — but the matrix is
-      **derived**, recomputed by the constructor from ``(n, m)``. So the faithful record is the
+      derived, recomputed by the constructor from ``(n, m)``. So the faithful record is the
       parameters, and storing the weights would duplicate derived data, the very thing the
       consumer's checkpoint design avoids everywhere else. `LagrangeSpline` is the same with one
       parameter, and `DirectDFT` is the degenerate case: a singleton whose tag is its whole record.
@@ -2844,7 +2875,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     - **`NUFFT` is refused, and the refusal is a statement about the object.** It owns oversampled
       FFT plans and a deconvolution window built against a particular reference field. That is a
       compiled schedule, the same kind of object as `FieldTransformPlans`, which decision 63 likewise
-      **rebuilds rather than moves** when storage families change. A stored NUFFT would be either a
+      rebuilds rather than moves when storage families change. A stored NUFFT would be either a
       large duplicate of derived data or a parameter set pretending to be the object; the consumer
       rebuilds it from the reference field it restores anyway. The error says so and names the
       rebuild.
@@ -2861,7 +2892,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       attributes are each checked.
     - **An adjacent defect, found and fixed in the same change.** The extension's header has always
       claimed its self-describing attributes are "CHECKED, not merely written", and for `read_field`
-      they were — but **`read_points` never checked its schema version**, so a point group written by
+      they were — but `read_points` never checked its schema version, so a point group written by
       a newer version was silently accepted. The version gate is now one shared helper applied by all
       three read verbs, and the header's claim is true for the first time.
     - **Definition of done, with two reasoned exemptions.** No GPU parity lane: a scheme is a
@@ -2874,10 +2905,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       `CatmullRom` alias (which needs no identity of its own: it *is* `LalescuSpline(1, 1)` and
       returns egal to it), `DirectDFT`, and the `parent[name] = scheme` sugar — asserted with `===`,
       the strongest available equality, and reinforced by a behavioural check that a read scheme
-      interpolates **bitwise** identically, so the test still bites if a scheme ever gains state that
+      interpolates bitwise identically, so the test still bites if a scheme ever gains state that
       egality sees and the stored parameters do not determine. Eight malformed-group paths each
       refused for their own reason, the `NUFFT` refusal on both the verb and the sugar, and a
-      **completeness guard** walking every concrete `AbstractTransferScheme` subtype and requiring it
+      completeness guard walking every concrete `AbstractTransferScheme` subtype and requiring it
       to round-trip or be a recorded refusal — verified by perturbation (dropping one scheme fails
       it), so a future scheme family cannot ship silently unpersistable.
 
@@ -2885,8 +2916,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     the consuming solver `GBGHomogeneousTurbulence` ("IT")). `FieldTransformPlans` was parameterized on
     the tensor order ``R``, and built one plan pair per rank: a scalar field, a vector field and a
     second-order tensor field each needed their own. That was never a recorded decision — it was the
-    shape the original construction happened to take — and it is a **category error** in the terms
-    §2 already sets out. A real Fourier transform on a periodic box is defined **on the box**; a
+    shape the original construction happened to take — and it is a category error in the terms
+    §2 already sets out. A real Fourier transform on a periodic box is defined on the box; a
     rank-``R`` field is that transform applied along a fiber. The transform is therefore horizontal,
     a property of the base, and ``R`` is vertical, a property of the fiber. Encoding the second
     inside the first is the same defect the documentation rules name elsewhere as "a vector space
@@ -2897,7 +2928,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     transforms. Per-rank plans therefore multiply that array by the rank: IT measured 516 MiB of plan
     residency against 1158 MiB of working arrays at ``256^3`` in single precision, with a further
     1161 MiB once a nine-component diagnostic is enabled. The package holds no plans of its own, so
-    the saving accrues entirely to consumers — but the **arrangement** that causes it is the
+    the saving accrues entirely to consumers — but the arrangement that causes it is the
     package's, and so is the fix.
 
     **One pair now serves every rank.** The plans are built for a single component (the tensor-order
@@ -2915,8 +2946,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     stands and is not a claim about a GPU. Holding
     planner effort fixed — and that qualifier is load-bearing, see finding (z) and below — a
     single-component plan runs at ``0.98``–``1.04`` of the batched plan at one thread and
-    ``0.72``–``1.13`` at eight, i.e. free at ``t1`` and a **10–28% win at ``256^3`` on eight
-    threads**, which is the regime decision 37 names as the CPU tuning target. IT reports the same
+    ``0.72``–``1.13`` at eight, i.e. free at ``t1`` and a 10–28% win at ``256^3`` on eight
+    threads, which is the regime decision 37 names as the CPU tuning target. IT reports the same
     direction on its own harness.
 
     **The obstacle, and why it does not become a restriction.** A component of a rank-``R`` field
@@ -2926,16 +2957,16 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     alignment *class* for the real and the complex array alike; the answer there is to plan with
     `FFTW.UNALIGNED`, which costs no memory and, measured, 2–65% of throughput — paid only by grids
     that need it, and no production grid does. The `cuFFT` library needs only the real pointer aligned to its
-    complex element, which reduces to the real component stride being even, i.e. to the grid **not
-    being odd on all three axes**; a device has no `UNALIGNED` flag, so such a grid transforms
+    complex element, which reduces to the real component stride being even, i.e. to the grid not
+    being odd on all three axes; a device has no `UNALIGNED` flag, so such a grid transforms
     through a component-sized buffer instead. Both answers are chosen once, at construction, from the
-    grid alone. **No grid is refused**, which was the alternative considered and declined: every
+    grid alone. No grid is refused, which was the alternative considered and declined: every
     other absence in the package encodes mathematics (invariant 1), whereas "no grid with three odd
     axes" would have encoded a pointer-alignment rule, and the ``\mathrm{odd}`` axes are what
     invariant 5's even/odd Nyquist split is tested against.
 
     **A measurement trap that nearly reversed the conclusion, recorded because it is cheap to repeat.**
-    `FFTW_MEASURE` is `0`, so passing `flags = FFTW.UNALIGNED` **replaces** the default rather than
+    `FFTW_MEASURE` is `0`, so passing `flags = FFTW.UNALIGNED` replaces the default rather than
     adding to it and silently selects `MEASURE`. A first pass read `UNALIGNED` as up to ``4.3\times``
     *faster*; it was comparing planner efforts, not plan shapes. The constructor therefore composes
     the flag onto the caller's request (`requested | FFTW.UNALIGNED`) rather than replacing it. A
@@ -2945,8 +2976,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     **A finding that fell out of it and is worth more than this decision.** Under `ESTIMATE`, which
     is what the package plans with by default, a ``256^3`` `Float32` forward transform measures
-    **513 ms** against `Float64`'s **496 ms** — single precision should be roughly twice as fast, not
-    equal. Under `MEASURE` the same two cells read **108 ms** and **180 ms**. That is a factor of
+    513 ms against `Float64`'s 496 ms — single precision should be roughly twice as fast, not
+    equal. Under `MEASURE` the same two cells read 108 ms and 180 ms. That is a factor of
     ``4.7`` left on the floor by the default planner effort, it is independent of everything above,
     and it belongs to `PERFORMANCE.md` finding (h)'s territory rather than to this entry.
 
@@ -2992,7 +3023,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       the point work-item ``i`` handles. Nothing is moved, and each point's result still lands in its
       own slot. The alternative — permuting the `PointSet` — was rejected because a consumer holds
       `PointValues` indexed alongside its points, and a permutation behind its back desynchronises
-      them silently. It also makes the option **purely additive**: a keyword on the four point-indexed
+      them silently. It also makes the option purely additive: a keyword on the four point-indexed
       verbs, no signature changed, and a consumer that ignores it sees nothing. `GBGHomogeneousTurbulence`
       is in final development, which made that a requirement rather than a preference.
 
@@ -3015,7 +3046,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     - **The order is built by a counting pass, not a sort.** Three portable
       `KernelAbstractions`/`Atomix` kernels — key, histogram, place — over blocks of cells, adding no
-      dependency and needing no vendor sort. It costs **0.24–0.27 ms** on device at ``256^3`` — the
+      dependency and needing no vendor sort. It costs 0.24–0.27 ms on device at ``256^3`` — the
       figure for the code that ships, the build itself being 0.098–0.13 ms before the permutation
       validation the adversarial review added — so it
       repays inside a single transfer; the recorded estimate it replaces guessed 12–24 transfers,
@@ -3033,8 +3064,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     - **The periodic wrap became a walk.** The stencil visits consecutive nodes, so each index is its
       predecessor plus one — yet every node index came from `mod`, which LLVM shared down to 32
       integer divisions per point per fibre. `_wrap_step` replaces the division with a conditional
-      zero, keeping three `mod`s per point for the starts. It is **bitwise identical to the previous
-      kernel**, verified over 48 configurations including a stencil wider than the grid, where the
+      zero, keeping three `mod`s per point for the starts. It is bitwise identical to the previous
+      kernel, verified over 48 configurations including a stencil wider than the grid, where the
       walk wraps repeatedly; only the index arithmetic changed.
 
     - **The walk has one bad corner, and this entry has now described it wrongly twice.** It is worth
@@ -3042,8 +3073,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       CUDA (24 of 24 cells at or below ``1.002\times``) while LOSING ``1.74\times`` on the RX 7900
       XTX `CatmullRom` gather at ``256^3`` `Float64` — the "1.03–1.28x on the device throughout"
       this entry used to carry is RETRACTED by PERFORMANCE.md findings (aj) and (al). At eight
-      nodes per axis it can also lose on CPU: **4–14% depending on the scheme, only from about four
-      threads, and at ``R = 1`` rather than at every rank** — ``R = 2`` is less affected, and at one
+      nodes per axis it can also lose on CPU: 4–14% depending on the scheme, only from about four
+      threads, and at ``R = 1`` rather than at every rank — ``R = 2`` is less affected, and at one
       thread the walk is 17–22% FASTER. The mechanism recorded here was backwards: `mod` is the form
       that VECTORIZES (983–1588 vector instructions against the walk's 133–138) and neither variant
       spills on the host, so the CPU loss is the walk forfeiting the memory-level parallelism that
@@ -3119,6 +3150,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     - **What it bought, measured.** CPU `-t1` (the consumer's stated pain): ``2.4``–``3.9\times``;
       `-t4` at ``256^3``: ``1.65\times``; device: ``1.3``–``2.1\times`` across every `Float64` cell.
+
       **What it did not: two residual cells, disclosed rather than absorbed.** `Float64` vector at
       ``256^3`` and EXACTLY eight threads on the 9800X3D reads +3–6% (the transition band where the
       field just exceeds the V-Cache and eight threads just saturate the bus while `exp` still fills
@@ -3153,7 +3185,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     "yet": a consumer whose points move rebuilds, and each rebuild allocated four arrays — the
     `Int32` result, the counting sort's `Int64` bucket keys, the histogram with its exclusive prefix
     sum, and the `Bool` marks the permutation check writes — about 15 MiB at ``256^3`` with ``10^6``
-    points. On a device those are freed by a collector that runs on **host** pressure and cannot see
+    points. On a device those are freed by a collector that runs on host pressure and cannot see
     them, which is the failure mode invariant 13 exists to prevent, reached through a builder rather
     than through an operator.
 
@@ -3182,15 +3214,15 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     - **It is not zero, and the docstring does not claim zero.** Three `KernelAbstractions` launches
       and the validation's own leave about 1.2 KiB of host-side launch bookkeeping — the same class as
-      the FFTW callback of `PERFORMANCE.md` §4(t). What matters is that it is **constant in the point
-      count**: measured 1248 bytes at ``10^3`` points and 1312 at ``10^6``, where the allocating form
+      the FFTW callback of `PERFORMANCE.md` §4(t). What matters is that it is constant in the point
+      count: measured 1248 bytes at ``10^3`` points and 1312 at ``10^6``, where the allocating form
       grows from 18.9 KB to 13.0 MB. Nothing per-rebuild scales, and nothing per-rebuild is on a
       device.
 
     - **Renamed to `PointTraversalOrder` in the same round** (user-directed). `TransferOrder` was
       the minority spelling of its own concept: the prose said "visit order" 28 times and "transfer
       order" 7, and the API page section was already titled for the former, so the code name and the
-      documentation disagreed 4:1. Worse, `order` means **tensor order** 249 times in this package,
+      documentation disagreed 4:1. Worse, `order` means tensor order 249 times in this package,
       and the same source tree held both `order = field_tensor_order(...)` and `order =
       transfer_order(...)` — the keyword read, at the call site, as if it took a rank. And in plain
       English "transfer order" parses as an instruction to transfer, which is the wrong first reading
@@ -3198,7 +3230,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       `point_positions`, `point_value_tensor_order`), and "traversal" already carries the sense "one
       pass over the points" here — `displace!` documents "one fused traversal" — and is the word the
       cited reference uses, Domínguez et al. (2011) being described in §References as a cell
-      **traversal order** for neighbour search. The keyword moved with the type, `order` to
+      traversal order for neighbour search. The keyword moved with the type, `order` to
       `traversal`, since leaving it would have preserved the exact ambiguity the rename removes. The
       prose moved too: "visit order" is retired so the concept keeps one name.
 
@@ -3226,7 +3258,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     - **Both forms share one build.** `_fill_traversal!` and `_traversal_tiles` are called by the allocating
       builder and the in-place one alike, so the two cannot drift into computing different orders —
       the failure decision 47 records for a device kernel and its gated CPU twin, in a different
-      place. `test/point_traversal_order.jl` asserts the agreement **block-wise** rather than index-wise,
+      place. `test/point_traversal_order.jl` asserts the agreement block-wise rather than index-wise,
       because the scatter's atomics leave the order within a block unspecified in both forms; an
       index-wise comparison would be testing the atomics, not the operation.
 
@@ -3237,7 +3269,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     the grid and `tile_size` — and not by the point count, so it does not shrink as the rest of the
     build is parallelised. Measured on a 9800X3D at ``10^6`` points with the default `tile_size`: at
     ``256^3`` it was 4% of the build at eight threads, and at ``512^3``, the grid decision 37 names as
-    the CPU tuning target, **25%**.
+    the CPU tuning target, 25%.
 
     - **`_scan_offsets!` replaces the call, and only the host method threads.** The generic method is
       `cumsum!`, which is already a parallel scan on a device; the host method is a two-pass form —
@@ -3275,7 +3307,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     - **Two forms, because Julia uses them in different places.** The two-argument `show` is what
       appears inside a container, inside `$(...)` interpolation and inside an exception, so it is one
-      line and **self-delimiting** — `Type{T}(body)`, parenthesised the way `Diagonal([1.0, 2.0])` and
+      line and self-delimiting — `Type{T}(body)`, parenthesised the way `Diagonal([1.0, 2.0])` and
       `CartesianIndex(1, 2, 3)` are. A bare `Type: a, b` cannot be told from its neighbours once a
       container puts commas between elements, and a display that is ambiguous in a container is
       ambiguous in the error message that motivated it. The three-argument `MIME"text/plain"` form is
@@ -3291,7 +3323,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       which keeps the common line near fifty characters while making that collision impossible.
       The property is asserted directly, over every pair of a family of refused fields.
 
-      The rule binds **every base-bound object, not only the fields**: an object shows what the check
+      The rule binds every base-bound object, not only the fields: an object shows what the check
       that refuses it compares. A `NUFFT` keeps its reference grid and layout precisely because a plan
       handed a same-order field on another domain returns a silently wrong answer; a traversal scratch
       is refused a rebuild against another grid; a kernel reaches the same domain check through
@@ -3528,7 +3560,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       amplitude (invariant 4), so a transfer between resolutions carries the ratio of the two counts,
       and the operations apply it. That is what makes the round trip an identity on the shared modes,
       keeps a grid-size ratio out of the middle of a consumer's equation of motion, and makes the two
-      verbs **exact adjoints under `inner`, with no measure factor** — unlike the point transfer's
+      verbs exact adjoints under `inner`, with no measure factor — unlike the point transfer's
       `W`/`Wᵀ`, which carries `N/M`. Raw coefficient copying would be adjoint only up to
       ``(N_c/N_f)^2``.
 
@@ -3540,7 +3572,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     - **Refusals are structural, never data-dependent**: same domain size, origin, Fourier layout,
       scalar type, tensor order and storage family, and a coarse grid no larger on any axis and
-      smaller on at least one. **Equal grids are refused**, because the Nyquist exclusion would make
+      smaller on at least one. Equal grids are refused, because the Nyquist exclusion would make
       such a call a copy that silently leaves those planes stale, and two fields on one grid combine
       with `add!` or `combine!`.
 

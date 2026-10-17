@@ -3,11 +3,11 @@
 
 # Getting started
 
-A short, runnable tour of the package. Every code block below is a **doctest** — the output shown is
+A short, runnable tour of the package. Every code block below is a doctest — the output shown is
 checked when the docs are built, so the tutorial cannot silently drift from the code.
 
-The mental model (the [Architecture](architecture.md) page): a **field** is a real physical object — a section of a
-tensor bundle over a periodic box. *Physical* and *spectral* are two **representations** of the same
+The mental model (the [Architecture](architecture.md) page): a *field* is a real physical object — a section of a
+tensor bundle over a periodic box. *Physical* and *spectral* are two *representations* of the same
 object; the complex coefficient arrays are storage detail, never the object itself.
 
 ## Grids and fields
@@ -40,11 +40,11 @@ A field goes to its spectral representation with [`to_spectral`](@ref) and back 
 their input, so the round trip recovers the field.
 
 Two pieces of scaffolding appear below, the spectral side being the one place
-storage is not simply "the values". A [`RealFourierLayout`](@ref) records **how** the
+storage is not simply "the values". A [`RealFourierLayout`](@ref) records how the
 real-to-complex transform is laid out: a real field's Fourier coefficients, by wavenumber vector, satisfy ``\hat f(-k) =
 \overline{\hat f(k)}``, so only half the spectrum is stored, and the layout says which axis is the
 halved one (the first, by default). The helper [`field_spectral_shape`](@ref) then gives the array
-size that half-spectrum needs, and its `Val(R)` argument names the **tensor order** — `Val(0)` for a scalar
+size that half-spectrum needs, and its `Val(R)` argument names the tensor order — `Val(0)` for a scalar
 field, `Val(1)` for a vector one — passed as a `Val` so the shape is known to the compiler rather than
 computed at run time.
 
@@ -170,7 +170,7 @@ julia> size(field_data(scattered))
 (16, 16, 16, 3)
 ```
 
-Note that the adjoint takes the **grid** rather than a field as its first argument: it builds the
+Note that the adjoint takes the grid rather than a field as its first argument: it builds the
 field it returns, so it needs only the base to build it over, where `interpolate` needs the field it
 samples.
 
@@ -194,7 +194,7 @@ julia> threading_cutoff()
 ```
 
 Results do not depend on how many threads you used. The threaded routes write each output element
-once, from the same fused expression a serial run uses, so they are **bitwise** identical to the
+once, from the same fused expression a serial run uses, so they are bitwise identical to the
 serial answer — which is what lets you tune the thread count without re-baselining anything you
 compare against. The exceptions are by nature rather than oversight: [`anterpolate`](@ref),
 [`radial_spectrum`](@ref) and [`radial_correlation`](@ref) accumulate with atomics, so the summation order

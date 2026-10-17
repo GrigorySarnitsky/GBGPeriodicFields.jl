@@ -7,13 +7,13 @@ transforms, so the operation lives in spectral representation. A scalar kernel m
 component, so one operation serves scalar, vector, and tensor fields. The operation is named [`convolve`](@ref)
 (allocating infix `⋆`) rather than `*`, which would read as a pointwise multiplication.
 
-A kernel is **not** a field. The two hold identical coefficients, so nothing but a type can say which
+A kernel is not a field. The two hold identical coefficients, so nothing but a type can say which
 role is meant, and the roles differ: the coefficientwise reciprocal of a kernel is the kernel that
 deconvolves by it ([`inv`](@ref)), while the same operation on a field is one the package does not
 define. Every kernel subtypes [`SpectralKernel`](@ref), and the four classes below are interchangeable
-wherever a kernel is **applied** to a field, differing in cost rather than in meaning. A kernel also
+wherever a kernel is applied to a field, differing in cost rather than in meaning. A kernel also
 serves as a reduction weight in [`weighted_inner`](@ref GBGPeriodicFields.Reductions.weighted_inner), which is narrower in one
-respect: it requires a **real** multiplier.
+respect: it requires a real multiplier.
 
 Physics stays with the calling code: an LES filter, a viscous integrating factor, or a de-aliasing mask
 is a multiplier the caller supplies — through [`radial_kernel`](@ref) when it depends on the mode only through
@@ -40,10 +40,10 @@ Kernel storage classes:
 - [`SeparableKernel`](@ref) — a kernel that factors over the axes, held as its three per-axis factors,
   so it costs kilobytes rather than a field; the class `translation_kernel`, `tophat_window` and
   `assignment_window` return.
-- [`RadialKernel`](@ref) — a kernel depending on the mode only through ``|k|^2``, held as the **function**
+- [`RadialKernel`](@ref) — a kernel depending on the mode only through ``|k|^2``, held as the function
   ``\\sigma`` computing it (a closure, evaluated per mode), so it stores no coefficients at all; the class
   `spectral_cutoff`, `spectral_band` and `radial_kernel` return.
-- [`ProductKernel`](@ref) — **any two** kernels held unmultiplied, which is what a composition that
+- [`ProductKernel`](@ref) — any two kernels held unmultiplied, which is what a composition that
   cannot be collapsed into a single kernel gives: a cross-family pair, two stored kernels, or two
   radial kernels whose coordinates cannot be shown to agree. It applies in one pass.
 - [`materialize_kernel`](@ref) — expand a compressed kernel into a `StoredKernel`, for a caller that
@@ -54,7 +54,7 @@ Kernel storage classes:
 
 Kernel builders:
 
-- `radial_kernel` — build a `RadialKernel` from any real **function** ``\\sigma`` of the squared
+- `radial_kernel` — build a `RadialKernel` from any real function ``\\sigma`` of the squared
   wavenumber, which is the route for a multiplier this module does not name (a smooth filter, a
   hyperviscosity, an integrating factor).
 - [`spectral_cutoff`](@ref) / [`spectral_band`](@ref) — build the isotropic sharp low-pass kernel and
@@ -122,14 +122,14 @@ export convolve, convolve!, ⋆, exponential_convolve, exponential_convolve!, sp
 """
     StoredKernel(field::ScalarFieldSpectral)
 
-Wrap a scalar field in spectral representation so that it plays the **kernel** role — one coefficient
+Wrap a scalar field in spectral representation so that it plays the kernel role — one coefficient
 per mode, the ``O(N^3)`` storage the compressed classes exist to avoid.
 
 The wrapper is required rather than a convenience. A field and a kernel hold identical data, so nothing
 but a type can say which role is meant, and the two admit different operations: the coefficientwise
 reciprocal of a *kernel* is the kernel that deconvolves by it ([`inv`](@ref)), while the same operation
 on a *field* is nonlinear in that field's spectral representation and the package does not define it.
-So a bare [`ScalarFieldSpectral`](@ref) passed where a kernel is expected does **not** dispatch — wrap it here,
+So a bare [`ScalarFieldSpectral`](@ref) passed where a kernel is expected does not dispatch — wrap it here,
 or build the kernel with one of the builders, and the role is then carried by the type rather than
 inferred from the call site.
 
@@ -167,8 +167,8 @@ every cross-family pair, two stored kernels (merging those would mean materializ
 product), and two radial kernels whose coordinates cannot be shown to agree.
 
 Composition inside a family usually stays in that family: two axis-factored kernels always multiply
-into one axis-factored kernel, and two radial symbols multiply into one radial symbol **when both are
-evaluated against the same coordinates**, which [`RadialKernel`](@ref) explains and decides by type.
+into one axis-factored kernel, and two radial symbols multiply into one radial symbol when both are
+evaluated against the same coordinates, which [`RadialKernel`](@ref) explains and decides by type.
 Radial operands that fail that test land here instead. Across families there is no collapse at all:
 a radial symbol times an axis-factored phase is neither radial nor separable, so the composite keeps
 both operands and multiplies their per-mode values. Either order composes and gives the same operator,
@@ -299,7 +299,7 @@ convolve(first_kernel::SpectralKernel{T}, second_kernel::SpectralKernel{T}) wher
 """
     RadialKernel
 
-A spectral kernel that depends only on the wavenumber **magnitude**, ``\\hat g(k) = \\sigma(|k|^2)``,
+A spectral kernel that depends only on the wavenumber magnitude, ``\\hat g(k) = \\sigma(|k|^2)``,
 stored as the function ``\\sigma`` rather than as its values — its *symbol*, in the sense the
 differential operators use for the multiplier a coefficientwise operator applies. The function is evaluated one mode at a
 time from the wavenumber arrays the multipliers already hold, so the kernel occupies no field: a
@@ -313,7 +313,7 @@ owns. Build one with [`spectral_cutoff`](@ref) or [`spectral_band`](@ref) for th
 ``\\exp(-\\nu (|k|^2)^p \\tau)`` of viscosity, power and time step. Apply it like any kernel: pass it to [`convolve!`](@ref), as the trailing kernel of [`divergence!`](@ref GBGPeriodicFields.DifferentialOperators.divergence!) or
 [`helmholtz_projection!`](@ref GBGPeriodicFields.DifferentialOperators.helmholtz_projection!), or to [`weighted_inner`](@ref GBGPeriodicFields.Reductions.weighted_inner) as a reduction weight.
 
-Why this family is closed by construction: ``|k|^2`` is real and **even** in every component, so any
+Why this family is closed by construction: ``|k|^2`` is real and even in every component, so any
 real ``\\sigma`` of it is real and even too, hence Hermitian-symmetric — the coefficients it produces
 are always some real field's. It also carries the true squared wavenumber at an even axis's Nyquist —
 the value a magnitude-dependent multiplier wants there, unlike the derivative wavenumbers, which are
@@ -321,7 +321,7 @@ zeroed at that mode — so no case analysis is needed anywhere in the family.
 
 !!! note "Storing no coefficients is not the same as costing nothing"
     The symbol is evaluated per mode, and against a field of tensor order ``R \\ge 1`` it is
-    broadcast over the field's components, so it is evaluated **once per component** rather than once
+    broadcast over the field's components, so it is evaluated once per component rather than once
     per mode; a scalar field pays nothing extra. Whether that
     recompute or the kernel-array traffic it saves dominates depends on the base and on the element
     type.
@@ -331,7 +331,7 @@ zeroed at that mode — so no case analysis is needed anywhere in the family.
     dominates, [`materialize_kernel`](@ref) stores the coefficients instead.
 
 !!! note "Radial, not separable"
-    ``|k|^2 = k_1^2 + k_2^2 + k_3^2`` is a function of the **sum**, so a *general* real symbol of it
+    ``|k|^2 = k_1^2 + k_2^2 + k_3^2`` is a function of the sum, so a *general* real symbol of it
     does not factor into per-axis terms and cannot be stored per axis the way a
     [`SeparableKernel`](@ref) is. The two families overlap rather than partition: the exponential is in
     both, since ``\\exp(c|k|^2) = \\prod_a \\exp(ck_a^2)``, which is why `exponential_convolve!` exists as
@@ -342,7 +342,7 @@ zeroed at that mode — so no case analysis is needed anywhere in the family.
 
 - `sigma` — the function ``\\sigma``, called with the real ``|k|^2`` and returning a real value.
 - `multipliers` — the [`FieldSpectralMultipliers`](@ref) supplying ``|k|^2``, referenced, not copied.
-  Whether they are the grid's own wavenumbers (**canonical**, built by the convenience constructor from
+  Whether they are the grid's own wavenumbers (*canonical*, built by the convenience constructor from
   the grid) or a caller's own (supplied through the explicit constructor, which validates lengths and
   not values) is part of their type, and it decides
   whether composing two of these kernels collapses into one: two kernels over canonical multipliers of
@@ -366,12 +366,12 @@ RadialKernel{T}(sigma::F, multipliers::M, grid::G, layout::L) where {T, F, M, G,
 """
     radial_kernel(sigma, multipliers::FieldSpectralMultipliers) -> RadialKernel
 
-Build the [`RadialKernel`](@ref) for an arbitrary real **function** of the squared wavenumber — its
+Build the [`RadialKernel`](@ref) for an arbitrary real function of the squared wavenumber — its
 symbol, in the sense the differential operators use — the general constructor behind
 [`spectral_cutoff`](@ref) and [`spectral_band`](@ref), for the multipliers the package does not name.
 
 Here `sigma` is a function of one real argument — the squared wavenumber ``|k|^2`` — returning a real
-value, and it must be pure and GPU-safe: it may capture only **values**, never a type, since a closure
+value, and it must be pure and GPU-safe: it may capture only values, never a type, since a closure
 holding a `Type` is not a bitstype and a device rejects it at launch, and it may hold no mutable state
 and do no scalar indexing of device arrays. Anything it does capture by value, such as a viscosity or a
 substep, is free to vary per call, because building a kernel allocates nothing of field size. The
@@ -569,12 +569,12 @@ end
 The reciprocal kernel ``1/\\hat g``, itself separable
 because ``1/\\prod_a g_a = \\prod_a (1/g_a)`` — so it is formed per axis, at ``O(N)`` cost, with no
 field materialized. Applying it
-**deconvolves** by `kernel`, which is what a mass-assignment window is built for
+deconvolves by `kernel`, which is what a mass-assignment window is built for
 ([`assignment_window`](@ref)).
 
 !!! warning "The factors must have no zeros, and this method checks"
     Every per-axis factor must be non-zero at every stored mode. Unlike the radial method, this one can
-    afford to verify it — the factors are ``O(N)`` — so a zero **throws** rather than returning a
+    afford to verify it — the factors are ``O(N)`` — so a zero throws rather than returning a
     non-finite reciprocal. An `assignment_window` satisfies the condition on every stored mode, whereas
     a phase kernel does not in general (a displacement can drive an even axis's Nyquist factor to
     zero).
@@ -636,12 +636,12 @@ end
 """
     materialize_kernel(kernel::SeparableKernel)
 
-Evaluate an axis-factored kernel into a kernel held as a **field**, returning the `StoredKernel`
+Evaluate an axis-factored kernel into a kernel held as a field, returning the `StoredKernel`
 whose coefficients are the product of the per-axis factors. The result applies identically and, for
 real factors, gives bit-identical results — the two differ only in what they cost. Complex factors
 agree bitwise on the host and to rounding on a device.
 
-Use this to trade memory back for speed on a **small grid**. Applying an axis-factored kernel moves two
+Use this to trade memory back for speed on a small grid. Applying an axis-factored kernel moves two
 field-sized streams where a stored kernel moves three, but evaluates the product per mode, so the
 stored kernel is usually faster on small grids and the axis-factored one on large grids with many
 threads; on a GPU the crossover depends on the card. A run whose grids are small, or which applies
@@ -792,20 +792,20 @@ end
 
 Apply a [`SeparableKernel`](@ref) as one broadcast over the whole section, writing
 ``\\texttt{dst} \\mathrel{.=} \\alpha \\hat g \\cdot \\hat f + \\beta \\texttt{dst}``. The three per-axis
-factors carry singleton axes, so they broadcast along the remaining mode axes **and** along the fiber,
+factors carry singleton axes, so they broadcast along the remaining mode axes and along the fiber,
 and one expression serves scalar, vector, and tensor fields exactly as the stored-kernel path does.
 
-The shape is chosen for two measured reasons. Broadcasting indexes the factors **cartesian**, so no
+The shape is chosen for two measured reasons. Broadcasting indexes the factors cartesian, so no
 element pays a linear-to-cartesian conversion — an integer division, emulated on a GPU. And the launch
-stays **flat**, which keeps it *coalesced* — neighbouring threads reading neighbouring addresses, which
+stays flat, which keeps it *coalesced* — neighbouring threads reading neighbouring addresses, which
 a GPU serves as one wide transaction. The folded axis is
 ``N/2 + 1`` modes long, half its point count plus one (129 at ``256^3``), so a three-dimensional launch would cut each row against a
 length that is not a multiple of the *warp* — the group of threads a GPU issues in lockstep, 32 on
 NVIDIA and 64 on AMD — leaving every row's last transaction partly idle.
 
 The kernel value, the axis factors in order, is associated as the stored path does,
-``\\alpha((\\sigma_1\\sigma_2)\\sigma_3)\\hat f``, so a **real**-factored kernel and its materialized
-product agree bitwise. A **complex**-factored one can differ by an ulp on a device: the compiler contracts the ``ac - bd`` of a complex multiply into a fused multiply-add,
+``\\alpha((\\sigma_1\\sigma_2)\\sigma_3)\\hat f``, so a real-factored kernel and its materialized
+product agree bitwise. A complex-factored one can differ by an ulp on a device: the compiler contracts the ``ac - bd`` of a complex multiply into a fused multiply-add,
 differently when the product is inlined here than when a stored kernel rounds it to memory first.
 """
 function _apply_separable_convolution!(destination_data, source_data, kernel::SeparableKernel, α, β)
@@ -986,7 +986,7 @@ Physically the periodic convolution is the kernel-weighted local average of the 
 ```
 
 with ``\\Omega`` the periodic box and the displacement ``x - y`` reduced onto the torus. On the grid
-the operation computes the **circular sum** ``(f \\star g)[n] = \\sum_m f[m]  g[n - m]`` (indices
+the operation computes the *circular sum* ``(f \\star g)[n] = \\sum_m f[m]  g[n - m]`` (indices
 modulo the grid) — the integral's Riemann sum *without* the cell volume ``|\\Omega|/\\prod_i N_i``, box volume over the product of the point counts ``N_i`` along the axes, the
 dimensionless convention that makes a kernel act as a per-mode transfer function (``\\hat g \\equiv 1``
 is the identity; a sharp cutoff is a projection); the continuum integral above is ``|\\Omega|/\\prod_i N_i``
@@ -1725,7 +1725,7 @@ Passing `α, a, β, b` ahead of the multipliers applies the same kernel to a wei
 computed in place.
 
 !!! warning "The offset must be real-valued and even"
-    The exponential of a real, even multiplier keeps a real field real, and **both** halves of that
+    The exponential of a real, even multiplier keeps a real field real, and both halves of that
     hypothesis are the caller's to meet. A complex-valued `offset` breaks the Hermitian symmetry — and
     so does a real-valued one that is not even in ``k`` on the self-conjugate planes, where both
     members of a ``\\pm k`` pair are stored and nothing forces them equal. Either way the inverse
@@ -1949,7 +1949,7 @@ end
 """
     assignment_window(multipliers::FieldSpectralMultipliers) -> SeparableKernel
 
-Return the linear (cloud-in-cell) **mass**-assignment window — *assignment* in the particle-mesh sense
+Return the linear (cloud-in-cell) mass-assignment window — *assignment* in the particle-mesh sense
 of depositing a point's mass onto the grid cells around it, not the sense of writing a value into an
 array — as a [`SeparableKernel`](@ref) — its three
 per-axis factors rather than a field of coefficients — on the multipliers' grid and array family, for
@@ -2023,9 +2023,9 @@ multiplies every fiber component, one call translates a whole vector or tensor f
 kernel depends on nothing but the displacement, one kernel serves every field it is applied to (and
 it is separable, so building it costs three ``O(N)`` axis passes, not a field). To *sample* the field at the displaced positions
 ``x + h`` instead, pass the negated displacement — the two are inverse translations. This is the package's
-one complex kernel: on every **sub-Nyquist** mode it is a pure phase of unit modulus, so it moves the
+one complex kernel: on every sub-Nyquist mode it is a pure phase of unit modulus, so it moves the
 field without touching any amplitude, unlike the real and even [`spectral_cutoff`](@ref) or
-[`assignment_window`](@ref). At the **Nyquist frequency** — the highest wavenumber a grid stores, ``\\pi/\\Delta x_a``, which an
+[`assignment_window`](@ref). At the *Nyquist frequency* — the highest wavenumber a grid stores, ``\\pi/\\Delta x_a``, which an
 even-length axis stores as a single self-conjugate mode — the factor is instead the real
 number ``\\cos(\\pi h_a / \\Delta x_a)``, which attenuates rather than translates and vanishes at a
 half-cell shift — the reality condition demands it, and the warning below gives the detail.
@@ -2049,10 +2049,10 @@ axis:
 \\hat g(k) = \\prod_{a=1}^{3} \\bigl[ \\cos(k_a h_a) - \\mathrm{i} \\sin(a_a h_a) \\bigr],
 ```
 
-where ``k_a`` is the **true** wavenumber and ``a_a`` the **Nyquist-zeroed derivative**
+where ``k_a`` is the *true* wavenumber and ``a_a`` the *Nyquist-zeroed derivative*
 one — the package's two families, and the reason this is written with two symbols rather than as the
 bare phase ``e^{-\\mathrm{i} k \\cdot h}``. The two coincide on every resolved mode — so the factor there
-**is** that pure phase — and part only at an even axis's Nyquist frequency, where the warning below
+is that pure phase — and part only at an even axis's Nyquist frequency, where the warning below
 applies.
 
 !!! warning "At the Nyquist frequency the phase becomes a real attenuation"
@@ -2060,7 +2060,7 @@ applies.
     stands for both of the wavenumbers ``\\pm\\pi/\\Delta x_a`` (with ``\\Delta x_a`` the grid spacing
     along axis ``a``), so its band-limited form is the cosine ``\\cos(\\pi x_a/\\Delta x_a)``, and
     displacing that cosine re-samples on the grid to ``\\cos(\\pi h_a/\\Delta x_a)`` times itself. At
-    that one frequency the kernel therefore carries this **real factor** rather than a complex phase —
+    that one frequency the kernel therefore carries this real factor rather than a complex phase —
     and it has to be real: the Nyquist mode is its own conjugate partner, so a complex factor there
     would leave coefficients that are those of no real field at all. A displaced Nyquist mode is thus
     attenuated rather than moved: it vanishes for a half-cell displacement and changes sign for an odd

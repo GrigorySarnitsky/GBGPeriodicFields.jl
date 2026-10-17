@@ -148,7 +148,7 @@ are [`ScalarPointValues`](@ref) at tensor order `0`, [`VectorPointValues`](@ref)
 and [`TensorPointValues`](@ref) at order `2` and above.
 
 !!! note "A section owns its storage"
-    Every constructor here — and `PointSet`'s — **rejects borrowed storage**, a `SubArray`
+    Every constructor here — and `PointSet`'s — rejects borrowed storage, a `SubArray`
     anywhere in the parent chain, so wrapping a view into a larger buffer will throw. Ownership is what makes an aliased in-place call safe ([`FieldAlgebra`](@ref "FieldAlgebra")). Allocate with [`similar_point_values`](@ref), or `copy` the slice. Any owning array is fine —
     `Array`, `CuArray`, `ROCArray`, or a `reshape` of one.
 """
@@ -1117,16 +1117,16 @@ end
                  values::AbstractPointValues)
 
 Persist a point object — a [`PointSet`](@ref) of positions, or any of the three point-value types — as a
-**new HDF5 group** `name` under `parent`, returning the group it created. Use it to checkpoint the
+new HDF5 group `name` under `parent`, returning the group it created. Use it to checkpoint the
 unstructured base and its samples for restart, or to hand them to another tool; the reload with
 [`read_points`](@ref) is exact. It is the point-layer twin of [`write_field`](@ref GBGPeriodicFields.Fields.write_field), which persists a field.
 
-The group is **self-describing**: the numeric array becomes the dataset `data`, and the metadata become
+The group is *self-describing*: the numeric array becomes the dataset `data`, and the metadata become
 attributes — a `type` tag, a schema `version`, the element type, the point count, and, for point values,
 the tensor order — so any HDF5 tool can read it. A device (GPU) array is copied to the host on write.
 The sugar `parent[name] = points` is equivalent.
 
-Positions and values are written **separately**, one group each, because they are separate objects: a
+Positions and values are written separately, one group each, because they are separate objects: a
 `PointSet` is the base, and point values are sections over it. A caller that wants them together writes
 both under one parent group, which also lets several value sets share one stored set of positions.
 
@@ -1151,7 +1151,7 @@ function write_points end
 Reconstruct the point object written by [`write_points`](@ref) from the HDF5 group `name` under `parent`,
 dispatching on the stored `type` attribute to return it in the matching type ([`PointSet`](@ref),
 [`ScalarPointValues`](@ref), [`VectorPointValues`](@ref), [`TensorPointValues`](@ref)). The reload is
-**exact** — the array data, the element type, the point count, and the tensor order are recovered
+exact — the array data, the element type, the point count, and the tensor order are recovered
 bit-for-bit. It is the point-layer twin of [`read_field`](@ref GBGPeriodicFields.Fields.read_field).
 
 The reconstructed object is a host (CPU) one regardless of where the written one lived; move it to a
@@ -1336,11 +1336,11 @@ point,
 x_p \\leftarrow x_p + \\sum_j c_j v_j(p) .
 ```
 
-Each element of `terms` is a tuple `(coefficient, section)`: the ``j``-th term supplies **one**
+Each element of `terms` is a tuple `(coefficient, section)`: the ``j``-th term supplies one
 host scalar ``c_j`` — a single number, applied to every point, not a per-point array — and one
 [`VectorPointValues`](@ref) section ``v_j``, which does hold one vector per point. The subscript
 ``j`` counts the terms of the call, so a two-term call has ``c_1, c_2`` and ``v_1, v_2``. Up to
-eight terms apply in **one fused traversal**: the positions are read once, each section once, and
+eight terms apply in one fused traversal: the positions are read once, each section once, and
 the positions written once, on CPU and GPU alike. A longer call takes one traversal per group of
 eight, each continuing from the last in the same left-to-right order, so the result is bitwise the
 single traversal's; with a `grid` the wrap runs once, on the finished sum.

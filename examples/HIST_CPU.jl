@@ -7,7 +7,7 @@
 # the way a real consumer would use `GBGPeriodicFields`. It plots the Eulerian and Lagrangian second-order
 # velocity structure functions — each compensated by its Kolmogorov (K41) inertial scaling, side by side —
 # alongside the energy spectrum, the stationarity history, and the velocity
-# autocorrelations. The goal is a readable, **performance-first** end-to-end workflow: the time loop is
+# autocorrelations. The goal is a readable, performance-first end-to-end workflow: the time loop is
 # fully in-place over a preallocated workspace (no per-step allocation) — both how a real DNS is written
 # and what lets the GPU twin, a device copy of this script, run with no manual garbage collection.
 #
@@ -41,7 +41,7 @@
 # *not* executed during the docs build); the figures are from the GPU twin `gpu/cuda/HIST_CUDA.jl`
 # (``320^{3}`` `Float32`, ``\mathrm{Re}_\lambda \approx 130`` on a 16 GB RTX 5070 Ti), and the HDF5 file they
 # were drawn from is [`HIST_CUDA_giant.h5`](HIST_CUDA_giant.h5), also in the repository's `examples/figures`.
-# The run is split into **simulate**, **dump** and **plot** stages — every plotted curve is
+# The run is split into simulate, dump and plot stages — every plotted curve is
 # written to an HDF5 file, so the figures can be re-styled without re-running the DNS:
 #
 # ```sh
@@ -116,8 +116,8 @@ huge() = Params(N = 192, ν = 3.2e-3, cfl = 0.3, n_spinup = 3300, n_stats = 4700
 # ``\mathrm{Re}_\lambda \approx 109`` with ``\kappa_{\max}\eta \approx 1.3`` (comfortably resolved — a lower
 # ``\nu`` would raise ``\mathrm{Re}_\lambda`` but drop ``\kappa_{\max}\eta`` below ``1.1``, where the
 # marginally-resolved flow blows up over a long run). Same recipe as `--huge`, one grid level up. On the CPU
-# it is reproducible but **very heavy** — hours of wall-clock and ``\gtrsim`` 12 GB of RAM (`Float64` doubles
-# the GPU twin's footprint). The **documented figures go one level further still** — the GPU twins' `--giant`
+# it is reproducible but very heavy — hours of wall-clock and ``\gtrsim`` 12 GB of RAM (`Float64` doubles
+# the GPU twin's footprint). The documented figures go one level further still — the GPU twins' `--giant`
 # at ``320^{3}`` (``\mathrm{Re}_\lambda \approx 130``), which peaks at about 10 GB on a 16 GB card; ``256^{3}``
 # was the ceiling of the 12 GB card this scheme was first characterized on.
 mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500,
@@ -217,7 +217,7 @@ end
 
 # ## Right-hand side and time integration — in place
 #
-# The heart of the performance-first design: **no per-step allocation**. The work fields all live in the
+# The heart of the performance-first design: no per-step allocation. The work fields all live in the
 # preallocated `ws`; the package's in-place operators write into them (`curl!`, `to_physical!`, `cross!`,
 # `to_spectral!`, `helmholtz_projection!`, `convolve!`), and the linear combinations are in-place
 # broadcasts on the raw arrays. Nothing here allocates, so there is no garbage-collection pressure — which is
@@ -509,7 +509,7 @@ main()
 #md # ``\mathrm{Re}_\lambda \approx 130`` on a 16 GB RTX 5070 Ti, time-averaged over about two
 #md # forcing-oscillation periods); `examples/plot_hist.jl` redraws them from
 #md # [`HIST_CUDA_giant.h5`](HIST_CUDA_giant.h5). The
-#md # headline is the pair of compensated structure functions: the **per-component second-order velocity structure functions**
+#md # headline is the pair of compensated structure functions: the per-component second-order velocity structure functions
 #md # (one third of the trace ``\langle\lvert\delta u\rvert^{2}\rangle``), Eulerian and
 #md # Lagrangian, each normalized by its Kolmogorov (K41) inertial scaling — a true inertial range shows as
 #md # a plateau at ``1``. With ``\langle\cdot\rangle`` the average (over space/time origins), ``u`` the
@@ -570,7 +570,7 @@ main()
 #md #
 #md # The device twins `gpu/cuda/HIST_CUDA.jl` and `gpu/rocm/HIST_ROCm.jl` run this identical solver on
 #md # `CuArray`s and `ROCArray`s (`Float32`, `allowscalar(false)`). Because the time loop is in-place and the
-#md # package's differential operators are allocation-free, they need **no manual garbage collection** —
+#md # package's differential operators are allocation-free, they need no manual garbage collection —
 #md # the device memory pool stays flat. At ``320^{3}`` the CUDA twin sustains ``\approx 51`` ms/step on a
 #md # 16 GB RTX 5070 Ti (peak ``\approx 10`` GB), and the ROCm twin ``\approx 96`` ms/step on a 24 GB
 #md # RX 7900 XTX (peak ``\approx 13`` GB; that card reaches ``384^{3}`` at its ``\approx 21`` GB ceiling).

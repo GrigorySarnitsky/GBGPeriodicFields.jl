@@ -7,7 +7,7 @@ A field (a section over a [`Grid3D`](@ref GBGPeriodicFields.Fields.Grid3D)) and 
 [`PointSet`](@ref GBGPeriodicFields.Points.PointSet)) are both sections of a tensor bundle over a base. This module owns the part of the
 design that does not depend on which base is used. The parts are:
 
-- the **fiber types** — [`FiberVector`](@ref), [`FiberTensor2`](@ref), [`FiberTensor3`](@ref) and
+- the *fiber types* — [`FiberVector`](@ref), [`FiberTensor2`](@ref), [`FiberTensor3`](@ref) and
   [`FiberTensor4`](@ref), `StaticArrays` aliases naming the value at one base point, together with
   [`fiber_shape`](@ref). A fiber is base-agnostic by construction, so it belongs here and both the
   field and point layers take their fiber vocabulary from this module;
@@ -18,10 +18,10 @@ design that does not depend on which base is used. The parts are:
   written once here so that one set of generated kernels serves both field and point-value
   sections;
 - the fused fiberwise executor [`_fiberwise_pass!`](@ref) — one portable kernel and one
-  threaded CPU loop, running every stamped **values function**, a pure scalar function taking
+  threaded CPU loop, running every stamped *values function*, a pure scalar function taking
   one element per input and returning its outputs, the route for multi-output fiberwise
   operations;
-- the **fiber adapter** behind `map!`/`map` — the pure-fiber wrapper that assembles a base point's
+- the *fiber adapter* behind `map!`/`map` — the pure-fiber wrapper that assembles a base point's
   components into a fiber, applies the caller's function, and flattens the result back, so an
   arbitrary fiber map rides the same executor as the generated algebra.
 
@@ -182,7 +182,7 @@ even on an exception.
     fixed-tree reductions — a reduction whose summation tree is a function of the array length
     alone, so it returns the same value at every thread count.
 
-    Two groups of operations run as portable device-style kernels on **every** backend and
+    Two groups of operations run as portable device-style kernels on every backend and
     partition by `Threads.nthreads()` directly, ignoring this setting: the grid↔point
     transfer ([`interpolate!`](@ref GBGPeriodicFields.Interpolation.interpolate!)/[`anterpolate!`](@ref GBGPeriodicFields.Interpolation.anterpolate!)) and the radial reductions
     ([`radial_spectrum`](@ref GBGPeriodicFields.Reductions.radial_spectrum)/[`radial_correlation`](@ref GBGPeriodicFields.Reductions.radial_correlation)). Their atomic or irregular access
@@ -293,7 +293,7 @@ end
 """
     _slab_axis(dimensions)
 
-Pick the axis a threaded assignment is split along: the **last among the largest**, so each slab
+Pick the axis a threaded assignment is split along: the last among the largest, so each slab
 is a large contiguous block and a trailing fiber axis of length 3 never caps the parallelism (a
 whole-vector-field write `(N, N, N, 3)` splits along the third axis, not the fourth).
 """

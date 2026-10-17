@@ -312,7 +312,7 @@ end
 Run the projection over every spectral mode through `_helmholtz_projection_modes!`, which dispatches
 on the backend of `destination`'s storage: a `KernelAbstractions` launch of
 `_helmholtz_projection_kernel!` on a device, or a gated loop over contiguous slabs on a CPU. It passes the
-**three** derivative-wavenumber arrays and the converted `α`/`β` — the projector's denominator
+three derivative-wavenumber arrays and the converted `α`/`β` — the projector's denominator
 is formed in the pass by squaring those values, so no second family is read. The `kernel_data` is a kernel's storage, or `nothing` for the plain projection. Every `helmholtz_projection!` method calls it; it returns `destination`.
 """
 function _apply_helmholtz_projection!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T},
@@ -796,7 +796,7 @@ returns a fresh result instead.
 
 Each output component is the source component multiplied coefficientwise by ``\\mathrm{i}`` times the
 derivative wavenumber of the differentiation axis. Below, ``k`` labels the mode and ``a`` is the
-**derivative** wavenumber family — the one zeroed at an even axis's Nyquist frequency, kept apart from
+derivative wavenumber family — the one zeroed at an even axis's Nyquist frequency, kept apart from
 the true squared wavenumber the Laplacian uses:
 
 ```math
@@ -898,7 +898,7 @@ returns a fresh result instead.
 
 The result is the coefficientwise contraction of the source with ``\\mathrm{i}`` times the derivative
 wavenumber vector, summed over the three axes. Below, ``k`` labels the mode and ``a`` is the
-**derivative** wavenumber family — zeroed at an even axis's Nyquist frequency, unlike
+derivative wavenumber family — zeroed at an even axis's Nyquist frequency, unlike
 the true squared wavenumber the Laplacian uses:
 
 ```math
@@ -1102,7 +1102,7 @@ cyclically,
 \\end{gathered}
 ```
 
-It measures the field's local rotation at **twice** the angular rate — the rate itself is
+It measures the field's local rotation at twice the angular rate — the rate itself is
 ``\\tfrac{1}{2}\\nabla\\times u``. (A fluid-dynamics user calls ``\\nabla\\times u`` the vorticity; the
 package keeps the neutral mathematical name, as it does for `symmetric_gradient` against "strain rate".)
 
@@ -1118,7 +1118,7 @@ fresh result instead.
 
 The spectral symbol is a coefficientwise multiply by ``\\mathrm{i}`` times the cross product with the
 derivative wavenumber vector, ``\\widehat{\\nabla\\times u}(k) = \\mathrm{i}  a \\times \\hat u(k)``, where
-``k`` labels the mode and ``a`` is the **derivative** wavenumber family — zeroed at an
+``k`` labels the mode and ``a`` is the derivative wavenumber family — zeroed at an
 even axis's Nyquist frequency, unlike the true squared wavenumber the Laplacian uses. Componentwise:
 
 ```math
@@ -1276,7 +1276,7 @@ returns a fresh result instead.
 - `multipliers` — the wavenumber symbols for the field's grid.
 
 The spectral symbol symmetrizes ``\\mathrm{i} a_j \\hat u_i`` in its two indices, with ``k`` labelling the
-mode and ``a`` the **derivative** wavenumber family — zeroed at an even axis's Nyquist
+mode and ``a`` the derivative wavenumber family — zeroed at an even axis's Nyquist
 frequency, unlike the true squared wavenumber the Laplacian uses:
 
 ```math
@@ -1511,8 +1511,8 @@ gradient of the pressure-like potential that solves the divergence:
 an identity exact on the resolved band — the wavenumbers the grid resolves, excluding each even axis's
 Nyquist plane (the inverse Laplacian keeps the true squared wavevector ``|k|^2`` while
 the projector uses the derivative family — the two coincide off the Nyquist planes). The
-implemented operator is the **exact orthogonal projector onto the kernel of the discrete
-divergence**: ``\\mathbb P^2 = \\mathbb P``, and the divergence of the result vanishes, at every
+implemented operator is the exact orthogonal projector onto the kernel of the discrete
+divergence: ``\\mathbb P^2 = \\mathbb P``, and the divergence of the result vanishes, at every
 mode — the Nyquist planes included.
 
 Use this in-place form when `destination` is already allocated; the allocating

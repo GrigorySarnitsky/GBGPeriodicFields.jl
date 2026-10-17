@@ -3,24 +3,24 @@
 
 # Formalization — GBGPeriodicFields
 
-This page is the **formal backing** for the mathematical statements made informally in
+This page is the formal backing for the mathematical statements made informally in
 [Architecture](architecture.md), the module docstrings, and the API pages. For each nontrivial
 operation it records a *typed* statement — every object given its space, every operator its domain and
-codomain — and checks each claim by expansion, with the definitions **taken from the implementation**
-(`src/`) and a link to the **test** that verifies the claim numerically.
+codomain — and checks each claim by expansion, with the definitions taken from the implementation
+(`src/`) and a link to the test that verifies the claim numerically.
 
 It exists as a precision check, not as a page a user reads. Writing a statement formally forces every
 type and normalization into the open, which is exactly where imprecision in the prose becomes visible:
 the all-ones ``\mathbf{1}`` that was secretly two different vectors, or a section space written
-``\mathbb R^N`` that had quietly flattened the fiber away. These are **hand-verified notes, not
-machine-checked proofs** — the deterministic check is the linked test (the test suite plays the role of
+``\mathbb R^N`` that had quietly flattened the fiber away. These are hand-verified notes, not
+machine-checked proofs — the deterministic check is the linked test (the test suite plays the role of
 the compiler), so a statement here with no test is a coverage gap to close.
 
 !!! note "Coordinate forms live here"
     The coordinate-free preference governs the *user-facing* prose. This page is the
     sanctioned home for the coordinate/matrix/component expansions — a basis, the matrix entries
     ``W_{pn}``, the all-ones ``\mathbf{1}_N`` / ``\mathbf{1}_M`` — because *checking* precision requires
-    expanding into components. The statements here must still be **correct**; they need not be
+    expanding into components. The statements here must still be correct; they need not be
     coordinate-free.
 
 ## Declarations
@@ -35,10 +35,10 @@ V        &:= (\mathbb R^3)^{\otimes R}   &&\text{fiber, tensor order } R\ (\dim 
 \end{aligned}
 ```
 
-A grid cell is a triple ``(i_1, i_2, i_3)`` of per-axis indices (a **standalone** ``k`` is reserved for
+A grid cell is a triple ``(i_1, i_2, i_3)`` of per-axis indices (a standalone ``k`` is reserved for
 the wavenumber below; as a subscripted *component* index — ``\varepsilon_{ijk}``, ``A_{ik}B_{kj}`` — it
 keeps its ordinary meaning, the two never colliding since one is a free symbol and the other always
-sits in a subscript run). **The same rule governs ``a``**, which below is the *derivative* wavenumber —
+sits in a subscript run). The same rule governs ``a``, which below is the *derivative* wavenumber —
 the Nyquist-zeroed family, kept apart from the true ``k`` — when it stands alone or carries a numeric
 component subscript (``a_1, a_2, a_3``), and is an ordinary per-axis index when it *sits in* a subscript
 or a product bound (``k_a``, ``\Delta x_a``, ``\prod_{a=1}^{3}``). So the scalar field over the grid is the 3-axis tensor product
@@ -50,7 +50,7 @@ weights, defined in the interpolation section below) and the differential
 multipliers ``\mathrm{i} k_a`` (``k_a`` a component of the wavenumber ``k``, set up with the transforms
 below) act on). The factor ``\otimes V`` then attaches the fiber, so a grid section is a ``V``-value *at
 each cell* (``\cong V^N``; a single real only in the scalar case ``R = 0``). The point base ``\mathbb R^M``
-is **unstructured** — ``M`` scattered points, no product — which is exactly the structured-to-unstructured
+is unstructured — ``M`` scattered points, no product — which is exactly the structured-to-unstructured
 nature of the transfer. A point's *position* ``x_p \in \mathbb R^3`` is a separate object from the value it
 carries: the positions are the `PointSet` geometry (``\mathbb R^M \otimes \mathbb R^3 \cong \mathbb R^{3M}``,
 themselves a vector-valued section over the points) and enter only through the transfer weights
@@ -61,17 +61,17 @@ interpolation section), whereas ``\Gamma_P`` is the space of *values* — a ``V`
 
 The transform ``\mathcal F`` (`to_spectral`, inverse `to_physical`) is the rfft isomorphism between the
 physical (nodal) and spectral representations of a grid section; ``\hat f = \mathcal F f``. Its codomain
-needs naming, because the obvious candidate is wrong: ``\mathcal F`` is **not** onto the stored complex
+needs naming, because the obvious candidate is wrong: ``\mathcal F`` is not onto the stored complex
 array ``\mathbb C^{N_{k_x} N_y N_z} \otimes V``, which has strictly more real dimensions than
-``\Gamma_G``. The image is the **Hermitian-constrained subspace**: the planes the folded axis maps to itself under
-``k \mapsto -k`` (the zero plane, and on an even axis the Nyquist plane) are **closed under
-conjugation**, so each stored coefficient there has its partner stored too and the pair must satisfy
+``\Gamma_G``. The image is the *Hermitian-constrained subspace*: the planes the folded axis maps to itself under
+``k \mapsto -k`` (the zero plane, and on an even axis the Nyquist plane) are closed under
+conjugation, so each stored coefficient there has its partner stored too and the pair must satisfy
 ``\hat f(-k) = \overline{\hat f(k)}``. Individual coefficients on those planes are not real — only
 the self-paired modes, ``k = -k``, are. That constraint is exactly what makes the map a bijection onto
 its image and the round trip exact. Every "coefficients of a real field" statement below means an
 element of that subspace, which is also why a kernel must be Hermitian for its result to be one. With the fiber
 contraction ``\cdot : V \times V \to \mathbb R`` and the wavenumber ``k``, the inner products are the
-package's **normalized** reductions (`inner`, `src/Reductions.jl` = `dot(data, data) / _base_count`):
+package's normalized reductions (`inner`, `src/Reductions.jl` = `dot(data, data) / _base_count`):
 
 ```math
 \begin{gathered}
@@ -84,9 +84,9 @@ package's **normalized** reductions (`inner`, `src/Reductions.jl` = `dot(data, d
 
 Design rationale: [Architecture](architecture.md) §4.
 
-The transform ``\mathcal F`` is **forward unnormalized, inverse carrying ``1/N``** (AbstractFFTs convention,
+The transform ``\mathcal F`` is forward unnormalized, inverse carrying ``1/N`` (AbstractFFTs convention,
 `plan_rfft`/`plan_irfft`), with ``k`` ranging over the wavenumbers and ``x`` over the ``N`` grid nodes —
-where ``x`` denotes a node's offset **from the grid origin** ``o``, not its absolute position. A grid
+where ``x`` denotes a node's offset from the grid origin ``o``, not its absolute position. A grid
 carries an arbitrary origin, so the absolute node position is ``o + x``; writing the pair in the offset
 coordinate is what makes it agree with the spectral transfer below, whose phase ``e^{\mathrm{i}k\cdot(x_p - o)}``
 subtracts that origin explicitly because a point ``x_p`` is given in absolute coordinates:
@@ -110,7 +110,7 @@ so ``\mathcal F^{-1}\mathcal F = \mathrm{id}`` (exact to round-off). Two consequ
   the unnormalized forward sums ``N`` copies of ``c`` at ``k = 0``. ``\checkmark``
 
 The scratch arity `to_physical!(physical, spectral, plans, spectral_scratch)` (decision 64) adds
-nothing to this map — it computes the same ``\mathcal F^{-1}`` — and one **contract**: `spectral`
+nothing to this map — it computes the same ``\mathcal F^{-1}`` — and one contract: `spectral`
 returns bitwise-unchanged, the copy into the scratch being what the transform consumes instead, with
 no allocation. Aliasing scratch with source is refused, the shared storage making the contract
 unsatisfiable. ``\checkmark``
@@ -118,7 +118,7 @@ unsatisfiable. ``\checkmark``
 **The reality condition (decision 71).** A half-spectrum is the spectrum of a REAL field iff it is
 Hermitian, ``\hat f(-k) = \overline{\hat f(k)}``. The rfft stores only non-negative wavenumbers on the
 folded axis, so for almost every mode the partner is not stored and the condition is automatic; it can
-be violated only on a **self-conjugate plane** of the folded axis — the zero plane, and on an
+be violated only on a self-conjugate plane of the folded axis — the zero plane, and on an
 even-length axis the Nyquist plane — where a mode's partner lies in the same plane. The `reality_residual` diagnostic
 measures the departure,
 
@@ -132,7 +132,7 @@ measures the departure,
 which is zero when the coefficients are a real field's. A spectrum the package itself transforms from
 real data satisfies the condition only to round-off — FFTW is exact at some power-of-two sizes and
 ulp-level elsewhere, rocFFT and cuFFT ulp-level at every size (measured 2026-09-05) — so "zero for
-anything the package produces" holds to the ulp and no further. It **reports and never repairs**; the
+anything the package produces" holds to the ulp and no further. It reports and never repairs; the
 repair is the projector below. Cost is ``O(N^2)`` — one or two planes — against the ``O(N^3 \log N)``
 of a physical round trip, which is what makes it usable as a check.
 
@@ -163,6 +163,7 @@ inverse real transform discards the anti-Hermitian part, and the forward transfo
 ulp. ``\checkmark``
 
 **Backs** [the decision log](decisions.md), decision 83 and the `reality_projection!` docstring.
+
 **Checked by** `test/fields.jl` (`reality_projection!`) — the identity on an exact spectrum, agreement
 with an elementwise pair-mean oracle over the ORIGINAL coefficients, off-plane coefficients bitwise
 untouched, exact idempotence, round-trip agreement to ``64 \varepsilon``, linearity, commutation with
@@ -191,6 +192,7 @@ componentwise for a second-order tensor, and in the kernel-composed form with ``
 
 **Backs** [the decision log](decisions.md), decision 90, and the `mean_free_projection!` and
 `divergence!` docstrings.
+
 **Checked by** `test/fields.jl` (`mean_free_projection!`) — the zero coefficient exactly zero in both
 parts, every other coefficient bitwise untouched, agreement with the values less their arithmetic
 average computed in physical space, exact idempotence and the physical absence — over both element
@@ -198,6 +200,7 @@ types, tensor orders 0/1/2, permuted folds and odd axes; `test/differentialopera
 divergence's zero mean, vector and tensor, plain and kernel-composed); and `test/gpu/suite.jl`.
 
 **Backs** [Architecture](architecture.md) §4 and the `Fields` transform docstrings.
+
 **Checked by** `test/fields.jl` — FFT round-trip, multipliers vs `fftfreq`/`rfftfreq`, the Nyquist
 behaviour, transform input-preservation, and the scratch arity's bitwise preservation, its bitwise
 equality with the allocating form, and its aliasing and context refusals — and `test/fieldalgebra.jl`
@@ -207,7 +210,7 @@ equality with the allocating form, and its aliasing and context refusals — and
 
 Design rationale: [Architecture](architecture.md) §2, §6.
 
-The **vertical** operations act inside the fiber ``V`` at each base point, identically over grid and
+The *vertical* operations act inside the fiber ``V`` at each base point, identically over grid and
 point bases (one set of generated kernels, `src/FiberSections.jl`). A `FiberVector` is ``\mathbb R^3``, a
 `FiberTensor2` genuinely a ``3\times3`` matrix, so component notation is the natural form here
 (a repeated index is summed, and ``\varepsilon_{ijk}`` is the Levi-Civita symbol):
@@ -225,21 +228,22 @@ The decompositions are ``\operatorname{sym}(A)=\tfrac{1}{2}(A+A^{\top})``,
 so ``\operatorname{sym}+\operatorname{skew}=\mathrm{id}`` and ``\operatorname{tr}\operatorname{dev}(A)=0``.
 The trace ``\operatorname{tr}(A)=A_{ii}`` — the first tensor invariant that `dev` removes — is exposed as
 `tr`/`tr!`, and being linear it is representation-preserving (the trace of the spectral coefficients is
-the spectral representation of ``\operatorname{tr}A``). The **third** invariant, the determinant
+the spectral representation of ``\operatorname{tr}A``). The third invariant, the determinant
 ``\det A=\varepsilon_{ijk}A_{1i}A_{2j}A_{3k}=I_3`` (`det`/`det!`), is a homogeneous cubic form in the
 components, hence
-**nonlinear** — physical-space only, like the norm — and multiplicative ``\det(AB)=\det A \det B``; it
+nonlinear — physical-space only, like the norm — and multiplicative ``\det(AB)=\det A \det B``; it
 reuses the one shared formula builder, so it mirrors `tr` onto both fields and point-values.
 ``\checkmark`` The `mul!` family carries the α/β accumulate ``\texttt{dest}=\alpha(\cdot)+\beta \texttt{dest}``,
 and the weighted combination ``\alpha a+\beta b`` (`combine!`) is its linear two-field peer — coefficientwise,
 hence representation-preserving and alias-safe, with ``\alpha=\beta=1`` the plain `add!`.
 
 **Backs** [Architecture](architecture.md) §2, §6, decision 27, and the `FieldAlgebra` docstrings.
+
 **Checked by** `test/fieldalgebra.jl` (and `test/pointvalues_algebra.jl` for the identical point-value
 mirror) — dot/cross, tensor products with α/β, transpose, norms, the trace, the determinant (against a
 per-point LU oracle), the weighted combination, and the sym/skew/dev identities.
 
-The **arbitrary fiber map** (`map!`/`map`, decision 48) lifts a chosen map on the fibers,
+The *arbitrary fiber map* (`map!`/`map`, decision 48) lifts a chosen map on the fibers,
 ``\varphi : V_1 \times \dots \times V_m \to U``, to a section map applied pointwise over the base: at each
 base point ``x``, ``\texttt{destination}(x) = \varphi\bigl(s_1(x), \dots, s_m(x)\bigr)`` for sources
 ``s_1, \dots, s_m``. The output fiber space ``U`` — written ``U`` rather than ``W``, which this page reserves for the
@@ -247,12 +251,13 @@ gather operator — hence `destination`'s tensor order — is ``\varphi``'s
 codomain, which need not match the inputs' (``\varphi = \det`` sends ``V = \mathbb R^{3\times3} \to
 \mathbb R``). It is the section-valued companion of the mapped reductions (which instead reduce ``\varphi``
 over the base) and the arbitrary-``\varphi`` generalization of the named vertical operations above; a
-general ``\varphi`` is nonlinear, so — like ``\det`` and the norm — it is **physical-space only** on
+general ``\varphi`` is nonlinear, so — like ``\det`` and the norm — it is physical-space only on
 fields (invariant 1), and representation-free on point-values. The single-source form carries the α/β
 accumulate ``\texttt{destination} = \alpha \varphi(\texttt{source}) + \beta \texttt{destination}``.
 ``\checkmark``
 
 **Backs** [Architecture](architecture.md) §2, decision 48, and the `map!` / `map` docstring.
+
 **Checked by** `test/fieldalgebra.jl` and `test/pointvalues_algebra.jl` (against the named operations as
 oracles, ``\exp\circ\det`` hand references, order changes, multi-input, α/β, aliasing, and the
 physical-only absence), GPU parity in `test/gpu/suite.jl`, allocation-freedom in `test/allocations.jl`,
@@ -262,7 +267,7 @@ and the fused-ideal element traffic in `test/pass_audit.jl`.
 
 Design rationale: [Architecture](architecture.md) §4.
 
-Each operator ``L`` is **diagonalized** by ``\mathcal F`` into a pointwise multiplier ``\hat L`` — the
+Each operator ``L`` is diagonalized by ``\mathcal F`` into a pointwise multiplier ``\hat L`` — the
 intertwiner square ``\mathcal F\circ L = \hat L\circ\mathcal F`` — applied coefficientwise in spectral
 representation (`src/DifferentialOperators.jl`; ``a`` below is the derivative-wavenumber vector of the
 Nyquist split that follows, ``k`` the true wavenumber):
@@ -274,9 +279,9 @@ Nyquist split that follows, ``k`` the true wavenumber):
 \end{aligned}
 ```
 
-**Nyquist split** (even axes, deliberate — `FieldSpectralMultipliers`): the **derivative** wavenumber is
-**zeroed** at Nyquist (the Nyquist mode is a real cosine, so ``\mathrm{i}a_N`` taken from the true wavenumber would break reality), while the
-**squared** wavenumber keeps the true ``k^2`` (correct ``\Delta`` / ``\Delta^{-1}``). The ``a`` in
+**Nyquist split** (even axes, deliberate — `FieldSpectralMultipliers`): the derivative wavenumber is
+zeroed at Nyquist (the Nyquist mode is a real cosine, so ``\mathrm{i}a_N`` taken from the true wavenumber would break reality), while the
+squared wavenumber keeps the true ``k^2`` (correct ``\Delta`` / ``\Delta^{-1}``). The ``a`` in
 ``\mathbb P``'s multiplier above is that derivative wavenumber — the projector is built entirely from
 that one family (decision 42), and sub-Nyquist ``a = k``. Identities, each a one-line spectral check:
 
@@ -306,7 +311,7 @@ unconditionally; the projector identities are pinned with full-spectrum Nyquist 
 (``\mathbb P`` and ``\Delta`` are self-adjoint — their multipliers ``\mathrm{id}-(a a^{\top})/(a \cdot a)``, ``-|k|^2`` are
 real symmetric.)
 
-The **divergence is the negative adjoint of the gradient**, the one relation here between sections of
+The divergence is the negative adjoint of the gradient, the one relation here between sections of
 *different* tensor order — ``\nabla : \Gamma_G^{R=0} \to \Gamma_G^{R=1}`` and
 ``\nabla\cdot : \Gamma_G^{R=1} \to \Gamma_G^{R=0}``, so the two inner products below are taken in
 different spaces (scalar sections on the right, vector sections on the left):
@@ -322,7 +327,7 @@ conjugates it, and ``\overline{\mathrm{i}a} = -\mathrm{i}a`` for real ``a`` supp
 — it needs only that both operators read one derivative family, the Nyquist planes included, which
 invariant 5 guarantees. Pinned in `test/adjointness.jl`.
 
-The **inverse curl** inverts ``\nabla\times`` on the solenoidal subspace. Writing ``a`` for the
+The inverse curl inverts ``\nabla\times`` on the solenoidal subspace. Writing ``a`` for the
 derivative wavenumber and ``\mathbb S = \{\hat u : a\cdot\hat u = 0,\ \hat u(0) = 0\}`` for the
 discretely divergence-free, mean-free fields, the operator is
 
@@ -350,7 +355,7 @@ which is the compatibility condition ``\nabla\cdot w = 0`` stated as a projectio
 `inverse_curl`; checked by `test/differentialoperators.jl` against the closed-form pair
 ``u = (\sin y, \sin z, \sin x)``, ``w = \nabla\times u = (-\cos z, -\cos x, -\cos y)``.
 
-The **`curl` is self-adjoint** on the same pairing,
+The `curl` is self-adjoint on the same pairing,
 
 ```math
 \langle \nabla\times u, v\rangle = \langle u, \nabla\times v\rangle, \quad\checkmark
@@ -362,7 +367,7 @@ antisymmetric matrix's sign and conjugating the pairing's other slot flips ``\ma
 cancel. Unconditional — it needs only that one derivative-wavenumber family, Nyquist planes included.
 Pinned in `test/adjointness.jl`.
 
-The **symmetric gradient** ``\operatorname{sym}\nabla`` (`symmetric_gradient`) is the **fused symmetric peer**
+The symmetric gradient ``\operatorname{sym}\nabla`` (`symmetric_gradient`) is the fused symmetric peer
 of ``\nabla\times`` (which takes the antisymmetric part of ``\nabla u``): its multiplier is the symmetric
 part of ``\nabla u``'s multiplier ``\mathrm{i}a_j\hat u_i``,
 
@@ -392,13 +397,16 @@ scalar commutes through both the matrix symbol and the contraction — per mode 
 so the composition "operator then convolve" is itself a single Fourier multiplier (the product of
 symbols), and `helmholtz_projection!(dest, f, m, kernel, α, β)` /
 `divergence!(dest, f, m, kernel, α, β)` compute ``\hat d \leftarrow \alpha \hat g \hat L \hat u + \beta \hat d``, with ``\hat d`` the
-coefficients of `dest`, in one pass. **Alias safety of the one-pass projection**: the kernel is a
+coefficients of `dest`, in one pass.
+
+**Alias safety of the one-pass projection**: the kernel is a
 mode-local map — the values written at mode ``k`` depend only on values read at mode ``k``, and every
 read of a mode precedes its writes — so `destination === field` computes the same function
 (bitwise-tested). The Nyquist split is inherited unchanged: the composed symbol is a product of
 per-mode scalars, so each factor keeps its own family's Nyquist value.
 
 **Backs** [Architecture](architecture.md) §4, §7, decisions 27, 32.
+
 **Checked by** `test/differentialoperators.jl` (analytic round-trips, the Nyquist split,
 ``\nabla\cdot(\nabla\times)=0``, ``\nabla\times\nabla=0``, ``\operatorname{sym}\nabla u=\operatorname{sym}(\nabla u)``,
 the fused-equals-sequential kernel compositions, and the bitwise aliased projection)
@@ -421,7 +429,7 @@ into a destination with coefficients ``\hat d`` (`src/Convolution.jl`):
 
 This is exactly the product invariant 1 bans as ``*`` — it is convolution, not the (absent) pointwise
 spectral product. The neutral kernel builders: `spectral_cutoff` is the sharp low-pass ``\hat g(k)=1`` for
-``|k|\le k_c`` (else ``0``), **idempotent** (``\hat g^2=\hat g``, a projection); `spectral_band` its annular
+``|k|\le k_c`` (else ``0``), idempotent (``\hat g^2=\hat g``, a projection); `spectral_band` its annular
 ``k_{\mathrm{lo}}\le|k|\le k_{\mathrm{hi}}`` generalization (cutoff is ``k_{\mathrm{lo}}=0``); `radial_kernel` the builder taking any real function
 of ``|k|^2`` (its ``\sigma = \mathrm{identity}`` case being that coordinate itself); and `assignment_window` the linear/CIC mass-assignment window
 
@@ -492,7 +500,7 @@ code and tested:
 
 - **Reality is automatic.** ``|k|^2`` is real and even in ``k`` and ``\hat w`` is required real and
   (as a stored half-spectrum of a real field) Hermitian, so ``\hat g`` is real and even —
-  ``\hat g(-k) = \hat g(k) = \overline{\hat g(k)}`` — and a real field stays real for **every**
+  ``\hat g(-k) = \hat g(k) = \overline{\hat g(k)}`` — and a real field stays real for every
   ``c, s``; no Nyquist split arises (the exponent uses the true squared wavenumber, invariant 5's
   Laplacian family). ``\checkmark``
 - **It is the heat semigroup's symbol.** The Laplacian's symbol is ``-|k|^2``, so the operator
@@ -503,7 +511,7 @@ code and tested:
   constant ``s_0``, which is the accumulate weight ``\alpha``'s job — hence the deliberate absence of
   a scalar-offset method; only the per-mode ``s \hat w`` earns a signature slot. ``\checkmark``
 
-The **kernel-composed combination** (`combine!(dest, α, a, β, b, kernel)` and the exponential
+The kernel-composed combination (`combine!(dest, α, a, β, b, kernel)` and the exponential
 two-operand form) is the distribution of a diagonal symbol over a linear combination — per mode,
 ``\hat g (\alpha \hat a + \beta \hat b) = \alpha \hat g \hat a + \beta \hat g \hat b`` — computed
 as the left-hand side in one coefficientwise pass; with ``b = \texttt{dest}`` it is the filtered
@@ -522,29 +530,29 @@ storage choice, and the package carries four. Write ``k_a`` for the signed waven
 - **radial** (`RadialKernel`), ``\hat g(k) = \sigma(|k|^2)`` held as the real symbol ``\sigma : \mathbb R \to \mathbb R``
   itself and evaluated per mode (``O(1)``) — the class `spectral_cutoff`, `spectral_band` and
   `radial_kernel` return;
-- a **product** (`ProductKernel`), ``\hat g = \hat g_1 \hat g_2`` for any two kernels held unmultiplied and
+- a product (`ProductKernel`), ``\hat g = \hat g_1 \hat g_2`` for any two kernels held unmultiplied and
   evaluated in one pass — what a composition gives whenever it cannot be collapsed into a single kernel.
 
 Two statements, each expanded against the code and tested:
 
 - **The classes are interchangeable.** For every entry point taking a kernel, and every storage class,
   the computed coefficients are those of the same ``\hat g``. The associations are chosen to make this
-  hold **bitwise**, not merely to rounding: the radial route sums ``(\kappa_1^2 + \kappa_2^2) + \kappa_3^2``
+  hold bitwise, not merely to rounding: the radial route sums ``(\kappa_1^2 + \kappa_2^2) + \kappa_3^2``
   in the order the stored path's broadcast associates it, and the separable route multiplies its factors
   in axis order. ``\checkmark``
 - **Composition is closed within the two compressed families but not the stored one.** Radial
-  composed with radial is radial **when both are radial in the same** ``|k|^2`` — that is, over *canonical* multiplier sets of one concrete type — canonical meaning built by the convenience constructor from the grid itself, as opposed to a caller's own set supplied through the explicit six-array form — which is the hypothesis decision 61 made a dispatch condition;
+  composed with radial is radial when both are radial in the same ``|k|^2`` — that is, over *canonical* multiplier sets of one concrete type — canonical meaning built by the convenience constructor from the grid itself, as opposed to a caller's own set supplied through the explicit six-array form — which is the hypothesis decision 61 made a dispatch condition;
   ``\sigma_1 \sigma_2`` is then again a function of that ``|k|^2``, while a pairing that fails it keeps both
   operands as a `ProductKernel` rather than silently evaluating ``\sigma_2`` at the first set's
   coordinates. Separable
   composed with separable is separable, per axis; and radial composed with separable is a `ProductKernel`,
   since a general ``\sigma(|k|^2)`` admits no factorization over axes (the exponential is the exception)
   and ``\prod_a g_a`` no reduction to
-  ``|k|^2``. Stored composed with stored is deliberately **not** closed: multiplying the coefficients
+  ``|k|^2``. Stored composed with stored is deliberately not closed: multiplying the coefficients
   would be an ``O(N^3)`` pass building a third array, so the pair is kept as a `ProductKernel` too.
   Composition therefore never forces a materialization. ``\checkmark``
 
-The reciprocal `inv` is the pointwise ``1/\hat g``, defined on **every** class and closed within each:
+The reciprocal `inv` is the pointwise ``1/\hat g``, defined on every class and closed within each:
 separable per axis, radial in the symbol, product factorwise, and stored coefficientwise — the last
 with an explicit zero check, since it is the one class that can test its coefficients. It is what
 deconvolves: ``\hat g^{-1}\hat g = 1``
@@ -552,6 +560,7 @@ wherever ``\hat g`` is nonzero, which is why a sharp cutoff has no inverse and a
 support.
 
 **Backs** [Architecture](architecture.md) §11, decisions 20–22, 28, 33, 50, 51, 60, 61.
+
 **Checked by** `test/convolution.jl` — the translation kernel ``e^{-\mathrm{i} k_a m \Delta x_a} \Leftrightarrow``
 `circshift` (a shift of ``m`` cells; an independent physical oracle), cutoff idempotence, and
 the physical-space intentional absence (the ``\operatorname{sinc}^2`` window is checked by `test/rdf.jl`); and for `translation_kernel`, `circshift` on a *random* field (one
@@ -560,15 +569,15 @@ nodes for a sub-cell displacement, and the reality check that the displaced half
 transform round trip (the inverse transform being the Hermitian projector); and for the decision-33
 pair, the stored-kernel equality oracles, the single-mode eigenvalue ``e^{c}\cos x``, and
 fused-equals-sequential for both two-operand forms; and for the storage classes, the walk over every
-kernel-taking entry point that requires each class to agree **bitwise** with the materialized product,
+kernel-taking entry point that requires each class to agree bitwise with the materialized product,
 together with the composition cases that pin which class each pairing lands in.
 
 ## Reductions (`Reductions`)
 
 Design rationale: [Architecture](architecture.md) §12.
 
-The L²/measure structure (`src/Reductions.jl`). The `integral` is **extensive** (against the base measure —
-grid cell volume, point counting); `inner` is the **normalized** L² product (declared above);
+The L²/measure structure (`src/Reductions.jl`). The `integral` is extensive (against the base measure —
+grid cell volume, point counting); `inner` is the normalized L² product (declared above);
 ``\texttt{l2norm} = \sqrt{\langle f,f\rangle}``:
 
 ```math
@@ -592,7 +601,7 @@ Both equal the physical reductions (since ``\sum_x f_x = \hat f(0)``), read from
 the constant-add writes; `lpnorm`/`maximum` have no single-coefficient form.
 
 **Variance, standard deviation, and covariance** (decision 49). The reductions ``\operatorname{var}``/``\operatorname{std}``
-are **scalar-only**. The *population* second central moment is what Parseval gives directly, as the
+are scalar-only. The *population* second central moment is what Parseval gives directly, as the
 fluctuation energy carried by every mode but the mean:
 
 ```math
@@ -603,7 +612,7 @@ fluctuation energy carried by every mode but the mean:
 ```
 
 with ``\alpha(k)`` the rfft half-spectrum multiplicity of mode ``k`` and the ``1/N^2`` the
-normalization ``\langle\cdot,\cdot\rangle`` itself carries. The **default** applies Bessel's
+normalization ``\langle\cdot,\cdot\rangle`` itself carries. The default applies Bessel's
 correction on top,
 
 ```math
@@ -612,8 +621,8 @@ correction on top,
 ```
 
 with ``N_B`` the count of base points — ``N`` cells for a grid, ``M`` points for a point set (the subscript ties it to the base ``B`` of the bundle picture, rather than reusing that glyph for a scalar), `var` being defined
-on both exactly as `cov` is — so the identity reads from **both** representations, with ``\operatorname{std} = \sqrt{\operatorname{var}}``. A vector section's coordinate-free
-second central moment is the **covariance tensor** ``R = \operatorname{cov}(u) \in
+on both exactly as `cov` is — so the identity reads from both representations, with ``\operatorname{std} = \sqrt{\operatorname{var}}``. A vector section's coordinate-free
+second central moment is the *covariance tensor* ``R = \operatorname{cov}(u) \in
 \operatorname{Sym}^2(\mathbb R^3)``,
 
 ```math
@@ -627,7 +636,9 @@ where ``N_B`` is again that count — ``N`` cells for a grid, ``M`` points for
 a point set — since `cov` is defined on both. The result is
 a symmetric `FiberTensor2` whose diagonal is the per-component variance a fiber-preserving `var` would
 have returned; ``\operatorname{std} = \sqrt{\operatorname{var}}`` has no canonical vector form, so it is
-not offered. Physical-only (the outer product is nonlinear). **Checked by** `test/reductions.jl` (scalar
+not offered. Physical-only (the outer product is nonlinear).
+
+**Checked by** `test/reductions.jl` (scalar
 var/std vs a two-pass reference and the equal spectral form; `cov` vs a per-point covariance, its
 symmetry, and its per-component diagonal) and GPU parity in `test/gpu/suite.jl`.
 
@@ -671,9 +682,9 @@ self-conjugate ``k_x=0`` and even-Nyquist planes count once) gives
 \end{aligned}
 ```
 
-(the Nyquist sum only for even ``N_x``). **`radial_spectrum`** bins this with the half-spectrum weight
+(the Nyquist sum only for even ``N_x``). The reduction `radial_spectrum` bins it with the half-spectrum weight
 ``\alpha(k)`` (``1`` on the self-conjugate planes, ``2`` else) over ``|k|``-shells, and
-**`radial_correlation`** is the Wiener–Khinchin dual (the inverse transform ``\mathcal F^{-1}`` is `to_physical`, the normalized
+`radial_correlation` is the Wiener–Khinchin dual (``\mathcal F^{-1}`` is `to_physical`, the normalized
 inverse):
 
 ```math
@@ -683,7 +694,7 @@ C(r) = \frac{1}{N} \mathcal F^{-1}\Bigl(\textstyle\sum_c|\hat f_c|^2\Bigr)(r),
 \end{gathered}
 ```
 
-with ``P(\kappa)`` the shell **power spectrum** (the consumer's physics energy spectrum is
+with ``P(\kappa)`` the shell *power spectrum* (the consumer's physics energy spectrum is
 ``E(\kappa)=\tfrac{1}{2}P(\kappa)``), each refining `inner` exactly:
 ``\sum_m P(\kappa_m) = \langle f,f\rangle`` and ``C(0) = \langle f,f\rangle``.
 ``\checkmark`` The two-field forms (cross-power ``\sum_c\mathrm{Re}(\hat f_c\overline{\hat g_c})``,
@@ -697,7 +708,7 @@ negative.
 \langle f, w g\rangle = \frac{1}{N^2}\sum_{\text{stored }k} \alpha(k) w(k)\sum_c \mathrm{Re}\bigl(\hat f_c \overline{\hat g_c}\bigr), \quad\checkmark
 ```
 
-generalizing `inner` (the ``w\equiv1`` case) — the reduction-dual of `convolve`. Given a **tuple** of
+generalizing `inner` (the ``w\equiv1`` case) — the reduction-dual of `convolve`. Given a tuple of
 weights it answers all of them in one traversal, and the identity that licenses the fusion is that each
 answer is the one the separate call would give:
 
@@ -709,9 +720,9 @@ answer is the one the separate call would give:
 **bitwise**, not merely to roundoff — the coefficient reads are shared while each weight is still
 evaluated per mode, so no summation order changes (decision 72). For ``w=|k|^2`` (the
 squared-wavenumber symbol, true ``k^2`` at Nyquist) it is the Dirichlet energy ``\langle f,-\Delta g\rangle``;
-and since ``w`` is real it equals the naive ``\langle w\star f, w\star g\rangle`` **iff** ``w`` is idempotent
-(``w^2=w``, a sharp band), not for a general ``w``. Symmetric in ``f,g``, may be negative, spectral-only. The realness of ``w`` is a **hypothesis of the
-statement**, not a convenience: with a complex multiplier the pairing is not an inner product, so the
+and since ``w`` is real it equals the naive ``\langle w\star f, w\star g\rangle`` iff ``w`` is idempotent
+(``w^2=w``, a sharp band), not for a general ``w``. Symmetric in ``f,g``, may be negative, spectral-only. The realness of ``w`` is a hypothesis of the
+statement, not a convenience: with a complex multiplier the pairing is not an inner product, so the
 operation refuses one wherever the kernel's type settles the question (decision 62). The one class
 whose type cannot settle it is `StoredKernel`, whose storage is complex whatever multiplier it holds;
 there the real part is taken, as documented.
@@ -721,10 +732,13 @@ there the real part is taken, as documented.
 ``M``-normalized analogue, with ``\lvert f_n\rvert`` the fiber Euclidean magnitude; ``p = 2``
 delegates to ``\texttt{l2norm} = \sqrt{\langle f,f\rangle}`` and ``p = \infty`` is
 ``\max_n \lvert f_n\rvert`` (`src/Reductions.jl`). Physical fields and point-values only.
-``\checkmark`` **Checked by** `test/reductions.jl` (the ``p = 2`` delegation to `l2norm` and the
+``\checkmark``
+
+**Checked by** `test/reductions.jl` (the ``p = 2`` delegation to `l2norm` and the
 ``p = \infty`` coincidence with `maximum(norm, u)`).
 
 **Backs** [Architecture](architecture.md) §12, decisions 18/21/22/27/30/49/62.
+
 **Checked by** `test/reductions.jl` — ``\langle\sin\rangle=0``, ``\langle\sin^2\rangle=\tfrac{1}{2}``,
 the spectral `integral`/`mean` against the physical reductions (``\langle c\rangle=c``, ``\int c\,\mathrm{d}x=c|\Omega|``),
 ``\sum_i P(\kappa_i)=\langle f,f\rangle``, ``C(0)=\langle f,f\rangle`` against an independent binned-circshift oracle, the
@@ -735,10 +749,10 @@ co-spectrum signs, and `weighted_inner` against ``\langle f,-\Delta g\rangle`` a
 Design rationale: [Architecture](architecture.md) §10.
 
 The base gather ``W_b : \mathbb R^N \to \mathbb R^M`` has entries ``(W_b)_{pn} = w_n(x_p)`` (the local
-stencil weights, `src/Interpolation.jl`), a **partition of unity** — for each point the row sums to one,
+stencil weights, `src/Interpolation.jl`), a *partition of unity* — for each point the row sums to one,
 ``\sum_n (W_b)_{pn} = 1``, i.e. ``W_b \mathbf{1}_N = \mathbf{1}_M`` with ``\mathbf{1}_N \in \mathbb R^N`` and
-``\mathbf{1}_M \in \mathbb R^M`` (two **distinct** all-ones vectors). Both transfer maps are
-**fiber-preserving** (the trivial bundle leaves the fiber by the identity):
+``\mathbf{1}_M \in \mathbb R^M`` (two distinct all-ones vectors). Both transfer maps are
+fiber-preserving (the trivial bundle leaves the fiber by the identity):
 
 ```math
 \begin{gathered}
@@ -768,7 +782,7 @@ M \langle Wf, q\rangle_{\mathrm{pts}}
 \end{aligned}
 ```
 
-So the *bare* ``\langle Wf, q\rangle_{\mathrm{pts}} = \langle f, W^{\top}q\rangle_{\mathrm{grid}}`` is **false**
+So the *bare* ``\langle Wf, q\rangle_{\mathrm{pts}} = \langle f, W^{\top}q\rangle_{\mathrm{grid}}`` is false
 unless ``N = M`` — the two sides differ by ``N/M``. This is the slip the formalization catches: it
 type-checks, but the expansion does not match. The clean adjunction uses the measure-adjoint
 ``\iota_* := (N/M) W^{\top}``:
@@ -796,6 +810,7 @@ type-checks, but the expansion does not match. The clean adjunction uses the mea
 (uses the partition-of-unity row sum ``\sum_n (W_b)_{pn} = 1``).
 
 **Backs** [Architecture](architecture.md) §10 and the `Interpolation` module docstring.
+
 **Checked by** `test/interpolation_transfer.jl` — the measure-weighted adjointness
 ``M \langle Wf, q\rangle_{\mathrm{pts}} = N \langle f, W^{\top}q\rangle_{\mathrm{grid}}``, conservation (partition of unity), and
 polynomial reproduction.
@@ -817,16 +832,17 @@ windowed form — the spectral siblings of the spline ``W`` / ``W^{\top}`` above
 ```
 
 Type-2 reproduces the band-limited field exactly (it matches `to_physical` at the grid nodes). Type-1's
-codomain is the full stored-coefficient array, **not** ``\mathcal F``'s Hermitian-constrained image: for
+codomain is the full stored-coefficient array, not ``\mathcal F``'s Hermitian-constrained image: for
 off-node points on an even axis the deposit is the half-spectrum of no real field, so read it as a
 functional on the stored modes. The adjointness below is with respect to the ``\alpha``-weighted pairing
 on those modes, and holds mode for mode. The pair satisfies the same measure-weighted adjoint as the splines,
 ``M \langle W\hat f, q\rangle_{\mathrm{pts}} = N \langle \hat f, W^{\top}q\rangle_{\mathrm{grid}}``. ``\checkmark``
-**`NUFFT`** is its ``O(N\log N + M)`` form — for the deposit, spread → oversampled (``\sigma=2``) FFT → deconvolve by
+`NUFFT` is its ``O(N\log N + M)`` form — for the deposit, spread → oversampled (``\sigma=2``) FFT → deconvolve by
 ``1/\hat\psi`` (window ``\psi``, transform ``\hat\psi``) — exact to a tolerance ``\varepsilon`` against
 `DirectDFT` on the resolved band (the rfft Nyquist is projected out), an exact adjoint pair there.
 
 **Backs** [Architecture](architecture.md) §10, decision 23.
+
 **Checked by** `test/transfer_spectral.jl` — `interpolate` == `to_physical` at the nodes, exact off-grid
 reconstruction, the adjoint relation (``R = 0, 1, 2``), and `NUFFT` vs `DirectDFT` to ``\varepsilon``.
 
@@ -853,7 +869,7 @@ R &: T(N_f) \to T_S, &\quad (R w)(k) &= w(k) \text{ for } k \in S.
 \end{aligned}
 ```
 
-Both are stated on **physical amplitudes**: a stored coefficient is ``\prod N`` times the amplitude of
+Both are stated on physical amplitudes: a stored coefficient is ``\prod N`` times the amplitude of
 its mode (invariant 4), so the implementations carry the ratio of the two point counts, and the
 statements below are false for raw coefficient copying by a factor of ``(N_c/N_f)^2``.
 
@@ -867,7 +883,7 @@ coarse field".
 \langle E u, w\rangle_{T(N_f)} = \langle u, R w\rangle_{T_S},
 ```
 
-with **no measure factor** — unlike the grid↔point transfer, whose ``W``/``W^\top`` pair carries
+with no measure factor — unlike the grid↔point transfer, whose ``W``/``W^\top`` pair carries
 ``N/M``. The half-spectrum multiplicity ``\alpha(k)`` appears on both sides at the same modes and
 cancels. Verified in `test/shared_modes.jl`, "the two verbs are exact adjoints", bitwise in
 ``\mathbb{F}_{64}`` on a cubic grid and to rounding otherwise.
@@ -885,7 +901,7 @@ a real field's spectrum to a real field's spectrum. Verified by `reality_residua
 
 Design rationale: [the decision log](decisions.md), decision 63.
 
-A **array family** is the kind of array holding a section's values — `Array` on the host, or one vendor's device array. It
+An *array family* is the kind of array holding a section's values — `Array` on the host, or one vendor's device array. It
 is not part of the mathematical object: a section is a map from the base to the fiber, and which
 allocator holds its samples is no more intrinsic than which page of RAM they occupy. Writing
 ``\mathcal{S}`` for a section and ``\mathcal{A}`` for a family, the move is therefore stated as an
@@ -899,34 +915,35 @@ identity, not a computation:
 \end{aligned}
 ```
 
-Here ``\mathcal{C}(\mathcal{S})`` is the **context** of a section — everything it carries besides its
+Here ``\mathcal{C}(\mathcal{S})`` is the *context* of a section — everything it carries besides its
 samples, namely the grid, the Fourier layout, the origin and the tensor order — and the element type is
 likewise unchanged. Only the family differs. Two consequences follow and are what the tests assert.
-First, the move **commutes with every operation**: for an operation ``\Phi`` defined on both families,
+First, the move commutes with every operation: for an operation ``\Phi`` defined on both families,
 ``\Phi(\operatorname{adapt}(\mathcal{A}, \mathcal{S})) = \operatorname{adapt}(\mathcal{A}, \Phi(\mathcal{S}))``
 up to the floating-point reassociation any backend is free to make, which is why the device suite can
-compare a moved workspace against the host result at all. Second, it is **idempotent**, and on the
+compare a moved workspace against the host result at all. Second, it is idempotent, and on the
 family a section already occupies it is the identity map on objects, ``\operatorname{adapt}(\mathcal{A},
 \mathcal{S}) \equiv \mathcal{S}``, sharing storage rather than copying. ``\checkmark``
 
-The same statement covers the **companions** a section cannot be used without, none of which is itself a
+The same statement covers the *companions* a section cannot be used without, none of which is itself a
 section. A `FieldSpectralMultipliers` and each of the four kernel classes move by the identity above with
-``\mathcal{C}`` reading their own context, so a moved kernel denotes the **same multiplier**,
+``\mathcal{C}`` reading their own context, so a moved kernel denotes the same multiplier,
 ``\hat g_{\mathcal{A}} = \hat g`` as a function of the mode, and therefore computes the same convolution
 on the target family as on the source. ``\checkmark``
 
-Precision is deliberately **not** of this kind and is not offered here: changing the element type
+Precision is deliberately not of this kind and is not offered here: changing the element type
 changes the values, and — because `Grid3D` stores the domain size, spacing and origin at the
 field's own element type — it changes ``\mathcal{C}`` as well, so it is a different statement rather than a
 weaker one.
 
-`FieldTransformPlans` is the one companion that is **rebuilt rather than moved**, because an FFT plan
+`FieldTransformPlans` is the one companion that is rebuilt rather than moved, because an FFT plan
 is not a section: it is a compiled schedule bound to one array family. It is nonetheless determined by
 data it already carries — the grid, the layout and its element type — so the rebuild
 needs no argument, and a plan is independent of the arrays it was planned against, which is what lets
 the witnesses be released immediately.
 
 **Backs** [the decision log](decisions.md), decision 63.
+
 **Checked by** `test/adapt.jl` — value and context preservation across three layout folds, a non-zero
 origin, both element types, both representations and ``R = 0, 1, 2``; the identity case; the point layer
 (`PointSet` and all three point-value types); each of the four kernel classes, asserted through the
@@ -968,11 +985,11 @@ x_{p,a} \leftarrow \operatorname{mod}(x_{p,a} - o_a, L_a) + o_a \in [o_a, o_a + 
 the unique representative of ``x_{p,a} + L_a\mathbb Z`` in the fundamental domain — in exact
 arithmetic. In floating point, `mod` may return exactly ``L_a`` (measured: `mod(-1e-20, 2π) === 2π`),
 and that value is folded to ``0`` before the origin is restored, so membership in the half-open
-interval holds for every **finite** input; a non-finite coordinate maps to a non-finite coordinate
+interval holds for every finite input; a non-finite coordinate maps to a non-finite coordinate
 (`NaN` fixed, ``\pm\infty \mapsto \texttt{NaN}``), never into ``D``.
 
 **Statement 3 (the fused torus arity).** `displace!` with a grid computes Statement 2 applied to
-the result of Statement 1, in one pass, and is **bitwise equal** to the sequential pair: the fused
+the result of Statement 1, in one pass, and is bitwise equal to the sequential pair: the fused
 form performs the same floating-point operations in the same order per element, only in registers
 rather than through memory. ``\checkmark``
 
@@ -985,6 +1002,7 @@ coordinates of arbitrary magnitude, where cell-index arithmetic leaves its exact
 form is the honest version of "positions need no wrap".
 
 **Backs** [Architecture](architecture.md) §10 and [the decision log](decisions.md), decision 73.
+
 **Checked by** `test/displacement.jl` — the raw-array oracle for Statement 1 (single- and
 three-term, both element types), the endpoint/non-finite/origin pins for Statement 2, the bitwise
 equality of Statement 3, and the tolerance form of Statement 4; GPU parity in `test/gpu/suite.jl`.

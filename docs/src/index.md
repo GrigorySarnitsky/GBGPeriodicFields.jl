@@ -1,8 +1,8 @@
 # GBGPeriodicFields.jl
 
-`GBGPeriodicFields.jl` is a package for representing, transforming, and manipulating scalar, vector, and tensor fields on three-dimensional rectangular periodic domains. The tensors are **Cartesian** — components on one fixed right-handed orthonormal frame, with no curvilinear coordinates or metric machinery — so this is an applied field toolkit rather than a general differential-geometry package.
+`GBGPeriodicFields.jl` is a package for representing, transforming, and manipulating scalar, vector, and tensor fields on three-dimensional rectangular periodic domains. The tensors are *Cartesian* — components on one fixed right-handed orthonormal frame, with no curvilinear coordinates or metric machinery — so this is an applied field toolkit rather than a general differential-geometry package.
 
-The package is aimed primarily at fluid-dynamics and turbulence simulations. Fields are physical objects, while physical-space and nonredundant spectral representations are storage and manipulation choices. The implementation is designed for both CPU and GPU array backends, with HDF5 field persistence, and includes an unstructured **point layer**: evaluating fields at off-grid positions (interpolation) and depositing per-point quantities back onto the grid (anterpolation) — the field layer for Lagrangian-particle methods.
+The package is aimed primarily at fluid-dynamics and turbulence simulations. Fields are physical objects, while physical-space and nonredundant spectral representations are storage and manipulation choices. The implementation is designed for both CPU and GPU array backends, with HDF5 field persistence, and includes an unstructured *point layer*: evaluating fields at off-grid positions (interpolation) and depositing per-point quantities back onto the grid (anterpolation) — the field layer for Lagrangian-particle methods.
 
 This package is not intended to be a ready-to-use DNS solver; rather, it is a toolkit for building fluid-dynamics and general field solvers.
 
@@ -10,7 +10,7 @@ This package is not intended to be a ready-to-use DNS solver; rather, it is a to
 
 The `GBG` part in the name `GBGPeriodicFields.jl` comes from the city of Göteborg (Gothenburg, Sweden), where the primary development took place.
 
-A few words of vocabulary, used throughout the docs. A **field** — and its off-grid **point-values** — is a *section*: one **fiber** value (a scalar, a vector, or a second-order tensor) attached to every point of a **base** (the structured grid, or an unstructured set of points). The operations group as: pointwise algebra within the fiber; differential operators, applied as spectral multipliers; periodic convolution with a kernel; reductions against the base's own **measure** (a grid cell's volume, a point's count of one), giving a number or a radial profile; and the grid↔point transfer. Each group is catalogued under Main components below. Why they are grouped that way is the [Architecture](architecture.md) page; you do not need it to use the package.
+A few words of vocabulary, used throughout the docs. A *field* — and its off-grid *point-values* — is a *section*: one *fiber* value (a scalar, a vector, or a second-order tensor) attached to every point of a *base* (the structured grid, or an unstructured set of points). The operations group as: pointwise algebra within the fiber; differential operators, applied as spectral multipliers; periodic convolution with a kernel; reductions against the base's own measure (a grid cell's volume, a point's count of one), giving a number or a radial profile; and the grid↔point transfer. Each group is catalogued under Main components below. Why they are grouped that way is the [Architecture](architecture.md) page; you do not need it to use the package.
 
 ## Installation
 
@@ -34,9 +34,9 @@ Then you can use it as usual:
 using GBGPeriodicFields
 ```
 
-New here? Start with the **[Getting started](tutorial.md)** tour — a short, runnable walkthrough of
+New here? Start with the [Getting started](tutorial.md) tour — a short, runnable walkthrough of
 grids, fields, representations, operators, reductions, and the point transfer. For a full solver, the
-**[Examples](examples/hist_cpu.md)** page walks through a complete forced-HIT pseudospectral DNS built
+[Examples](examples/hist_cpu.md) page walks through a complete forced-HIT pseudospectral DNS built
 on the package — the performance-first, allocation-free pattern, with results.
 
 ## Main components

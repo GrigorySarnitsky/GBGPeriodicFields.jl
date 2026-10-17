@@ -2,13 +2,13 @@
     Interpolation
 
 Transfer between the grid [sections](@ref GBGPeriodicFields.GBGPeriodicFields) of [`Fields`](@ref "Fields") and the point sections of
-[`Points`](@ref "Points"): **interpolation**
-evaluates a field at off-grid positions, and its adjoint **anterpolation** deposits per-point quantities
+[`Points`](@ref "Points"): *interpolation*
+evaluates a field at off-grid positions, and its adjoint *anterpolation* deposits per-point quantities
 back onto the grid. A [`PointSet`](@ref) holds the positions and an [`AbstractPointValues`](@ref) the per-point values.
 
-Interpolation (`interpolate`) is the **gather** ``W``, the linear map that evaluates a field ``f`` at
+Interpolation (`interpolate`) is the *gather* ``W``, the linear map that evaluates a field ``f`` at
 the points: its value ``(Wf)_p = f(x_p)`` at the ``p``-th point is ``f`` at that point's position
-``x_p``. Anterpolation (`anterpolate`) is the **scatter** ``W^\\top``, the transpose of ``W``,
+``x_p``. Anterpolation (`anterpolate`) is the *scatter* ``W^\\top``, the transpose of ``W``,
 its adjoint for the unnormalized sums: it spreads per-point quantities ``q`` (with ``q_p`` the value carried at
 ``x_p``) back onto the surrounding grid nodes with stencil weights, returning a whole field whose value
 ``(W^\\top q)(x)`` is what it deposits at grid position ``x``. The two are exact transposes — pairing
@@ -30,13 +30,13 @@ pairing, one number by Parseval — which is why `inner` on a field in spectral 
 physical value.
 
 Here the subscripts name the two mean-normalized inner products — over the ``M`` sample points and over the ``N`` grid nodes. This holds because each scheme's scatter applies its own gather's transpose — the same stencil weights for the local splines, the conjugate Fourier sum for the spectral pair. Because those weights sum to one
-(a partition of unity), anterpolation **conserves** the total it deposits — the property that coupling a
-quantity back onto the flow needs. That is a property of the **local-spline** schemes, whose weights sum
+(a partition of unity), anterpolation conserves the total it deposits — the property that coupling a
+quantity back onto the flow needs. That is a property of the local-spline schemes, whose weights sum
 to one at every position, and it holds for [`DirectDFT`](@ref) too, by a different route: a constant is
 band-limited, so the exact spectral gather reproduces it exactly, which makes the equivalent nodal
 weights sum to one; and the deposited zero mode is exactly ``\\sum_p q_p``, which *is* the conservation
 statement. Only [`NUFFT`](@ref) falls short, and only by its tolerance. Conservation
-holds **only** when both directions use the same weights;
+holds only when both directions use the same weights;
 mismatched weights inject a spurious source (Sundaram & Collins 1996). The pair is symmetric in name and in
 adjointness, and asymmetric in three places, listed together because each is easy to meet as a
 surprise: a gather yields point values while its adjoint returns a field; the ``\\alpha``/``\\beta``
@@ -74,8 +74,8 @@ The parts are:
 
 # References
 
-  * C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
-  * S. Sundaram, L. R. Collins, [*Numerical considerations in simulating a turbulent suspension of finite-volume particles*](https://doi.org/10.1006/jcph.1996.0064), J. Comput. Phys. **124**(2) (1996) 337–350.
+  * C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. 229(17) (2010) 5862–5869.
+  * S. Sundaram, L. R. Collins, [*Numerical considerations in simulating a turbulent suspension of finite-volume particles*](https://doi.org/10.1006/jcph.1996.0064), J. Comput. Phys. 124(2) (1996) 337–350.
 """
 module Interpolation
 
@@ -112,17 +112,17 @@ export interpolate, interpolate!, anterpolate, anterpolate!, point_traversal_ord
 """
     AbstractTransferScheme
 
-It is the supertype of **all** grid↔point transfer schemes, the parameter that fixes how the adjoint pair
+It is the supertype of all grid↔point transfer schemes, the parameter that fixes how the adjoint pair
 `interpolate` (``W``, the gather that evaluates a field at each point) / `anterpolate` (``W^\\top``,
 its transpose, the scatter depositing per-point values onto the grid) is realized. A scheme is a
 choice of *kernel* and
-*representation*: the **physical-domain** local splines
-([`AbstractSplineScheme`](@ref) — gather/scatter on the nodal values) and the **spectral-domain**
+*representation*: the physical-domain local splines
+([`AbstractSplineScheme`](@ref) — gather/scatter on the nodal values) and the spectral-domain
 transfers (the exact [`DirectDFT`](@ref) and the fast, approximate [`NUFFT`](@ref) — evaluate/deposit in the Fourier basis,
 acting on a field in spectral representation). They share the verbs, one adjointness contract and one documented non-uniformity, differing
 only in (kernel, representation).
 
-One place that uniformity does not reach is the **allocating** `anterpolate`'s leading argument,
+One place that uniformity does not reach is the allocating `anterpolate`'s leading argument,
 which names what the fresh destination is built from: a [`Grid3D`](@ref) suffices for the spline schemes,
 whose result is a field in physical representation, while the spectral schemes take a whole field in
 spectral representation, their destination needing that representation's layout, backend and element
@@ -130,7 +130,7 @@ type too. Code
 polymorphic over the allocating form therefore has to branch; the in-place `anterpolate!` forms,
 where the caller owns the destination, are uniform.
 
-Schemes divide the same way over [**array families**](@ref GBGPeriodicFields.GBGPeriodicFields). The splines and `DirectDFT` are
+Schemes divide the same way over [array families](@ref GBGPeriodicFields.GBGPeriodicFields). The splines and `DirectDFT` are
 plain values — weight coefficients in an `SMatrix`, or none at all — so a kernel captures them by
 value: one built on the host drives a transfer over device points with nothing copied, which is why
 `adapt` (documented with [`Fields`](@ref "Fields")) does not list them. `NUFFT` is the exception,
@@ -170,7 +170,7 @@ is the coefficient type, `Float64`; `L` the matrix length `N2 * M2`.
 
 # References
 
-  * C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
+  * C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. 229(17) (2010) 5862–5869.
 """
 abstract type AbstractSplineScheme{N2, M2, T<:AbstractFloat, L} <: AbstractTransferScheme end
 
@@ -184,7 +184,7 @@ the ``\\texttt{beta\\_n}n\\texttt{\\_m}m`` weights of TurTLE, the reference pseu
 particle tracking (its `interp_neighbours = n`, `smoothness = m`). Over a compact stencil whose
 `stencil_width` is ``2n{+}2`` nodes per axis, at offsets ``\\{-n, \\dots, n{+}1\\}`` (``n \\ge 0``),
 the per-axis weights ``w_q(t)`` for fractional cell position ``t \\in [0, 1)`` are the
-coefficients of the **two-point Hermite** interpolant of degree ``2m{+}1``: the polynomial that
+coefficients of the two-point Hermite interpolant of degree ``2m{+}1``: the polynomial that
 reproduces the field value and the derivatives of order ``1, \\dots, m`` at the two bracketing nodes
 (offsets ``0`` and ``1``), each derivative estimated by a centred finite difference over a
 ``2n{+}1``-node stencil about that node (Fornberg weights).
@@ -212,9 +212,9 @@ use [`LagrangeSpline`](@ref). Used by [`interpolate`](@ref) (grid → point) and
 
 # References
 
-  * C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
-  * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
-  * B. Fornberg, [*Generation of finite difference formulas on arbitrarily spaced grids*](https://doi.org/10.1090/S0025-5718-1988-0935077-0), Math. Comp. **51**(184) (1988) 699–706.
+  * C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. 229(17) (2010) 5862–5869.
+  * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. 278 (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
+  * B. Fornberg, [*Generation of finite difference formulas on arbitrarily spaced grids*](https://doi.org/10.1090/S0025-5718-1988-0935077-0), Math. Comp. 51(184) (1988) 699–706.
 
 # Fields
 
@@ -281,8 +281,8 @@ interpolant has degree ``2n{+}1``.
 
 # References
 
-  * C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
-  * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
+  * C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. 229(17) (2010) 5862–5869.
+  * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. 278 (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
 
 # Fields
 
@@ -321,7 +321,7 @@ evaluated at `evaluation_point`, a host-side spline-weight helper.
 
 # References
 
-  * B. Fornberg, [*Generation of finite difference formulas on arbitrarily spaced grids*](https://doi.org/10.1090/S0025-5718-1988-0935077-0), Math. Comp. **51**(184) (1988) 699–706.
+  * B. Fornberg, [*Generation of finite difference formulas on arbitrarily spaced grids*](https://doi.org/10.1090/S0025-5718-1988-0935077-0), Math. Comp. 51(184) (1988) 699–706.
 """
 function _fornberg(evaluation_point::Float64, nodes::Vector{Float64}, max_order::Int)
   number_of_nodes = length(nodes)
@@ -492,7 +492,7 @@ end
 """
     PointTraversalOrder(indices)
 
-A `PointTraversalOrder` validates a **traversal order**: a permutation of `1:M`, for `M`
+A `PointTraversalOrder` validates a *traversal order*: a permutation of `1:M`, for `M`
 points, saying which point each unit of a transfer's work handles. Build one with [`point_traversal_order`](@ref), or wrap your
 own permutation by calling this constructor, which checks it.
 
@@ -719,7 +719,7 @@ It computes a threaded inclusive running total on the host: each chunk sums its 
 scanned serially (there are as many as chunks), and each chunk then writes its slice
 offset by the total of everything before it.
 
-The result is **bitwise identical** to `cumsum!`, and for integers a property, not a
+The result is bitwise identical to `cumsum!`, and for integers a property, not a
 tolerance: addition is exact and associative, so regrouping the sums cannot change them. A threaded
 float reduction would need a fixed summation tree for thread-count invariance; this needs none.
 
@@ -898,7 +898,7 @@ end
                            points::PointSet, scratch::PointTraversalOrderScratch)
 
 Rebuild `traversal` in place for the current positions of `points`, and return it: a permutation of
-`1:M`, for a set of `M` points, that groups points lying in the same **block** of grid cells.
+`1:M`, for a set of `M` points, that groups points lying in the same block of grid cells.
 
 Pass it as the `traversal` keyword of [`interpolate!`](@ref), [`anterpolate!`](@ref) or their
 allocating siblings. A transfer's cost is dominated by where its points read and write rather than by
@@ -918,7 +918,7 @@ stale as they move — never wrong, only progressively less useful — and a cal
 periodically would otherwise allocate about 15 MiB at ``256^3`` with ``10^6`` points on every rebuild.
 On a device that memory is freed by a collector which runs on host pressure and cannot see it, so it
 accumulates. Here the result is `traversal`'s own storage and everything else is `scratch`, so
-**nothing allocated per rebuild grows with the point count**: about 1.2 KiB of `KernelAbstractions`
+nothing allocated per rebuild grows with the point count: about 1.2 KiB of `KernelAbstractions`
 launch bookkeeping, measured unchanged from ``10^3`` points to ``10^6``.
 
 # Arguments
@@ -945,7 +945,7 @@ and with it both the build time and the working memory — 2 MiB of counters at 
 transfer scheme: a device is insensitive to it, while a CPU prefers coarser blocks, up to roughly 16.
 
 A build or rebuild costs one pass over the points, a running total over the blocks, and the
-permutation check — ``\\approx 0.27`` ms **on a device** at ``256^3`` with ``10^6`` points, against
+permutation check — ``\\approx 0.27`` ms on a device at ``256^3`` with ``10^6`` points, against
 ``0.71`` ms for one ordered gather there, so about a third of a single transfer. On a CPU the same
 build is ``\\approx 9`` ms, so it pays back over more transfers; either figure is what sets how often
 a rebuild is worth doing.
@@ -1164,9 +1164,9 @@ fresh result instead.
 - `points` — the [`PointSet`](@ref) of positions to evaluate at.
 - `scheme` — an [`AbstractTransferScheme`](@ref), selecting the transfer kernel and the
   representation it acts on. The physical-domain local splines ([`CatmullRom`](@ref) and the other
-  [`LalescuSpline`](@ref) / [`LagrangeSpline`](@ref)) gather the nodal values of a **physical-space**
+  [`LalescuSpline`](@ref) / [`LagrangeSpline`](@ref)) gather the nodal values of a physical-space
   field over a compact stencil, while [`DirectDFT`](@ref) and [`NUFFT`](@ref) evaluate a field in
-  **spectral representation** in the Fourier basis; each scheme's own docstring gives its weights.
+  spectral representation in the Fourier basis; each scheme's own docstring gives its weights.
 - `traversal` — an optional traversal order from [`point_traversal_order`](@ref): a permutation of the point indices
   saying which point each work item handles. It changes only the sequence in which points are
   visited — the gather is bitwise unchanged — and is worth several times the
@@ -1260,9 +1260,9 @@ in-place home of the scatter ``W^\\top``.
 Use this in-place form when `field` is already allocated; the allocating [`anterpolate`](@ref) returns
 a fresh result instead.
 
-Because it applies the **same** weights as the matching gather, anterpolation is the exact transpose; the [`Interpolation`](@ref "Interpolation") module docstring
+Because it applies the same weights as the matching gather, anterpolation is the exact transpose; the [`Interpolation`](@ref "Interpolation") module docstring
 explains the pair. For
-a **local-spline** scheme the weights also sum to exactly one at any position (a partition of unity),
+a local-spline scheme the weights also sum to exactly one at any position (a partition of unity),
 so the total deposited quantity is conserved. Other communities name
 this operation *spreading* (immersed-boundary methods), *deposition* or *charge assignment*
 (particle-in-cell), *projection* (PSI-Cell, particle-source-in-cell), or *gridding* (nonuniform FFTs);
@@ -1276,8 +1276,8 @@ this operation *spreading* (immersed-boundary methods), *deposition* or *charge 
 - `quantities` — the per-point values to deposit.
 - `scheme` — an [`AbstractTransferScheme`](@ref), selecting the transfer kernel and the
   representation: the physical-domain local splines ([`CatmullRom`](@ref) and the other
-  [`LalescuSpline`](@ref) / [`LagrangeSpline`](@ref)) scatter onto a **physical-space** field, while
-  [`DirectDFT`](@ref) and [`NUFFT`](@ref) deposit into a field in **spectral representation**; each
+  [`LalescuSpline`](@ref) / [`LagrangeSpline`](@ref)) scatter onto a physical-space field, while
+  [`DirectDFT`](@ref) and [`NUFFT`](@ref) deposit into a field in spectral representation; each
   scheme's own docstring gives the weights.
 - `α` — scales the deposited contribution.
 - `β` — sets the accumulation: ``\\beta = 0`` (default) overwrites `field`, ``\\beta \\ne 0``
@@ -1293,7 +1293,7 @@ this operation *spreading* (immersed-boundary methods), *deposition* or *charge 
 # References
 
   * A. Brandt, A. A. Lubrecht, [*Multilevel matrix multiplication and fast solution of integral
-    equations*](https://doi.org/10.1016/0021-9991%2890%2990171-V), J. Comput. Phys. **90**(2) (1990) 348–370
+    equations*](https://doi.org/10.1016/0021-9991%2890%2990171-V), J. Comput. Phys. 90(2) (1990) 348–370
     (an early use of "anterpolation" for the adjoint of interpolation).
 """
 function anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities::AbstractPointValues,
@@ -1386,13 +1386,13 @@ _single_point_value(values::TensorPointValues{2}) = SMatrix{3, 3}(Array(point_va
 """
     DirectDFT()
 
-The **exact** spectral-domain transfer scheme: it interpolates and anterpolates by the literal ``O(NM)``
+The exact spectral-domain transfer scheme: it interpolates and anterpolates by the literal ``O(NM)``
 discrete Fourier sum over the field's stored Fourier modes ``k`` and the ``M`` points (``x_p`` the
 ``p``-th point position, ``q_p`` the value carried there), with ``N = N_x N_y N_z`` the grid-point
 count — none of the fast scheme's apparatus (no spreading window, oversampled grid or FFT — the
 machinery of [`NUFFT`](@ref), which it validates as the oracle). It *defines* the
 spectral-domain adjoint pair and is the transparent exact baseline; for many points or modes, prefer
-`NUFFT`. It acts on a field's Fourier coefficients, in **spectral representation**:
+`NUFFT`. It acts on a field's Fourier coefficients, in spectral representation:
 
 ```math
 \\begin{aligned}
@@ -1409,8 +1409,8 @@ reads an even axis's Nyquist amplitude split across ``\\pm k`` — its band-limi
 what the stored-``k`` sum with the weight ``\\alpha(k)`` implements; sub-Nyquist, and at the grid nodes,
 the two sides agree with no convention needed.
 
-Interpolation reproduces the band-limited field **exactly**, so it is
-pointwise divergence-free on the **resolved band** — the frequencies this grid
+Interpolation reproduces the band-limited field exactly, so it is
+pointwise divergence-free on the *resolved band* — the frequencies this grid
 represents, each even axis's Nyquist plane excluded — where the local splines are not, and
 matches [`to_physical`](@ref) at the grid nodes;
 anterpolation matches [`to_spectral`](@ref) from grid-node samples. It is stateless: pass
@@ -1420,14 +1420,14 @@ anterpolation matches [`to_spectral`](@ref) from grid-node samples. It is statel
     The deposit ``(W^\\top q)(k)`` is evaluated at every stored mode, the Nyquist planes included, and
     it is the exact adjoint of the gather there. But an even-length axis identifies its Nyquist mode
     with its own negative, so a *real* field's deposited coefficients must satisfy
-    ``\\hat g(-k) = \\overline{\\hat g(k)}`` **within** that plane, and the sum above meets that condition
+    ``\\hat g(-k) = \\overline{\\hat g(k)}`` within that plane, and the sum above meets that condition
     only when every point sits on a grid node of that axis, ``a``: off-node along it, the two sides differ by
     ``e^{-2\\mathrm{i} k_a x_{p,a}} \\ne 1``. The deposited array is then the half-spectrum of no real
     field, and `to_physical` — which is the Hermitian projector — silently keeps only its
     Hermitian part, so a transform round trip changes it. The same hazard
     [`translation_kernel`](@ref GBGPeriodicFields.Convolution.translation_kernel) documents for its Nyquist factor is why `NUFFT`
     projects that plane out; `DirectDFT` deliberately does not, keeping the literal adjoint instead.
-    The **resolved band is unaffected**, which is the band a de-aliased spectral
+    The resolved band is unaffected, which is the band a de-aliased spectral
     computation uses.
 """
 struct DirectDFT <: AbstractTransferScheme end
@@ -1723,7 +1723,7 @@ end
           window_width = _nufft_width(tolerance),
           window_shape = _nufft_beta(window_width, T))
 
-The **fast, approximate** spectral-domain transfer scheme: the ``O(N\\log N + M)`` windowed-gridding
+The fast, approximate spectral-domain transfer scheme: the ``O(N\\log N + M)`` windowed-gridding
 (nonuniform FFT) counterpart of [`DirectDFT`](@ref) for evaluating a field in spectral representation at
 scattered points and depositing point values back, agreeing with `DirectDFT` to `tolerance`. It runs the transfer through an oversampled work grid and a single FFT — spreading through a smooth
 compact window then transforming for the deposit, and the reverse for the evaluation, deconvolving the
@@ -1743,7 +1743,7 @@ fields like the reference.
   - `array_family`, `grid`, `Val(R)` — in place of the reference: the array family (`Array`, `CuArray`,
     `ROCArray`), the [`Grid3D`](@ref) and the tensor order; `layout`, a keyword of that form, is the
     [`RealFourierLayout`](@ref), the standard one by default.
-  - `tolerance` — the target accuracy the window's width and shape are chosen to reach: a **target**,
+  - `tolerance` — the target accuracy the window's width and shape are chosen to reach: a target,
     not a bound. It must be finite and positive; one finer than the element type resolves widens the
     window as far as the formula goes and saturates there.
   - `oversampling` — the linear oversampling factor ``\\sigma`` of the work grid, at least 2: the width
@@ -1766,7 +1766,7 @@ Nyquist content is not pointwise divergence-free in the continuum).
 
 # References
 
-  * A. H. Barnett, J. Magland, L. af Klinteberg, [*A parallel nonuniform fast Fourier transform library based on an exponential of semicircle kernel*](https://doi.org/10.1137/18M120885X), SIAM J. Sci. Comput. **41**(5) (2019) C479–C504.
+  * A. H. Barnett, J. Magland, L. af Klinteberg, [*A parallel nonuniform fast Fourier transform library based on an exponential of semicircle kernel*](https://doi.org/10.1137/18M120885X), SIAM J. Sci. Comput. 41(5) (2019) C479–C504.
 
 # Fields
 
@@ -2105,12 +2105,12 @@ _wrap_field_spectral(data, grid, layout, ::Val{R}) where {R} = TensorFieldSpectr
                  scheme::AbstractTransferScheme)
 
 Persist a grid↔point transfer scheme — the choice of kernel and representation that fixes how
-[`interpolate`](@ref) and [`anterpolate`](@ref) are realized — as a **new HDF5 group** `name` under
+[`interpolate`](@ref) and [`anterpolate`](@ref) are realized — as a new HDF5 group `name` under
 `parent`, returning the group it created. Use it when a checkpoint must restore not only the
 positions and values of a point set but also *how* that set samples a field, so a restarted run
 transfers identically rather than falling back to a default. Reload with [`read_scheme`](@ref).
 
-The group is **self-describing** and holds **no dataset**: a scheme's weight coefficients are
+The group is *self-describing* and holds no dataset: a scheme's weight coefficients are
 derived from its parameters, so the group carries a `type` tag, a schema `version`, the weight
 element type, and the defining parameters — the `stencil_width` and, for
 [`LalescuSpline`](@ref), the `smoothness`. Reading reconstructs through the ordinary
@@ -2149,12 +2149,12 @@ function write_scheme end
 
 Reconstruct the transfer scheme written by [`write_scheme`](@ref) from the HDF5 group `name` under
 `parent`, dispatching on the stored `type` attribute to return it in the matching type. The reload
-is **exact**: the reconstructed scheme compares equal (`==`, and in fact `===`) to the one written,
+is exact: the reconstructed scheme compares equal (`==`, and in fact `===`) to the one written,
 because a scheme is fully determined by the parameters the group stores and the constructor
 recomputes the weights identically.
 
 Here `parent` is an open HDF5 `File` or `Group` holding the group, and `name` is the name (or path)
-of that group under `parent`. The group's schema is **checked**, not merely read: a file from a
+of that group under `parent`. The group's schema is checked, not merely read: a file from a
 newer schema version, a group missing a parameter its type needs, an unrecognized type tag, or a
 parameter combination the scheme's own constructor rejects all raise an `ArgumentError` rather than
 producing a scheme that is not what the file claims.

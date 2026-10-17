@@ -62,7 +62,7 @@ similar_field
 
 ## Moving between array families
 
-Host and device are **array families**, not representations: a field has both, and they vary
+Host and device are array families, not representations: a field has both, and they vary
 independently — the representation says whether its values are the field or its Fourier coefficients,
 the family says which kind of array holds them. Moving between families is
 [`Adapt.jl`](https://github.com/JuliaGPU/Adapt.jl)'s verb, extended here for every section, kernel and
@@ -114,7 +114,7 @@ Base.:(==)(::GBGPeriodicFields.Fields.AbstractFieldPhysical, ::GBGPeriodicFields
 
 The kernel-taking operations dispatch on `SpectralKernel`, each accepting all four storage classes:
 `convolve`, the kernel-composed differential operators, and `weighted_inner` — the last subject to the
-separate requirement that its weight be **real**.
+separate requirement that its weight be real.
 
 ```@docs
 SpectralKernel
