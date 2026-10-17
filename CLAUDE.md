@@ -1140,9 +1140,9 @@ executed on AMD; CUDA reads 695/695 at `af0019b3`. In this order, each step alon
    gitignored manifests — `test/gpu/rocm`, `benchmark/gpu/rocm`, `examples/gpu/rocm` — so in each run
    `Pkg.instantiate()` and then LOAD (`using GBGPeriodicFields, AMDGPU`); resolve and instantiate
    passing is not enough (2026-08-31, four stale environments found only at load). In `test/gpu/rocm`
-   also `Pkg.update("GBGCodingTools")` to rc.73 and verify the manifest's `git-tree-sha1` equals the
+   also `Pkg.update("GBGCodingTools")` to rc.79 and verify the manifest's `git-tree-sha1` equals the
    tag's tree (`gh api repos/GrigorySarnitsky/GBGCodingTools.jl/git/commits/<sha> --jq .tree.sha`,
-   a200c8dc…). Warm the card once with a trivial kernel after a reboot: a cold comgr JIT looks like a
+   09d1e60e…). Warm the card once with a trivial kernel after a reboot: a cold comgr JIT looks like a
    hang, and a cold run is never killed.
 2. **The ROCm suite:** `julia --project=test/gpu/rocm test/gpu/rocm/runtests.jl`. The suite is
    backend-agnostic, so expect **695/695**; a different number is a finding, not a rounding difference,
