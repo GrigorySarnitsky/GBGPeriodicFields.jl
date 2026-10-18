@@ -587,7 +587,16 @@ function run_invocation_lane(configs)
   unbuildable = Symbol[]
   hook_extended = Symbol[]
   operations = 0
+  # The device leg of a THREADED configuration is skipped: `config.threaded` only moves the host
+  # threading cutoff, which no device kernel consults, so that leg repeated the serial one byte for
+  # byte — half of the device time of the first full ROCm run (2026-10-18, owner-directed). Skipped
+  # aloud, so the count of device legs is never read as the whole product.
+  skipped_device_legs = 0
   for config in configs, (backend_name, device) in backends
+    if backend_name != "cpu" && config.threaded
+      skipped_device_legs += 1
+      continue
+    end
     pool = try
       canonical_pool(config; device = device)
     catch exception
@@ -652,6 +661,8 @@ function run_invocation_lane(configs)
             join(String.(class_gaps), ", "))
   end
 
+  skipped_device_legs > 0 && println("\n  ", skipped_device_legs, " device legs of threaded configurations SKIPPED — the threading cutoff is host-only,",
+                                      "\n      so each would repeat its serial configuration's device leg exactly")
   println("\n  ", operations, " public operations · ", length(unbuildable), " with no buildable call")
   isempty(unbuildable) ||
     println("      NOT REACHED: ", join(String.(unbuildable), ", "))

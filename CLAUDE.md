@@ -1105,7 +1105,8 @@ office's to confirm or decide on CUDA:
    standard-layout configuration from `test/gpu/cuda` with the documented command and confirm
    `BACKENDS: cpu, cuda`, no "could not build a cuda pool", and an invocation count about twice the
    host-only one.
-2. **A device run should select the serial configurations.** The harness crosses every configuration
+2. **DONE 2026-10-18 (owner-directed): the harness skips the device leg of a threaded configuration and
+   says so.** The original item: a device run should select the serial configurations. The harness crosses every configuration
    with every backend, and `config.threaded` only moves the CPU threading cutoff, so the device leg of
    a threaded configuration repeats the serial one byte for byte. The full product on ROCm spent half
    its device time on that. Whether the harness should skip the device leg of a threaded
@@ -1794,6 +1795,10 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
   from an idle run on 2026-10-03 (`PERFORMANCE.md` finding (av)): `weighted_inner` 1.33 `Float64`,
   1.67/1.88 `Float32` scalar/vector against plain `add!` at 0.97 — the excess is not only the
   per-component symbol, the scalar form has it too. ROCm is reported, not judged, until frozen.
+  **TODO (owner-postponed 2026-10-18): measure `weighted_inner`'s share of a consumer step on AMD.** On the
+  RX 7900 XTX it runs at 3.2–3.5 times a copy in `Float64` and 4.6–6.0 in `Float32` against CUDA's 1.33 and
+  1.67–1.88 (finding (aw)); the 2026-10-03 ruling below rests on the CUDA share, and the AMD share is
+  unmeasured. Reopen only if it is several times the CUDA share.
   **The `weighted_inner` excess is KNOWN AND LEFT (owner-ruled 2026-10-03):** HT measured it at 3.8%
   of a `Float32` step and 1.9% of a `Float64` one (3 calls, 256³, its default run), so reaching the
   traffic floor would save 1.7% and 0.5%, too little for a device reduction kernel with bitwise CPU

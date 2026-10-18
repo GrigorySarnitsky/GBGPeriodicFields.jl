@@ -23,10 +23,13 @@ julia -t4 --project=test/gpu/rocm test/exhaustive/runtests.jl     # CPU and ROCm
 - **It takes about 1.5 hours** on an idle machine. Anything else running inflates it.
 - **A device run cannot take the whole product in one process.** Measured on CUDA (2026-10-13): about
   7 minutes and 3.5 GB of host memory per configuration, the memory not returned until the process
-  ends, so the 96 configurations need about 16 hours and more memory than a 123 GB host has. Run it in
-  processes of a dozen configurations, selected with `SURVEY_CONFIGURATIONS`, a regular expression on
-  the configuration names (`Float32/cubic/fold1/serial/seed815`); unset, every configuration runs. The
-  report states how many configurations it ran.
+  ends, so the 96 configurations need about 16 hours and more memory than a 123 GB host has. On ROCm
+  (RX 7900 XTX, 2026-10-18) it is about 16 minutes and up to 18 GB per configuration — a process of
+  twelve reached 111 GB — so six per process is the ceiling there, one process at a time. Run it in
+  processes selected with `SURVEY_CONFIGURATIONS`, a regular expression on the configuration names
+  (`Float32/cubic/fold1/serial/seed815`); unset, every configuration runs. The report states how many
+  configurations it ran. The device leg of a threaded configuration is skipped and reported: the
+  threading flag only moves the host cutoff, so that leg would repeat the serial one.
 
 ## Reading the output
 
