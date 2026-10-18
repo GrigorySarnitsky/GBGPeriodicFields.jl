@@ -1755,6 +1755,20 @@ with no other process on the device and 12 W drawn before the run.
 - **`weighted_inner`:** 3.17–3.22 scalar and 3.39–3.47 vector in `Float64`; 4.57–5.27 and 4.97–6.03
   in `Float32`. That is about 2.5 times its CUDA ratio, reported under (av)'s ruling and not fixed.
 
+**Pinning the clock removes the spread (2026-10-18, five processes, `rocm-smi --setperflevel high`).**
+Under the default `auto` level the card chooses a memory-clock state per process; pinned at the top
+state, no pass trips the busy warning and the five passes agree to 0.02–0.07 on every cell but
+`weighted_inner`, whose 0.09–0.21 is about 1% of its ratio. A bound frozen from these holds only
+while the clock is pinned, which needs root, so whether the ROCm lane judges is a question of how the
+suite is run, not of the card. The pinned ratios, `Float64` then `Float32`:
+
+- physical vector `add!` 1.00–1.02 and 1.83–1.90; spectral `add!` 0.93–0.97 and 1.04–1.09;
+- `weighted_inner` 3.84–3.95 and 5.39–5.58 scalar, 4.10–4.19 and 6.22–6.43 vector;
+- scalar radial `convolve!` 1.02–1.04 and 1.57–1.63; vector radial `convolve!` 1.10–1.14 and
+  1.73–1.79; the per-axis `convolve!` 1.79–1.88 and 1.73–1.78;
+- `combine!` 0.99–1.06 and 1.02–1.06; `laplacian!` 1.03–1.16 and 1.68–1.80;
+  `exponential_convolve!` 1.03–1.05 and 0.97–1.06.
+
 **(av) The first device-cost reading: `weighted_inner` is the one operation well above its traffic**
 (2026-10-03, RTX 5070 Ti, idle machine, ``256^3``). The device-cost lane of
 [GBGCodingTools](https://grigorysarnitsky.github.io/GBGCodingTools.jl/) times each operation against a
