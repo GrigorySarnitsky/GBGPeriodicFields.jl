@@ -1091,6 +1091,30 @@ Minimum bar for any change:
    in the suite; consumers: the integrating-factor state updates (2 passes per site saved, 6+6 per RK3
    step) and every exponential factor build IT's `velocity_factor!` used to pay per stage.
 
+**ENTEROPIA — OPEN, filed 2026-10-18 from Aiporetne (check `hostname`; on `Aiporetne` this is not
+actionable).** Three things the first full ROCm survey taught about the survey itself, each the
+office's to confirm or decide on CUDA:
+
+1. **Re-check that the documented survey command reaches the device.** From `test/gpu/rocm` it ran
+   host-only, printing `BACKENDS: cpu`: `device_backends()` imported the vendor inside a running call,
+   and under Julia 1.12's world age that call could see neither the binding nor any of the vendor's
+   methods. `e3c539c2` routed the lookups through `invokelatest`, which made the report say `rocm`
+   while every device pool still failed to build (`size(::ROCArray)` "too new") — a wrong fix, superseded
+   the same day by `a5280366`, which imports the vendor at top level when `invocations.jl` is included.
+   The 2026-10-13 CUDA run did reach the device, and nothing records how it was launched. Run one
+   standard-layout configuration from `test/gpu/cuda` with the documented command and confirm
+   `BACKENDS: cpu, cuda`, no "could not build a cuda pool", and an invocation count about twice the
+   host-only one.
+2. **A device run should select the serial configurations.** The harness crosses every configuration
+   with every backend, and `config.threaded` only moves the CPU threading cutoff, so the device leg of
+   a threaded configuration repeats the serial one byte for byte. The full product on ROCm spent half
+   its device time on that. Whether the harness should skip the device leg of a threaded
+   configuration itself is the owner's call; until then filter with `SURVEY_CONFIGURATIONS`.
+3. **The per-configuration cost on ROCm is not CUDA's.** About 16 minutes and up to 18 GB of host
+   memory per configuration (a twelve-configuration process reached 111 GB of 125), against the 7
+   minutes and 3.5 GB recorded for CUDA; six per process is the ceiling on the RX 7900 XTX, and two
+   processes at once are not. The README's staging advice should carry both figures.
+
 **ENTEROPIA — the queue is CLOSED (run 2026-08-31 on this host; the handover was `225d3581`).**
 Check `hostname`; on `Aiporetne` this is not actionable. Both open A/Bs ran, and a third defect
 surfaced while running them. The record is `docs/PERFORMANCE.md` findings (al) — the A/B — and (ak),
