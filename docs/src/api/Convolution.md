@@ -24,7 +24,7 @@ exponential_convolve
 ## Kernel storage classes
 
 The package holds a kernel in whichever of four forms is cheapest for its multiplier: wrapped in a
-`StoredKernel` when the multiplier is arbitrary, as per-axis factors when it separates, as the
+[`StoredKernel`](@ref GBGPeriodicFields.StoredKernel) when the multiplier is arbitrary, as per-axis factors when it separates, as the
 function computing it when it depends on the wavenumber only through ``\lvert k\rvert^2``, or as
 any two kernels held unmultiplied when a composition cannot be collapsed into one. All four apply
 identically and agree bitwise on the host; on a device a complex-valued kernel is the one
@@ -53,8 +53,8 @@ materialize_kernel
 
 Each returns a kernel for a multiplier the package names, in whichever storage class that multiplier
 admits — and each signature says which class, since that is what determines the cost of applying it:
-`radial_kernel`, `spectral_cutoff` and `spectral_band` give a `RadialKernel` (a closure);
-`tophat_window`, `assignment_window` and `translation_kernel` give a `SeparableKernel` (three ``O(N)``
+[`radial_kernel`](@ref GBGPeriodicFields.radial_kernel), `spectral_cutoff` and [`spectral_band`](@ref GBGPeriodicFields.spectral_band) give a [`RadialKernel`](@ref GBGPeriodicFields.RadialKernel) (a closure);
+[`tophat_window`](@ref GBGPeriodicFields.tophat_window), [`assignment_window`](@ref GBGPeriodicFields.assignment_window) and [`translation_kernel`](@ref GBGPeriodicFields.translation_kernel) give a [`SeparableKernel`](@ref GBGPeriodicFields.SeparableKernel) (three ``O(N)``
 factors).
 The escape hatch is `radial_kernel`, taking any other real function of ``\lvert k\rvert^2``.
 

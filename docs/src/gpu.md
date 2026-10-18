@@ -29,9 +29,9 @@ Four habits make the difference on either vendor:
   between host and GPU. The package never does it, and `CUDA.allowscalar(false)` or
   `AMDGPU.allowscalar(false)` makes your own code throw where it would otherwise crawl.
 
-- **Preallocate, and call in-place operators.** In-place `!` operators other than `norm!` allocate no
+- **Preallocate, and call in-place operators.** In-place `!` operators other than [`norm!`](@ref GBGPeriodicFields.norm!) allocate no
   field-sized scratch, so a loop that calls only them needs no manual garbage collection. Allocating
-  calls — `to_spectral`, `lpnorm`, `radial_correlation` — create a new device array each time.
+  calls — [`to_spectral`](@ref GBGPeriodicFields.to_spectral), [`lpnorm`](@ref GBGPeriodicFields.lpnorm), [`radial_correlation`](@ref GBGPeriodicFields.radial_correlation) — create a new device array each time.
 
 - **Consider `Float32`.** It halves the memory of every field, which is usually what limits the grid on a
   GPU; `Float64` works on both vendors.
@@ -41,8 +41,8 @@ Four habits make the difference on either vendor:
 
 ### Transforms may overwrite their input
 
-Whether `to_spectral!` or `to_physical!` overwrites its input differs between transform libraries, so
-never rely on the input surviving. Use the allocating `to_spectral` or `to_physical`, or
+Whether [`to_spectral!`](@ref GBGPeriodicFields.to_spectral!) or [`to_physical!`](@ref GBGPeriodicFields.to_physical!) overwrites its input differs between transform libraries, so
+never rely on the input surviving. Use the allocating `to_spectral` or [`to_physical`](@ref GBGPeriodicFields.to_physical), or
 `to_physical!(physical, spectral, plans, spectral_scratch)`, where `spectral_scratch` is a second field
 shaped like `spectral` and is overwritten instead.
 
@@ -165,7 +165,7 @@ card.
     again. rocFFT also recompiles its own kernels in each new process unless `ROCFFT_RTC_CACHE_PATH`
     names a writable file for it to keep them in.
 
-On the tested card the `Float64` forms of `radial_spectrum` and its co-spectrum are exceptionally slow,
+On the tested card the `Float64` forms of [`radial_spectrum`](@ref GBGPeriodicFields.radial_spectrum) and its co-spectrum are exceptionally slow,
 about 48 times slower than an RTX 5070 Ti at ``256^3`` where `Float32` is within about 10%, so a run that
 needs them is best done in `Float32` throughout.
 

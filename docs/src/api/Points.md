@@ -39,10 +39,10 @@ similar_point_values
 ## Point-value algebra
 
 The point values carry the same fiberwise algebra as fields in physical representation, through the
-very same generics extended to accept `AbstractPointValues`. There is no second set of docstrings:
+very same generics extended to accept [`AbstractPointValues`](@ref GBGPeriodicFields.AbstractPointValues). There is no second set of docstrings:
 each operation is documented once, on the [`FieldAlgebra`](FieldAlgebra.md) page.
 
-The weighted combination `combine!` is the one deliberate absence, and not for a mathematical reason:
+The weighted combination [`combine!`](@ref GBGPeriodicFields.combine!) is the one deliberate absence, and not for a mathematical reason:
 it is linear and coefficientwise, so it would be perfectly well defined on point values. It exists on
 fields because a solver's stage updates are the one place the fused axpby saves a whole pass over a
 field; nothing needs it on points, so it has not been built, and a user should not read its absence as
@@ -70,7 +70,7 @@ read_points
 These symbols are not part of the public interface; they are documented for contributors — the
 point-value broadcast style, the compatibility checks the algebra routes through, the shape and
 unwrapping helpers, and the base-space motion internals — the coefficient conversion,
-the fused displacement expression, the per-axis terms and the single-coordinate wrap. (The section-interface accessors the `FieldAlgebra` builders reuse — `field_data`
+the fused displacement expression, the per-axis terms and the single-coordinate wrap. (The section-interface accessors the `FieldAlgebra` builders reuse — [`field_data`](@ref GBGPeriodicFields.field_data)
 and the component accessors — are extended here but owned by `Fields`, so they are documented on that
 page.)
 

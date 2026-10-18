@@ -90,14 +90,14 @@ Fourier transform is defined on the box, and a field of tensor order ``R`` is th
 component, so a [`FieldTransformPlans`](@ref) carries no tensor order and one pair serves every order:
 build one per array family and element type.
 
-The same pattern works for `gradient`, `divergence`, `curl`, `symmetric_gradient`,
-`inverse_laplacian`, and `helmholtz_projection`.
+The same pattern works for [`gradient`](@ref GBGPeriodicFields.gradient), [`divergence`](@ref GBGPeriodicFields.divergence), [`curl`](@ref GBGPeriodicFields.curl), [`symmetric_gradient`](@ref GBGPeriodicFields.symmetric_gradient),
+[`inverse_laplacian`](@ref GBGPeriodicFields.inverse_laplacian), and [`helmholtz_projection`](@ref GBGPeriodicFields.helmholtz_projection).
 
 ## Fiberwise algebra and L²/measure reductions
 
 The *fiberwise* (pointwise) algebra — `dot`, `cross`, `norm`, … — preserves the [base](@ref GBGPeriodicFields.GBGPeriodicFields). The
 reductions of the [`Reductions`](@ref GBGPeriodicFields.Reductions) module integrate the base out by
-its measure: `inner` (``\langle\cdot,\cdot\rangle``) is the normalized L² product; `inner(u, u)`
+its measure: [`inner`](@ref GBGPeriodicFields.inner) (``\langle\cdot,\cdot\rangle``) is the normalized L² product; `inner(u, u)`
 is ``\langle |u|^2\rangle``, the average of ``|u|^2`` — single angle brackets mean that
 average (here ``\langle\sin^2\rangle + \langle\cos^2\rangle + \langle\sin^2\rangle = \tfrac{3}{2}``).
 
@@ -136,9 +136,9 @@ julia> round(sum(spectrum); digits = 4)   # the shells sum to inner(u, u)
 
 ## Convolution (apply a Fourier kernel)
 
-The `convolve` operation applies a kernel as the coefficientwise product. A kernel is not a field, and
-is held per mode, as per-axis factors, or as a function of the wavenumber magnitude: `spectral_cutoff`
-builds an isotropic sharp low-pass as the last, a `RadialKernel` storing no coefficients — here keeping wavenumbers
+The [`convolve`](@ref GBGPeriodicFields.convolve) operation applies a kernel as the coefficientwise product. A kernel is not a field, and
+is held per mode, as per-axis factors, or as a function of the wavenumber magnitude: [`spectral_cutoff`](@ref GBGPeriodicFields.spectral_cutoff)
+builds an isotropic sharp low-pass as the last, a [`RadialKernel`](@ref GBGPeriodicFields.RadialKernel) storing no coefficients — here keeping wavenumbers
 ``|k| \le 4``:
 
 ```jldoctest tutorial

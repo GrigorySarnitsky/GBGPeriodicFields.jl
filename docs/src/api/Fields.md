@@ -112,8 +112,8 @@ Base.:(==)(::GBGPeriodicFields.Fields.AbstractFieldPhysical, ::GBGPeriodicFields
 
 ## Spectral kernel protocol
 
-The kernel-taking operations dispatch on `SpectralKernel`, each accepting all four storage classes:
-`convolve`, the kernel-composed differential operators, and `weighted_inner` — the last subject to the
+The kernel-taking operations dispatch on [`SpectralKernel`](@ref GBGPeriodicFields.SpectralKernel), each accepting all four storage classes:
+[`convolve`](@ref GBGPeriodicFields.convolve), the kernel-composed differential operators, and [`weighted_inner`](@ref GBGPeriodicFields.weighted_inner) — the last subject to the
 separate requirement that its weight be real.
 
 ```@docs

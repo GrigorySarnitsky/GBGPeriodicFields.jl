@@ -5,7 +5,7 @@
 # default is wrong for this package.
 Config(
     package = "GBGPeriodicFields",
-    tool = v"2.0.0-rc.79",
+    tool = v"2.0.0-rc.83",
     docs_build = ["julia", "--project=docs", "docs/make.jl"],
     test = ["julia", "--project", "-e", "using Pkg; Pkg.test()"],
     # Approved by the owner on 2026-10-11 for publication: the address in Project.toml's `authors`.
