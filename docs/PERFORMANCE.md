@@ -1954,7 +1954,7 @@ place the mechanism becomes VISIBLE, not the mechanism, which is why the same bo
 nothing on the other vendor.
 
 **A prediction the other host can falsify at no cost.** If this is right, the walk kernel compiled for
-sm_120 does NOT cross a register tier: its register count and occupancy for `CatmullRom` should sit
+`sm_120` does NOT cross a register tier: its register count and occupancy for `CatmullRom` should sit
 where the `mod` kernel's did, which one `@device_code_ptx`/`sass` dump would show. If the CUDA kernel
 also spilled and also halved its occupancy, this account is wrong and the vendor split has another
 cause.
