@@ -1177,7 +1177,28 @@ from a GPU environment `device_backends()` imported the vendor inside a running 
 could not see the new binding under Julia 1.12's world age, so the survey reported "BACKENDS: cpu"
 and never crossed the device. Routing the lookups through `invokelatest` (`e3c539c2`) was NOT enough —
 every AMDGPU method was too new for the running sweep, so every device pool still failed to build — and
-the vendor is now imported at top level when `invocations.jl` is included, before any lane begins. The original queue follows. The ROCm suite last ran 2026-09-05 at 494/494, so decisions 84–103 have never
+the vendor is now imported at top level when `invocations.jl` is included, before any lane begins.
+**The full survey then RAN on ROCm, 2026-10-17/18, all 96 configurations in 14 processes** (the device
+leg of a threaded configuration repeats its serial one, so half of that was wasted; a device run should
+select the serial ones). Every lane that runs on the host is clean, as the office measured: 0 value
+disagreements beyond the known 72 `radial_spectrum` tie-break cells, 0 relation, sequence, aliasing and
+ledger failures. **The device leg carries an OPEN OBSERVATION, not a defect: 25 universal-check findings,
+all on ROCm and none on the CPU leg, about 7 per million device invocations** — 16 on `mul!`, 5 on
+`exponential_convolve!`, 2 on `radial_spectrum`, 1 each on `radial_correlation` and `divergence!`; 19 a
+repeated identical call not reproducing, 6 an argument that is not the destination changing between two
+host snapshots, twice the INPUT of an allocating reduction, which no kernel arithmetic can produce. It is
+statistically reproducible inside a full survey process (one configuration run seven times: 3, 1, 0, 0,
+0, 1, 0 findings over 75,000 device invocations each) and has NOT appeared outside one: the harness's
+own checks replayed on a ROCm pool for 218,000 invocations and for 109,000 more under 85 GB of host
+ballast, 0; pure AMDGPU buffer churn, 0; and the CONSUMER'S pattern — preallocated fields, the five
+implicated forms repeated, each result compared bitwise on the device — 0 of 1,520,000 at ``8^3`` in
+both element types and ``64^3`` `Float64`, where the survey's rate predicts 10 to 15. The office's
+CUDA survey ran about 600,000 device invocations with 0, so it reads as AMD-specific. The mechanism is
+not identified; the candidates are the harness's per-call refresh copies, host snapshots and 20–110 GB
+heap under frequent GC interacting with AMDGPU's runtime, and the way to settle it is to log the GC count
+beside each finding and to try a `synchronize` before each snapshot in the harness. **No consumer-shaped
+use has reproduced it, so it is recorded here rather than treated as a release blocker; the owner
+decides.** The original queue follows. The ROCm suite last ran 2026-09-05 at 494/494, so decisions 84–103 have never
 executed on AMD; CUDA reads 695/695 at `af0019b3`. In this order, each step alone on the machine:
 
 1. **Pull and load.** `git pull`; master is at `af0019b3` or later. The three AMD environments carry
