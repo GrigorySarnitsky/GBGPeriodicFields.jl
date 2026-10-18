@@ -1759,8 +1759,9 @@ with no other process on the device and 12 W drawn before the run.
 Under the default `auto` level the card chooses a memory-clock state per process; pinned at the top
 state, no pass trips the busy warning and the five passes agree to 0.02–0.07 on every cell but
 `weighted_inner`, whose 0.09–0.21 is about 1% of its ratio. A bound frozen from these holds only
-while the clock is pinned, which needs root, so whether the ROCm lane judges is a question of how the
-suite is run, not of the card. The pinned ratios, `Float64` then `Float32`:
+while the clock is pinned, which needs root, so the pin is part of the ROCm procedure and the lane judges
+only when the runner reads the card pinned; the bounds, the maximum of the five plus 10%, were frozen on
+2026-10-19 and held on the first pinned suite run. The pinned ratios, `Float64` then `Float32`:
 
 - physical vector `add!` 1.00–1.02 and 1.83–1.90; spectral `add!` 0.93–0.97 and 1.04–1.09;
 - `weighted_inner` 3.84–3.95 and 5.39–5.58 scalar, 4.10–4.19 and 6.22–6.43 vector;

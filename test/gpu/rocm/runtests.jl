@@ -24,4 +24,19 @@ device_array_family() = AMDGPU.ROCArray
 # Waits for the device, for the device-cost lane's timings.
 device_synchronize() = AMDGPU.synchronize()
 
+# Whether every AMD card's performance level is pinned high, read from sysfs. The device-cost bounds
+# for this backend were frozen pinned (`sudo rocm-smi --setperflevel high`); under `auto` the card
+# picks a memory-clock state per process and the lane's ratios differ by up to 1.0 between
+# processes, so unpinned the lane reports and does not judge. Set it back with `--setperflevel auto`.
+function device_clock_pinned()
+  levels = String[]
+  for card in filter(startswith("card"), readdir("/sys/class/drm"))
+    device = joinpath("/sys/class/drm", card, "device")
+    vendor = joinpath(device, "vendor"); level = joinpath(device, "power_dpm_force_performance_level")
+    isfile(vendor) && isfile(level) && strip(read(vendor, String)) == "0x1002" || continue
+    push!(levels, strip(read(level, String)))
+  end
+  return !isempty(levels) && all(==("high"), levels)
+end
+
 include(joinpath(@__DIR__, "..", "suite.jl"))

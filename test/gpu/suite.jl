@@ -1018,7 +1018,36 @@ const DEVICE_COST_BOUNDS = Dict(
       :convolve_vector_separable => 1.28,
       :combine_vector_radial => 1.08,
       :laplacian_vector => 1.27,
-      :exponential_convolve_vector => 1.13)))
+      :exponential_convolve_vector => 1.13)),
+  # RX 7900 XTX, 2026-10-18, five idle-machine processes with the performance level pinned HIGH
+  # (`sudo rocm-smi --setperflevel high`), each bound the maximum of the five plus 10%. Pinned is the
+  # condition, not a nicety: under `auto` the card chooses a memory-clock state per process and the
+  # same operation read 1.45 in one process and 2.5 in the next; pinned, the five agree to 0.02–0.07
+  # everywhere but `weighted_inner`, whose 0.09–0.21 is about 1% of its ratio. The lane JUDGES on this
+  # backend only when `device_clock_pinned()` reads the card's level as high, and reports otherwise.
+  "ROCm / AMDGPU" => Dict(
+    Float64 => Dict{Symbol, Float64}(
+      :add_physical_vector => 1.13,
+      :add_spectral_vector => 1.07,
+      :weighted_inner_scalar => 4.35,
+      :weighted_inner_vector => 4.61,
+      :convolve_scalar_radial => 1.15,
+      :convolve_vector_radial => 1.26,
+      :convolve_vector_separable => 2.07,
+      :combine_vector_radial => 1.17,
+      :laplacian_vector => 1.28,
+      :exponential_convolve_vector => 1.16),
+    Float32 => Dict{Symbol, Float64}(
+      :add_physical_vector => 2.09,
+      :add_spectral_vector => 1.20,
+      :weighted_inner_scalar => 6.14,
+      :weighted_inner_vector => 7.08,
+      :convolve_scalar_radial => 1.80,
+      :convolve_vector_radial => 1.97,
+      :convolve_vector_separable => 1.96,
+      :combine_vector_radial => 1.17,
+      :laplacian_vector => 1.98,
+      :exponential_convolve_vector => 1.17)))
 
 function device_cost_lane(::Type{T}) where {T<:AbstractFloat}
   AT = device_array_family()
@@ -1059,6 +1088,12 @@ function device_cost_lane(::Type{T}) where {T<:AbstractFloat}
       @test_skip false
     else
       bounds = get(get(DEVICE_COST_BOUNDS, GPU_BACKEND, Dict()), T, Dict{Symbol, Float64}())
+      # A bound holds only under the clock it was frozen at. A runner that cannot vouch for the clock
+      # defines no `device_clock_pinned`, and one that reads it unpinned turns the lane to report-only.
+      if !isempty(bounds) && isdefined(@__MODULE__, :device_clock_pinned) && !device_clock_pinned()
+        @info "$GPU_BACKEND: the performance level is not pinned high, so the device-cost lane reports and does not judge; pin it with `sudo rocm-smi --setperflevel high` to judge."
+        bounds = Dict{Symbol, Float64}()
+      end
       GBGCodingTools.TestHarness.device_cost(cases, copy, device_synchronize; bounds = bounds)
     end
   end

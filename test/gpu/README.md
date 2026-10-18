@@ -9,8 +9,15 @@ julia --project=test/gpu/cuda -e 'using Pkg; Pkg.instantiate()'   # NVIDIA, one-
 julia --project=test/gpu/cuda test/gpu/cuda/runtests.jl
 
 julia --project=test/gpu/rocm -e 'using Pkg; Pkg.instantiate()'   # AMD, one-time
+sudo rocm-smi --setperflevel high                                  # AMD: pin the clock for the cost lane
 julia --project=test/gpu/rocm test/gpu/rocm/runtests.jl
+sudo rocm-smi --setperflevel auto                                  # AMD: and release it afterwards
 ```
+
+The pin is part of the AMD procedure, not an option: under the default `auto` level the card chooses
+a memory-clock state per process, and the cost lane's ratios then differ by up to 1.0 between two
+runs of the same operation. The ROCm bounds were frozen pinned, and the runner reads the level from
+sysfs — unpinned, that lane reports and does not judge, and says so.
 
 Without a working device the suite warns and skips rather than failing.
 
@@ -24,7 +31,8 @@ throws (invariant 6). Within that:
 - **Allocation.** Every in-place operation with its destination also an input allocates nothing on the
   device. Only a backend that can count device bytes runs this check; today that is CUDA.
 - **Cost.** Ten operations at 256³, timed against the memory each must move, with bounds frozen per
-  backend and precision. A backend without frozen bounds reports without judging.
+  backend and precision. A backend without frozen bounds reports without judging, and so does ROCm
+  when its clock is not pinned.
 
 ## Unified memory (CUDA)
 
@@ -43,6 +51,7 @@ disable scalar indexing for unified arrays, so this lane cannot catch it.
 
 Copy `cuda/` or `rocm/`: a `Project.toml` with the backend's package in place of the other, and a
 `runtests.jl` that defines `GPU_BACKEND`, `device_functional`, `to_device`, `device_array_family`
-and `device_synchronize`, and `device_bytes_allocated` if the backend can count device bytes, calls
-`allowscalar(false)`, and includes `suite.jl`.
+and `device_synchronize`, `device_bytes_allocated` if the backend can count device bytes, and
+`device_clock_pinned` if its cost bounds hold only under a pinned clock, calls `allowscalar(false)`,
+and includes `suite.jl`.
 `suite.jl` needs no change.
