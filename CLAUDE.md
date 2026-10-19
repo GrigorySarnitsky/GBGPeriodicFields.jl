@@ -1157,98 +1157,26 @@ the stale traversal order. Nothing here is actionable again until the next sweep
   confirmed on both vendors. Its `fft` mechanism is `to_physical!` SCALAR at ``128^3``, exactly the
   configuration that decision leaves alone, so the next regression on that axis is equally invisible.
 
-**AIPORETNE — the 2026-10-16 queue RAN 2026-10-17 on this host; steps 1–3, 5 and 6 are CLOSED, step 4 is
-OPEN and step 7 was not asked.** Step 1: every environment instantiated and loaded, GBGCodingTools at rc.79
-with tree `09d1e60e` in all three of its environments. Step 2: decisions 84–103 now execute on AMD with no
-failure, 567 passed and 2 recorded skips, the arithmetic in the count line above. Step 3: `HIST_ROCm.jl --smoke`
-green, Parseval exact. Step 5: the canary is GREEN, all twelve mechanisms within 3% of the 2026-09-04
-baseline. **Step 4 is DONE 2026-10-19 (owner-directed): the ROCm bounds are frozen from five passes with the performance level
-pinned high, and the lane judges only when the runner reads the card pinned** — the pin is part of the AMD
-procedure in `test/gpu/README.md`. The original note: the bounds could not be frozen because passes on this card did not
-agree to 0.02 — the spread is bimodal between processes (`Float32` scalar `convolve!` with a radial kernel
-reads 1.43–1.46 in some, 2.34–2.67 in others) and every `Float32` pass trips the busy warning on an idle card;
-the figures are in `docs/PERFORMANCE.md` finding (aw). Two gaps for the owner, neither fixed: the ROCm runner
-defines no `device_bytes_allocated`, so decision 95's aliased-allocation lane has never asserted anything on
-AMD; and `weighted_inner` costs 3.2–3.5 times a copy in `Float64` here against CUDA's 1.33.
-**Step 7 (the survey, owner-approved 2026-10-17) was blocked by a package defect it found, now FIXED (owner-directed, same day).** The mapped
-reductions `extrema`, `minimum`, `maximum`, `mean` and `integral` accept a FIELD as the fiber map, the
-class `map!`/`map` were fixed for on 2026-09-02: on the CPU `extrema(s, u)` silently returns the scalar
-field interpolated at the vector field's values read as positions, and on ROCm compiling that kernel
-segfaults LLVM (`extrema(s, u)` on two device fields, exit 139), killing every survey process at the same
-call. A second, HARNESS defect, also fixed that day on the owner's word:
-from a GPU environment `device_backends()` imported the vendor inside a running function and then
-could not see the new binding under Julia 1.12's world age, so the survey reported "BACKENDS: cpu"
-and never crossed the device. Routing the lookups through `invokelatest` (`e3c539c2`) was NOT enough —
-every AMDGPU method was too new for the running sweep, so every device pool still failed to build — and
-the vendor is now imported at top level when `invocations.jl` is included, before any lane begins.
-**The full survey then RAN on ROCm, 2026-10-17/18, all 96 configurations in 14 processes** (the device
-leg of a threaded configuration repeats its serial one, so half of that was wasted; a device run should
-select the serial ones). Every lane that runs on the host is clean, as the office measured: 0 value
-disagreements beyond the known 72 `radial_spectrum` tie-break cells, 0 relation, sequence, aliasing and
-ledger failures. **The device leg carries an OPEN OBSERVATION, not a defect: 25 universal-check findings,
-all on ROCm and none on the CPU leg, about 7 per million device invocations** — 16 on `mul!`, 5 on
-`exponential_convolve!`, 2 on `radial_spectrum`, 1 each on `radial_correlation` and `divergence!`; 19 a
-repeated identical call not reproducing, 6 an argument that is not the destination changing between two
-host snapshots, twice the INPUT of an allocating reduction, which no kernel arithmetic can produce. It is
-statistically reproducible inside a full survey process (one configuration run seven times: 3, 1, 0, 0,
-0, 1, 0 findings over 75,000 device invocations each) and has NOT appeared outside one: the harness's
-own checks replayed on a ROCm pool for 218,000 invocations and for 109,000 more under 85 GB of host
-ballast, 0; pure AMDGPU buffer churn, 0; and the CONSUMER'S pattern — preallocated fields, the five
-implicated forms repeated, each result compared bitwise on the device — 0 of 1,520,000 at ``8^3`` in
-both element types and ``64^3`` `Float64`, where the survey's rate predicts 10 to 15. The office's
-CUDA survey ran about 600,000 device invocations with 0, so it reads as AMD-specific. The mechanism is
-not identified; the candidates are the harness's per-call refresh copies, host snapshots and 20–110 GB
-heap under frequent GC interacting with AMDGPU's runtime, and the way to settle it is to log the GC count
-beside each finding and to try a `synchronize` before each snapshot in the harness. **No consumer-shaped
-use has reproduced it, so it is recorded here rather than treated as a release blocker; the owner
-decides.** The original queue follows. The ROCm suite last ran 2026-09-05 at 494/494, so decisions 84–103 have never
-executed on AMD; CUDA reads 695/695 at `af0019b3`. In this order, each step alone on the machine:
+**AIPORETNE — the 2026-10-16 queue is CLOSED (run 2026-10-17 to 2026-10-19 on this host).** All seven
+steps ran; decisions 84–103 now execute on AMD. Nothing here is actionable until the next handover.
 
-1. **Pull and load.** `git pull`; master is at `af0019b3` or later. The three AMD environments carry
-   gitignored manifests — `test/gpu/rocm`, `benchmark/gpu/rocm`, `examples/gpu/rocm` — so in each run
-   `Pkg.instantiate()` and then LOAD (`using GBGPeriodicFields, AMDGPU`); resolve and instantiate
-   passing is not enough (2026-08-31, four stale environments found only at load). In `test/gpu/rocm`
-   also `Pkg.update("GBGCodingTools")` to rc.79 and verify the manifest's `git-tree-sha1` equals the
-   tag's tree (`gh api repos/GrigorySarnitsky/GBGCodingTools.jl/git/commits/<sha> --jq .tree.sha`,
-   09d1e60e…). Warm the card once with a trivial kernel after a reboot: a cold comgr JIT looks like a
-   hang, and a cold run is never killed.
-2. **The ROCm suite:** `julia --project=test/gpu/rocm test/gpu/rocm/runtests.jl`. The suite is
-   backend-agnostic, so expect **695/695**; a different number is a finding, not a rounding difference,
-   unless the log says why: the device-cost lane reports rather than judges on a backend with no
-   frozen bounds (step 4), and the aliased-allocation lane (108 cells) is SKIPPED, with an `@info`,
-   where the backend cannot count device bytes — on CUDA it runs. First-runs on AMD, in the order they are likeliest to differ from CUDA: decision 88's
-   grouped n-ary fold (a generated per-group body that failed to compile on CUDA at first); decision
-   95's aliased-allocation lane, 108 cells asserting zero device bytes, where a device VIEW allocated on
-   CUDA; decision 102's `@inferred` reductions on device (`inner`, `l2norm`, `lpnorm`, `std`, `var`,
-   `==`, `isequal` — the assertions are PF's, but AMDGPU's `dot` and `==` are its own) and its
-   `translation_kernel!` refusal; decision 103's `NUFFT(ROCArray, grid, Val(R); layout)` and the
-   `adapt` plan rebuild handing `fft_flags` to a ROCm target (ignored, as cuFFT ignores it); decision
-   93's `read_field!` through a host buffer and the plans' family form; decisions 85 (resolution
-   verbs), 87 (`tophat_window`), 90 (`mean_free_projection!`, `materialize_kernel!`), 91 (equality
-   and `hash` on device), 94 (multipliers' family form) and 97–101 (scheme positional, sampling
-   constructors with the family). A failure is REPORTED, never fixed silently; a device-specific
-   defect gets a regression witness and a decision entry, as decision 102's did.
-3. **The example:** `julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --smoke`.
-4. **Freeze the ROCm device-cost bounds.** The lane (`device_cost_lane` in `test/gpu/suite.jl`, ten
-   cases at ``256^3``) is reported, not judged, on a backend with no entry in `DEVICE_COST_BOUNDS`.
-   Two idle-machine passes agreeing to 0.02, each bound the higher of the two plus 10%, entered under
-   the suite's own backend label for the RX 7900 XTX, both element types; the reason beside the
-   numbers in the commit, and the ROCm reading added to `docs/PERFORMANCE.md` finding (av). The
-   `weighted_inner` excess (1.33–1.88 on CUDA) is known and left (owner-ruled 2026-10-03); the AMD
-   figure is reported, not fixed.
-5. **The ROCm canary:** `julia --project=benchmark/gpu/rocm benchmark/regress.jl gpu`, baseline
-   frozen 2026-09-04. A red here is a hypothesis: check first whether the baseline predates a harness
-   fix (the 2026-08-07 phantom), and whether only the unsynchronised mechanisms moved.
-6. **Record:** the ROCm count line in this file (now "ROCm reads 494/494 as of 2026-09-05") and the
-   bounds; commit and push — the push hook runs the docs build and REFUSES a tree with uncommitted
-   tracked files, so commit everything first.
-7. **Optional, with the owner's word:** the survey has never run on AMD. `julia -t4
-   --project=test/gpu/rocm test/exhaustive/runtests.jl` with `SURVEY_CONFIGURATIONS` (a regex on
-   configuration names) in processes of a dozen configurations or fewer — about 7 min and 3.5 GB of
-   host memory per configuration, never released, cause unidentified — through `script -qfec` so the
-   log is line-buffered. Note that the survey omits the plans and the `NUFFT` for a permuted layout on
-   ANY device (`plannable` in `invocations.jl`), a cuFFT limit rocFFT does not share; on ROCm that is
-   a harness conservatism to record, not a finding.
+- **Suite:** 587 passed, 2 recorded skips, pinned (the count line above has the arithmetic).
+- **Smoke example and canary:** green, the canary within 3% of its 2026-09-04 baseline.
+- **Cost bounds:** frozen from five passes with the performance level pinned high; under `auto` the
+  card picks a memory-clock state per process and the ratios split by up to 1.0. The lane judges only
+  when the runner reads the card pinned, and the pin is in `test/gpu/README.md`. Finding (aw).
+- **Survey, all 96 configurations:** host lanes clean. It found a package defect, the mapped
+  reductions accepting a field as their fiber map (`27cf4ee0`, which crashed LLVM on ROCm), and two
+  harness defects: the device was never crossed from a GPU environment (`a5280366`; `e3c539c2` was a
+  wrong first fix), and the device leg of a threaded configuration repeated its serial twin (skipped
+  since `e15be14e`). ROCm costs about 16 minutes and up to 18 GB of host memory per configuration, so
+  six per process, one at a time.
+- **An open observation, owner-settled as not a package defect:** 25 device-leg findings, about 7 per
+  million invocations, all on ROCm. They reproduce only inside a full survey process and never in the
+  consumer's pattern (0 of 1.52 million results compared bitwise on the device). The mechanism is
+  unknown; the next steps are logging the GC count per finding and a synchronise before each snapshot.
+- **Still open, not ROCm tests:** the unpinned check of the cost lane's report-only path, once the card
+  is back at `auto`; and `weighted_inner`'s share of a consumer step on AMD, postponed.
 
 **AIPORETNE — ALL THREE ITEMS CLOSED 2026-09-04 on this host** (all three were filed from Enteropia;
 check `hostname`). The record of (1) and (2) is `docs/PERFORMANCE.md` finding (ap), of (3) finding
