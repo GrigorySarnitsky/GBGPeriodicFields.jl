@@ -1784,6 +1784,15 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
   sessions plus consumer work, and its zero-cost competitor — four independent runs on one node — is the
   baseline it has to beat.
 
+- **Derive the ideal of every traffic-audit row — TODO (owner-directed 2026-10-19; not started).**
+  Since GBGCodingTools rc.84 every row of `test/pass_audit.jl` must state its ideal, the (reads, writes)
+  the operation needs, derived from what it computes and never from a measured count. All 142 rows were
+  moved to rc.84 as `UNDERIVED` (`3441a2ca`): each is still held to its frozen count exactly, and
+  `Pkg.test()` prints them under "traffic rows whose ideal is not derived yet (142)", which is the
+  live list. The work is to replace each `UNDERIVED` with its ideal, naming a holder where the frozen
+  count differs, until the list is empty. Where a row's comment already says "fused one-pass" or
+  "at ideal", the ideal is that comment's claim, to be checked against the operation rather than
+  copied from the count.
 - **The forward plan's unused device buffer — DEFERRED (decision 96, 2026-10-03).** One spectral
   scalar per plan set (about 68 MB at 256³ `Float32`, 1.8 GB at 768³), freed by building the inverse
   from the forward plan. Take it up when a run is limited by device memory; the second-copy item
