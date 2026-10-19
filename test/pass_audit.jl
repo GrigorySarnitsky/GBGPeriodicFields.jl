@@ -61,7 +61,7 @@ const PRINT_COUNTS = get(ENV, "PASS_AUDIT_PRINT", "0") == "1"
 # ideal beside it and a named holder required whenever the two differ; `audit` records the operation
 # from the row name's leading token, so completeness is derived rather than remembered.
 import GBGCodingTools
-using GBGCodingTools.TestHarness: CountingArray, Traffic, counting
+using GBGCodingTools.TestHarness: CountingArray, Traffic, UNDERIVED, counting
 
 # The KA launchers ask the storage for its backend; the tool leaves answering for the wrapper to the
 # consumer, since it does not depend on KernelAbstractions.
@@ -113,17 +113,17 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
   @testset "M2 algebra" begin
     a, b, d = vphys(), vphys(), vphys()
     audit(() -> add!(d, a, b), "add! vector",
-      Traffic("a", carr(a), (3P, 0)), Traffic("b", carr(b), (3P, 0)), Traffic("dest", carr(d), (0, 3P)))
+      Traffic("a", carr(a), (3P, 0), UNDERIVED), Traffic("b", carr(b), (3P, 0), UNDERIVED), Traffic("dest", carr(d), (0, 3P), UNDERIVED))
     audit(() -> subtract!(d, a, b), "subtract! vector",
-      Traffic("a", carr(a), (3P, 0)), Traffic("b", carr(b), (3P, 0)), Traffic("dest", carr(d), (0, 3P)))
+      Traffic("a", carr(a), (3P, 0), UNDERIVED), Traffic("b", carr(b), (3P, 0), UNDERIVED), Traffic("dest", carr(d), (0, 3P), UNDERIVED))
     audit(() -> combine!(d, 0.5, a, 2.0, b), "combine! (α·a + β·b)",
-      Traffic("a", carr(a), (3P, 0)), Traffic("b", carr(b), (3P, 0)), Traffic("dest", carr(d), (0, 3P)))
+      Traffic("a", carr(a), (3P, 0), UNDERIVED), Traffic("b", carr(b), (3P, 0), UNDERIVED), Traffic("dest", carr(d), (0, 3P), UNDERIVED))
     audit(() -> multiply!(d, 2.5, a), "multiply! by a real",
-      Traffic("a", carr(a), (3P, 0)), Traffic("dest", carr(d), (0, 3P)))
+      Traffic("a", carr(a), (3P, 0), UNDERIVED), Traffic("dest", carr(d), (0, 3P), UNDERIVED))
     s = sphys(); parent(carr(s)) .+= 2        # nonzero divisor
     audit(() -> divide!(d, a, s), "divide! by a scalar field",
-      Traffic("a", carr(a), (3P, 0)), Traffic("dest", carr(d), (0, 3P)),
-      Traffic("divisor", carr(s), (P, 0)))                # fused: the divisor is read once per element
+      Traffic("a", carr(a), (3P, 0), UNDERIVED), Traffic("dest", carr(d), (0, 3P), UNDERIVED),
+      Traffic("divisor", carr(s), (P, 0), UNDERIVED))                # fused: the divisor is read once per element
   end
 
   # ---------------------------------------------------------------- M3 field algebra (physical)
@@ -131,40 +131,40 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
     u, v, w, sd = vphys(), vphys(), vphys(), sphys()
     A, B = tphys(), tphys()
     audit(() -> dot!(sd, u, v), "dot!",
-      Traffic("u", carr(u), (3P, 0)), Traffic("v", carr(v), (3P, 0)), Traffic("dest", carr(sd), (0, P)))
+      Traffic("u", carr(u), (3P, 0), UNDERIVED), Traffic("v", carr(v), (3P, 0), UNDERIVED), Traffic("dest", carr(sd), (0, P), UNDERIVED))
     audit(() -> cross!(w, u, v), "cross!",
-      Traffic("u", carr(u), (3P, 0)),                     # fused one-pass (was 6P: two formulas per component)
-      Traffic("v", carr(v), (3P, 0)),
-      Traffic("dest", carr(w), (0, 3P)))
+      Traffic("u", carr(u), (3P, 0), UNDERIVED),                     # fused one-pass (was 6P: two formulas per component)
+      Traffic("v", carr(v), (3P, 0), UNDERIVED),
+      Traffic("dest", carr(w), (0, 3P), UNDERIVED))
     audit(() -> mul!(w, A, u), "mul! tensor·vector",
-      Traffic("A", carr(A), (9P, 0)),
-      Traffic("u", carr(u), (3P, 0)),                     # fused one-pass (was 9P: read per output formula)
-      Traffic("dest", carr(w), (0, 3P)))
+      Traffic("A", carr(A), (9P, 0), UNDERIVED),
+      Traffic("u", carr(u), (3P, 0), UNDERIVED),                     # fused one-pass (was 9P: read per output formula)
+      Traffic("dest", carr(w), (0, 3P), UNDERIVED))
     audit(() -> transpose!(B, A), "transpose!",
-      Traffic("A", carr(A), (9P, 0)), Traffic("dest", carr(B), (0, 9P)))
+      Traffic("A", carr(A), (9P, 0), UNDERIVED), Traffic("dest", carr(B), (0, 9P), UNDERIVED))
     # The in-place storage move (decision 69). Its ideal is the simplest in this file — every source
     # element read once, every destination element written once — and that is exactly what makes it
     # worth pinning: the operation's entire claim is that it moves the data and allocates nothing, so
     # a regression here would be a second pass appearing where the point was to have one.
     audit(() -> adapt!(w, u), "adapt!",
-      Traffic("source", carr(u), (3P, 0)), Traffic("dest", carr(w), (0, 3P)))
+      Traffic("source", carr(u), (3P, 0), UNDERIVED), Traffic("dest", carr(w), (0, 3P), UNDERIVED))
     audit(() -> sym!(B, A), "sym!",
-      Traffic("A", carr(A), (9P, 0)),                     # fused one-pass (was 15P: off-diagonals fed two formulas)
-      Traffic("dest", carr(B), (0, 9P)))
+      Traffic("A", carr(A), (9P, 0), UNDERIVED),                     # fused one-pass (was 15P: off-diagonals fed two formulas)
+      Traffic("dest", carr(B), (0, 9P), UNDERIVED))
     audit(() -> tr!(sd, A), "tr!",
-      Traffic("A", carr(A), (3P, 0)), Traffic("dest", carr(sd), (0, P)))
+      Traffic("A", carr(A), (3P, 0), UNDERIVED), Traffic("dest", carr(sd), (0, P), UNDERIVED))
     audit(() -> det!(sd, A), "det!",
-      Traffic("A", carr(A), (9P, 0)),                     # fused one-pass (was 15P: cofactor re-reads)
-      Traffic("dest", carr(sd), (0, P)))
+      Traffic("A", carr(A), (9P, 0), UNDERIVED),                     # fused one-pass (was 15P: cofactor re-reads)
+      Traffic("dest", carr(sd), (0, P), UNDERIVED))
     # The siblings of the rows above. They were absent while add!/sym!/transpose!/det! were audited —
     # the family asymmetry the mutation audit flagged, and the reason completeness is now derived.
     audit(() -> skew!(B, A), "skew!",
-      Traffic("A", carr(A), (9P, 0)), Traffic("dest", carr(B), (0, 9P)))
+      Traffic("A", carr(A), (9P, 0), UNDERIVED), Traffic("dest", carr(B), (0, 9P), UNDERIVED))
     audit(() -> dev!(B, A), "dev!",
-      Traffic("A", carr(A), (9P, 0)),                     # at ideal: decision 39 fused the trace into a register
-      Traffic("dest", carr(B), (0, 9P)))
+      Traffic("A", carr(A), (9P, 0), UNDERIVED),                     # at ideal: decision 39 fused the trace into a register
+      Traffic("dest", carr(B), (0, 9P), UNDERIVED))
     audit(() -> norm!(sd, u), "norm!",
-      Traffic("u", carr(u), (3P, 0)), Traffic("dest", carr(sd), (0, P)))
+      Traffic("u", carr(u), (3P, 0), UNDERIVED), Traffic("dest", carr(sd), (0, P), UNDERIVED))
   end
 
   # ---------------------------------------------------------------- map! (arbitrary φ via _fiberwise_pass!)
@@ -175,11 +175,11 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
     u, v, w, sd = vphys(), vphys(), vphys(), sphys()
     A, B = tphys(), tphys()
     audit(() -> map!(det, sd, A), "map!(det) tensor→scalar",
-      Traffic("A", carr(A), (9P, 0)), Traffic("dest", carr(sd), (0, P)))
+      Traffic("A", carr(A), (9P, 0), UNDERIVED), Traffic("dest", carr(sd), (0, P), UNDERIVED))
     audit(() -> map!(x -> 2x, B, A), "map!(2x) tensor→tensor",
-      Traffic("A", carr(A), (9P, 0)), Traffic("dest", carr(B), (0, 9P)))
+      Traffic("A", carr(A), (9P, 0), UNDERIVED), Traffic("dest", carr(B), (0, 9P), UNDERIVED))
     audit(() -> map!((a, b) -> a + b, w, u, v), "map!(+) multi-input vector",
-      Traffic("u", carr(u), (3P, 0)), Traffic("v", carr(v), (3P, 0)), Traffic("dest", carr(w), (0, 3P)))
+      Traffic("u", carr(u), (3P, 0), UNDERIVED), Traffic("v", carr(v), (3P, 0), UNDERIVED), Traffic("dest", carr(w), (0, 3P), UNDERIVED))
   end
 
   # ---------------------------------------------------------------- spectral differential operators
@@ -187,51 +187,51 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
     φ, u = sspec(), vspec()
     sd, vd, td = sspec(), vspec(), tspec()
     audit(() -> gradient!(vd, φ, multipliers), "gradient! scalar→vector",
-      Traffic("φ", carr(φ), (M, 0)),                    # fused one-pass (was 3M: one broadcast per output)
-      Traffic("dest", carr(vd), (0, 3M)))
+      Traffic("φ", carr(φ), (M, 0), UNDERIVED),                    # fused one-pass (was 3M: one broadcast per output)
+      Traffic("dest", carr(vd), (0, 3M), UNDERIVED))
     audit(() -> gradient!(td, u, multipliers), "gradient! vector→tensor",
-      Traffic("u", carr(u), (3M, 0)),                   # fused one-pass (each component once)
-      Traffic("dest", carr(td), (0, 9M)))
+      Traffic("u", carr(u), (3M, 0), UNDERIVED),                   # fused one-pass (each component once)
+      Traffic("dest", carr(td), (0, 9M), UNDERIVED))
     audit(() -> divergence!(sd, u, multipliers), "divergence! vector→scalar",
-      Traffic("u", carr(u), (3M, 0)), Traffic("dest", carr(sd), (0, M)))
+      Traffic("u", carr(u), (3M, 0), UNDERIVED), Traffic("dest", carr(sd), (0, M), UNDERIVED))
     audit(() -> divergence!(sd, u, multipliers, kernel), "divergence!∘kernel",
-      Traffic("u", carr(u), (3M, 0)), Traffic("dest", carr(sd), (0, M)))
+      Traffic("u", carr(u), (3M, 0), UNDERIVED), Traffic("dest", carr(sd), (0, M), UNDERIVED))
     audit(() -> divergence!(sd, u, multipliers, kernel, 0.5, 2.0), "divergence!∘kernel α/β",
-      Traffic("u", carr(u), (3M, 0)), Traffic("dest", carr(sd), (M, M)))
+      Traffic("u", carr(u), (3M, 0), UNDERIVED), Traffic("dest", carr(sd), (M, M), UNDERIVED))
     audit(() -> curl!(vd, u, multipliers), "curl!",
-      Traffic("u", carr(u), (3M, 0)),                   # fused one-pass (was 6M: two formulas per component)
-      Traffic("dest", carr(vd), (0, 3M)))
+      Traffic("u", carr(u), (3M, 0), UNDERIVED),                   # fused one-pass (was 6M: two formulas per component)
+      Traffic("dest", carr(vd), (0, 3M), UNDERIVED))
     # The inverse curl reads and writes exactly what the forward curl does — the extra reciprocal is
     # arithmetic on values already in registers, not traffic — so it sits at the same fused ideal.
     audit(() -> inverse_curl!(vd, u, multipliers), "inverse_curl!",
-      Traffic("u", carr(u), (3M, 0)),
-      Traffic("dest", carr(vd), (0, 3M)))
+      Traffic("u", carr(u), (3M, 0), UNDERIVED),
+      Traffic("dest", carr(vd), (0, 3M), UNDERIVED))
     audit(() -> symmetric_gradient!(td, u, multipliers), "symmetric_gradient!",
-      Traffic("u", carr(u), (3M, 0)),                   # fused one-pass (was 15M: five formulas per component)
-      Traffic("dest", carr(td), (0, 9M)))
+      Traffic("u", carr(u), (3M, 0), UNDERIVED),                   # fused one-pass (was 15M: five formulas per component)
+      Traffic("dest", carr(td), (0, 9M), UNDERIVED))
     audit(() -> laplacian!(vd, u, multipliers), "laplacian! vector",
-      Traffic("u", carr(u), (3M, 0)), Traffic("dest", carr(vd), (0, 3M)))
+      Traffic("u", carr(u), (3M, 0), UNDERIVED), Traffic("dest", carr(vd), (0, 3M), UNDERIVED))
     audit(() -> inverse_laplacian!(vd, u, multipliers), "inverse_laplacian! vector",
-      Traffic("u", carr(u), (3M, 0)), Traffic("dest", carr(vd), (0, 3M)))
+      Traffic("u", carr(u), (3M, 0), UNDERIVED), Traffic("dest", carr(vd), (0, 3M), UNDERIVED))
   end
 
   # ---------------------------------------------------------------- the one-pass Helmholtz kernel
   @testset "helmholtz_projection! (the decision-32 one-pass kernel)" begin
     u, vd = vspec(), vspec()
     audit(() -> helmholtz_projection!(vd, u, multipliers), "helmholtz_projection!",
-      Traffic("u", carr(u), (3M, 0)),                       # the decision-32 rewrite: 3, not 9
-      Traffic("dest", carr(vd), (0, 3M)))                   # and β = 0 must not read the destination
+      Traffic("u", carr(u), (3M, 0), UNDERIVED),                       # the decision-32 rewrite: 3, not 9
+      Traffic("dest", carr(vd), (0, 3M), UNDERIVED))                   # and β = 0 must not read the destination
     audit(() -> helmholtz_projection!(vd, u, multipliers, kernel), "helmholtz_projection!∘kernel",
-      Traffic("u", carr(u), (3M, 0)), Traffic("dest", carr(vd), (0, 3M)))
+      Traffic("u", carr(u), (3M, 0), UNDERIVED), Traffic("dest", carr(vd), (0, 3M), UNDERIVED))
     audit(() -> helmholtz_projection!(vd, u, multipliers, kernel, 0.5, 2.0),
       "helmholtz_projection!∘kernel α/β",
-      Traffic("u", carr(u), (3M, 0)), Traffic("dest", carr(vd), (3M, 3M)))
+      Traffic("u", carr(u), (3M, 0), UNDERIVED), Traffic("dest", carr(vd), (3M, 3M), UNDERIVED))
     aliased = vspec()
     audit(() -> helmholtz_projection!(aliased, aliased, multipliers), "helmholtz_projection! aliased",
-      Traffic("dest === source", carr(aliased), (3M, 3M)))
+      Traffic("dest === source", carr(aliased), (3M, 3M), UNDERIVED))
     g = counted_kernel()
     audit(() -> helmholtz_projection!(vd, u, multipliers, g), "helmholtz_projection! kernel read once per mode",
-      Traffic("kernel", carr(g), (M, 0)))                   # the KA kernel reads ĝ once, not per component
+      Traffic("kernel", carr(g), (M, 0), UNDERIVED))                   # the KA kernel reads ĝ once, not per component
   end
 
   # ------------------------------------------------ the weighted reductions (2026-09-30)
@@ -242,12 +242,12 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
     # built over plain storage, so only the field's traffic is counted.
     s1, v1, v2 = sspec(), vspec(), vspec()
     band = spectral_band(multipliers, 1, 3)
-    audit(() -> weighted_inner(s1, band), "weighted_inner scalar", Traffic("field", carr(s1), (M, 0)))
-    audit(() -> weighted_inner(v1, band), "weighted_inner vector", Traffic("field", carr(v1), (3M, 0)))
+    audit(() -> weighted_inner(s1, band), "weighted_inner scalar", Traffic("field", carr(s1), (M, 0), UNDERIVED))
+    audit(() -> weighted_inner(v1, band), "weighted_inner vector", Traffic("field", carr(v1), (3M, 0), UNDERIVED))
     audit(() -> weighted_inner(v1, (band, band)), "weighted_inner vector, two weights one pass",
-      Traffic("field", carr(v1), (3M, 0)))
+      Traffic("field", carr(v1), (3M, 0), UNDERIVED))
     audit(() -> weighted_inner(v1, v2, band), "weighted_inner vector pair",
-      Traffic("f", carr(v1), (3M, 0)), Traffic("g", carr(v2), (3M, 0)))
+      Traffic("f", carr(v1), (3M, 0), UNDERIVED), Traffic("g", carr(v2), (3M, 0), UNDERIVED))
   end
 
   # ---------------------------------------------------------- the reality projector (decision 83)
@@ -259,9 +259,9 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
     planes = iseven(field_grid(s1).grid_size[1]) ? 2 : 1
     plane = shape0[2] * shape0[3]
     audit(() -> reality_projection!(s1), "reality_projection! scalar",
-      Traffic("field", carr(s1), (planes * plane, planes * plane)))
+      Traffic("field", carr(s1), (planes * plane, planes * plane), UNDERIVED))
     audit(() -> reality_projection!(v1), "reality_projection! vector",
-      Traffic("field", carr(v1), (3 * planes * plane, 3 * planes * plane)))
+      Traffic("field", carr(v1), (3 * planes * plane, 3 * planes * plane), UNDERIVED))
   end
 
   # ---------------------------------------------------------- the mean-free projector (decision 90)
@@ -269,9 +269,9 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
     # The ideal is the fiber's component count: the zero coefficient of each component is written
     # once and nothing is read — a regression that walked the field would show up here as M.
     s1, v1, t1 = sspec(), vspec(), tspec()
-    audit(() -> mean_free_projection!(s1), "mean_free_projection! scalar", Traffic("field", carr(s1), (0, 1)))
-    audit(() -> mean_free_projection!(v1), "mean_free_projection! vector", Traffic("field", carr(v1), (0, 3)))
-    audit(() -> mean_free_projection!(t1), "mean_free_projection! tensor", Traffic("field", carr(t1), (0, 9)))
+    audit(() -> mean_free_projection!(s1), "mean_free_projection! scalar", Traffic("field", carr(s1), (0, 1), UNDERIVED))
+    audit(() -> mean_free_projection!(v1), "mean_free_projection! vector", Traffic("field", carr(v1), (0, 3), UNDERIVED))
+    audit(() -> mean_free_projection!(t1), "mean_free_projection! tensor", Traffic("field", carr(t1), (0, 9), UNDERIVED))
   end
 
   # ------------------------------------------------ a kernel evaluated in place (decision 90)
@@ -279,10 +279,10 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
     destination = GBGPeriodicFields.Convolution.StoredKernel(sspec())
     g = counted_kernel()
     audit(() -> materialize_kernel!(destination, g), "materialize_kernel! stored",
-      Traffic("kernel", carr(g), (M, 0)), Traffic("destination", carr(destination), (0, M)))
+      Traffic("kernel", carr(g), (M, 0), UNDERIVED), Traffic("destination", carr(destination), (0, M), UNDERIVED))
     radial_destination = GBGPeriodicFields.Convolution.StoredKernel(sspec())
     audit(() -> materialize_kernel!(radial_destination, spectral_band(multipliers, 1, 3)), "materialize_kernel! radial",
-      Traffic("destination", carr(radial_destination), (0, M)))
+      Traffic("destination", carr(radial_destination), (0, M), UNDERIVED))
   end
 
   # ------------------------------------------------- moving modes between resolutions (decision 85)
@@ -305,22 +305,22 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
 
     fine_s, coarse_s = sspec(), cs()
     audit(() -> embed_modes!(fine_s, coarse_s), "embed_modes! scalar",
-      Traffic("coarse", carr(coarse_s), (shared, 0)), Traffic("fine", carr(fine_s), (0, shared)))
+      Traffic("coarse", carr(coarse_s), (shared, 0), UNDERIVED), Traffic("fine", carr(fine_s), (0, shared), UNDERIVED))
     fine_v, coarse_v = vspec(), cv()
     audit(() -> embed_modes!(fine_v, coarse_v), "embed_modes! vector",
-      Traffic("coarse", carr(coarse_v), (3shared, 0)), Traffic("fine", carr(fine_v), (0, 3shared)))
+      Traffic("coarse", carr(coarse_v), (3shared, 0), UNDERIVED), Traffic("fine", carr(fine_v), (0, 3shared), UNDERIVED))
 
     fine_s2, coarse_s2 = sspec(), cs()
     audit(() -> extract_modes!(coarse_s2, fine_s2), "extract_modes! scalar",
-      Traffic("fine", carr(fine_s2), (shared, 0)), Traffic("coarse", carr(coarse_s2), (0, shared)))
+      Traffic("fine", carr(fine_s2), (shared, 0), UNDERIVED), Traffic("coarse", carr(coarse_s2), (0, shared), UNDERIVED))
     fine_v2, coarse_v2 = vspec(), cv()
     audit(() -> extract_modes!(coarse_v2, fine_v2), "extract_modes! vector",
-      Traffic("fine", carr(fine_v2), (3shared, 0)), Traffic("coarse", carr(coarse_v2), (0, 3shared)))
+      Traffic("fine", carr(fine_v2), (3shared, 0), UNDERIVED), Traffic("coarse", carr(coarse_v2), (0, 3shared), UNDERIVED))
 
     # Accumulating reads the destination's shared modes as well, and still nothing else.
     fine_s3, coarse_s3 = sspec(), cs()
     audit(() -> embed_modes!(fine_s3, coarse_s3, 0.5, 1.0), "embed_modes! accumulate",
-      Traffic("coarse", carr(coarse_s3), (shared, 0)), Traffic("fine", carr(fine_s3), (shared, shared)))
+      Traffic("coarse", carr(coarse_s3), (shared, 0), UNDERIVED), Traffic("fine", carr(fine_s3), (shared, shared), UNDERIVED))
   end
 
   # ---------------------------------------------------------------- convolution family
@@ -328,11 +328,11 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
     f, a, b, d = vspec(), vspec(), vspec(), vspec()
     g = counted_kernel()
     audit(() -> convolve!(d, f, g), "convolve! vector",
-      Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)),
-      Traffic("kernel", carr(g), (M, 0)))                 # fused: ĝ read once per mode (was 3M)
+      Traffic("f", carr(f), (3M, 0), UNDERIVED), Traffic("dest", carr(d), (0, 3M), UNDERIVED),
+      Traffic("kernel", carr(g), (M, 0), UNDERIVED))                 # fused: ĝ read once per mode (was 3M)
     audit(() -> convolve!(d, f, g, 0.5, 2.0), "convolve! α/β",
-      Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (3M, 3M)),
-      Traffic("kernel", carr(g), (M, 0)))                 # fused: ĝ read once per mode (was 3M)
+      Traffic("f", carr(f), (3M, 0), UNDERIVED), Traffic("dest", carr(d), (3M, 3M), UNDERIVED),
+      Traffic("kernel", carr(g), (M, 0), UNDERIVED))                 # fused: ĝ read once per mode (was 3M)
     # The axis-factored kernel (decision 50) carries NO field-sized stream — there is no kernel Traffic
     # row here because there is no kernel array to count, which is the point. What this pins is that the
     # source and destination stay at the fused ideal: swapping a stored kernel for the lazy per-axis
@@ -346,30 +346,30 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
     # 3M "regression" the ledger would otherwise imply.
     separable = translation_kernel(multipliers, (0.3, -0.7, 1.1))
     audit(() -> convolve!(d, f, separable), "convolve! vector ∘ separable kernel",
-      Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))
+      Traffic("f", carr(f), (3M, 0), UNDERIVED), Traffic("dest", carr(d), (0, 3M), UNDERIVED))
     audit(() -> convolve!(d, f, separable, 0.5, 2.0), "convolve! α/β ∘ separable kernel",
-      Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (3M, 3M)))
+      Traffic("f", carr(f), (3M, 0), UNDERIVED), Traffic("dest", carr(d), (3M, 3M), UNDERIVED))
 
     audit(() -> exponential_convolve!(d, f, multipliers; coefficient = -0.1), "exponential_convolve!",
-      Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))
+      Traffic("f", carr(f), (3M, 0), UNDERIVED), Traffic("dest", carr(d), (0, 3M), UNDERIVED))
     w = ScalarFieldSpectral(counting(ones(ComplexF64, shape0)), grid)   # ŵ is a field, not a kernel
     audit(() -> exponential_convolve!(d, f, multipliers; coefficient = -0.1, offset = w, offset_scale = 0.01), "exponential_convolve! ŵ offset",
-      Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)),
+      Traffic("f", carr(f), (3M, 0), UNDERIVED), Traffic("dest", carr(d), (0, 3M), UNDERIVED),
       # 3M → M on 2026-08-30: the fiber hoist (IT item 2) retired this ledger's LAST holder — the
       # mode-loop now reads the offset field once per mode and reuses the factor across components,
       # exactly the fix the old note priced. Frozen at the fused ideal.
-      Traffic("ŵ", carr(w), (M, 0)))
+      Traffic("ŵ", carr(w), (M, 0), UNDERIVED))
     # A radial offset (2026-10-01) is evaluated, not read: the source and destination are the whole
     # traffic, the same as the plain form, where the stored offset adds M reads.
     audit(() -> exponential_convolve!(d, f, multipliers; coefficient = -0.1, offset = spectral_band(multipliers, 1, 3), offset_scale = 0.01),
       "exponential_convolve! radial offset",
-      Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))
+      Traffic("f", carr(f), (3M, 0), UNDERIVED), Traffic("dest", carr(d), (0, 3M), UNDERIVED))
     audit(() -> exponential_convolve!(d, 0.3, a, 0.7, b, multipliers; coefficient = -0.1),
       "exponential_convolve! two-operand",
-      Traffic("a", carr(a), (3M, 0)), Traffic("b", carr(b), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))
+      Traffic("a", carr(a), (3M, 0), UNDERIVED), Traffic("b", carr(b), (3M, 0), UNDERIVED), Traffic("dest", carr(d), (0, 3M), UNDERIVED))
     audit(() -> combine!(d, 0.3, a, 0.7, b, g), "combine!∘kernel",
-      Traffic("a", carr(a), (3M, 0)), Traffic("b", carr(b), (3M, 0)), Traffic("dest", carr(d), (0, 3M)),
-      Traffic("kernel", carr(g), (M, 0)))                 # fused: ĝ read once per mode (was 3M)
+      Traffic("a", carr(a), (3M, 0), UNDERIVED), Traffic("b", carr(b), (3M, 0), UNDERIVED), Traffic("dest", carr(d), (0, 3M), UNDERIVED),
+      Traffic("kernel", carr(g), (M, 0), UNDERIVED))                 # fused: ĝ read once per mode (was 3M)
   end
 
   # ---------------------------------------------------------------- reductions
@@ -377,20 +377,20 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
     u, v = vphys(), vphys()
     A = tphys()
     audit(() -> inner(u, v), "inner physical (mixed)",
-      Traffic("u", carr(u), (3P, 0)),                   # the fixed-tree dot seeds from its first element — no typing peek (decision 40)
-      Traffic("v", carr(v), (3P, 0)))
+      Traffic("u", carr(u), (3P, 0), UNDERIVED),                   # the fixed-tree dot seeds from its first element — no typing peek (decision 40)
+      Traffic("v", carr(v), (3P, 0), UNDERIVED))
     audit(() -> mean(u), "mean vector",
-      Traffic("u", carr(u), (3P, 0)))                   # per-component tree sums — no peek (decision 40)
+      Traffic("u", carr(u), (3P, 0), UNDERIVED))                   # per-component tree sums — no peek (decision 40)
     audit(() -> maximum(norm, u), "maximum(norm, u) — fused mapped form",
-      Traffic("u", carr(u), (3P, 0)))
+      Traffic("u", carr(u), (3P, 0), UNDERIVED))
     audit(() -> mean(det, A), "mean(det, A) — fused mapped form",
-      Traffic("A", carr(A), (9P, 0)))                       # the fiber is gathered once per point
+      Traffic("A", carr(A), (9P, 0), UNDERIVED))                       # the fiber is gathered once per point
     fs = vspec()
     audit(() -> radial_spectrum(fs, multipliers), "radial_spectrum (fused binning)",
-      Traffic("f", carr(fs), (3M, 0)))
+      Traffic("f", carr(fs), (3M, 0), UNDERIVED))
     gs2 = vspec()
     audit(() -> radial_spectrum(fs, gs2, multipliers), "radial_spectrum co-spectrum",
-      Traffic("f", carr(fs), (3M, 0)), Traffic("g", carr(gs2), (3M, 0)))
+      Traffic("f", carr(fs), (3M, 0), UNDERIVED), Traffic("g", carr(gs2), (3M, 0), UNDERIVED))
   end
 
   # ------------------------------------------------- radial correlation (its countable stages)
@@ -401,11 +401,11 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
   @testset "radial_correlation stages" begin
     f = vspec()
     audit(() -> radial_correlation(f, vector_plans), "radial_correlation input read",
-      Traffic("f", carr(f), (3M, 0)))
+      Traffic("f", carr(f), (3M, 0), UNDERIVED))
     correlation_data = counting(randn(grid.grid_size..., 3))
     audit(() -> GBGPeriodicFields.Reductions._radial_average(grid, correlation_data, P),
       "_radial_average physical shell binning (decision-34 kernel)",
-      Traffic("correlation field", correlation_data, (3P, 0)))
+      Traffic("correlation field", correlation_data, (3P, 0), UNDERIVED))
   end
 
   # ------------------------------------------------- point transfer (the gather)
@@ -422,8 +422,8 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
     gathered = VectorPointValues(counting(zeros(number_of_points, 3)))
     stencil = 4^3                               # CatmullRom: n = 1 ⇒ (2n+2)³ nodes
     audit(() -> interpolate!(gathered, u, points, CatmullRom), "interpolate! CatmullRom gather",
-      Traffic("field", carr(u), (3 * stencil * number_of_points, 0)),
-      Traffic("output", point_values(gathered), (0, 3 * number_of_points)))
+      Traffic("field", carr(u), (3 * stencil * number_of_points, 0), UNDERIVED),
+      Traffic("output", point_values(gathered), (0, 3 * number_of_points), UNDERIVED))
   end
 
   # ------------------------------------------------- base-space motion (decision 73)
@@ -441,18 +441,18 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
     section_b = VectorPointValues(counting(randn(number_of_points, 3)))
     audit(() -> displace!(destination, source, (0.3, section_a), (0.7, section_b)),
           "displace! 2-term cover",
-      Traffic("source", point_positions(source), (coordinate_count, 0)),
-      Traffic("section a", point_values(section_a), (coordinate_count, 0)),
-      Traffic("section b", point_values(section_b), (coordinate_count, 0)),
-      Traffic("destination", point_positions(destination), (0, coordinate_count)))
+      Traffic("source", point_positions(source), (coordinate_count, 0), UNDERIVED),
+      Traffic("section a", point_values(section_a), (coordinate_count, 0), UNDERIVED),
+      Traffic("section b", point_values(section_b), (coordinate_count, 0), UNDERIVED),
+      Traffic("destination", point_positions(destination), (0, coordinate_count), UNDERIVED))
     audit(() -> displace!(destination, source, grid, (0.3, section_a), (0.7, section_b)),
           "displace! 2-term torus (wrap fused)",
-      Traffic("source", point_positions(source), (coordinate_count, 0)),
-      Traffic("section a", point_values(section_a), (coordinate_count, 0)),
-      Traffic("section b", point_values(section_b), (coordinate_count, 0)),
-      Traffic("destination", point_positions(destination), (0, coordinate_count)))
+      Traffic("source", point_positions(source), (coordinate_count, 0), UNDERIVED),
+      Traffic("section a", point_values(section_a), (coordinate_count, 0), UNDERIVED),
+      Traffic("section b", point_values(section_b), (coordinate_count, 0), UNDERIVED),
+      Traffic("destination", point_positions(destination), (0, coordinate_count), UNDERIVED))
     audit(() -> wrap!(destination, grid), "wrap!",
-      Traffic("coordinates", point_positions(destination), (coordinate_count, coordinate_count)))
+      Traffic("coordinates", point_positions(destination), (coordinate_count, coordinate_count), UNDERIVED))
   end
 
 end
