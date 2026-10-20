@@ -65,7 +65,7 @@ start from.
   `reductions.jl`, `storage.jl` (device only), `resolution.jl`.
 - `gate.jl`, `regress.jl`, `runbenchmarks.jl`, `characterize.jl`/`characterize.sh`, `report.jl`,
   `triage.jl`, `merge_parts.jl`, `replace_class.jl` — the runners above and their tools.
-- `history_regressions.py` — scans the committed history of `RESULTS.md` for cells slower than their
+- `history_regressions.jl` — scans the committed history of `RESULTS.md` for cells slower than their
   best.
 - `kernel_resources*.jl` — the compiled register and occupancy figures of the transfer kernels.
 - `threading.jl`, `study_*.jl` — standalone studies.

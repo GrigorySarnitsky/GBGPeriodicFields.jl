@@ -173,15 +173,16 @@ step. And the scan reads the **committed** history, so the sweep being written r
 only at the next regeneration after this file is committed — the section describes HEAD, not the
 archives just merged.
 
-Never fails the report. A missing `python3`, or a script that errors, yields a section saying so:
+Never fails the report. A script that errors yields a section saying so:
 the numbers above are the artifact, and a broken accessory must not cost them.
 """
 function history_section()
-  script = joinpath(@__DIR__, "history_regressions.py")
+  script = joinpath(@__DIR__, "history_regressions.jl")
   isfile(script) || return ""
   out, err = IOBuffer(), IOBuffer()
   ok = try
-    run(pipeline(`python3 $script`; stdout = out, stderr = err))
+    # A fresh process, so the scan's top-level definitions never land in this report's namespace.
+    run(pipeline(`$(Base.julia_cmd()) --startup-file=no $script`; stdout = out, stderr = err))
     true
   catch
     false
@@ -190,7 +191,7 @@ function history_section()
   header = "\n## Shipped slower? — the history scan\n\n"
   if !ok || isempty(strip(body))
     reason = strip(String(take!(err)))
-    return string(header, "Not run (`benchmark/history_regressions.py`)",
+    return string(header, "Not run (`benchmark/history_regressions.jl`)",
                   isempty(reason) ? "" : string(": `", first(reason, 200), "`"), ".\n")
   end
   return string(header,
