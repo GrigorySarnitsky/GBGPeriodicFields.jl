@@ -6,6 +6,7 @@ Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 
 [sources]
 GBGCodingTools = {rev = "v2.1.0", url = "https://github.com/GrigorySarnitsky/GBGCodingTools.jl.git"}
+GBGPeriodicFields = {path = ".."}
 
 [compat]
 GBGCodingTools = "=2.1.0"
