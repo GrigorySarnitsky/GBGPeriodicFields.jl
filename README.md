@@ -10,19 +10,24 @@ The `GBG` part in the name `GBGPeriodicFields.jl` comes from the city of Götebo
 
 ## Installation
 
-This is an unregistered package, so it is not listed in the `General` Julia registry. To install it, run:
-
-```julia
-]add https://github.com/GrigorySarnitsky/GBGPeriodicFields.jl
-```
-
-or
+The package's releases are listed in its own registry, GBGRegistry, alongside Julia's `General`.
+Add both registries once, then install the package by name, which gives its latest release:
 
 ```julia
 using Pkg
-
-Pkg.add(url="https://github.com/GrigorySarnitsky/GBGPeriodicFields.jl")
+Pkg.Registry.add("General")
+Pkg.Registry.add(url = "https://github.com/GrigorySarnitsky/GBGRegistry.git")
+Pkg.add("GBGPeriodicFields")
 ```
+
+or, in the package REPL:
+
+```julia
+]registry add General https://github.com/GrigorySarnitsky/GBGRegistry.git
+]add GBGPeriodicFields
+```
+
+From then on `Pkg.update()` moves the package only from one release to the next.
 
 Then you can use it as usual:
 

@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.1.0 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.3.0 — rewritten by `gbg sync`; do not edit -->
 # Git conventions — `RULE.GIT.*`
 
 What a commit carries, where it goes, and what is never committed. 11 rules, written from the rule values themselves,

@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.1.0 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.3.0 — rewritten by `gbg sync`; do not edit -->
 @.gbg/policy/00-index.md
 
 The rulebook above is the whole of it: the rules, the terms they use, and what GBGPeriodicFields has
@@ -21,7 +21,10 @@ A version is released on the owner's word, with `gbg release <version>` run here
 it refuses unless the tree is clean and pushed, `CHANGELOG.md` has a `## <version> — <date>` entry,
 `Project.toml` names that version, the tests, the docs build and the wiring check pass, and CI
 passed at the commit — start it first with `gh workflow run CI --ref <branch>` — then tags and
-pushes. A tag is never moved or cut again.
+pushes, and records a final release in the fleet's registry (`gbg release --register` records one
+whose recording failed). A package is recorded only after every fleet package it depends on, and
+its README and pages answer to `RULE.DOC.INSTALL`, which the release's own commit already meets. A
+tag is never moved or cut again.
 <!-- gbg:managed end -->
 
 # CLAUDE.md — GBGPeriodicFields

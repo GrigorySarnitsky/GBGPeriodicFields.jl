@@ -14,10 +14,10 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [sources]
-GBGCodingTools = {rev = "v2.1.0", url = "https://github.com/GrigorySarnitsky/GBGCodingTools.jl.git"}
+GBGCodingTools = {rev = "v2.3.0", url = "https://github.com/GrigorySarnitsky/GBGCodingTools.jl.git"}
 GBGPeriodicFields = {path = ".."}
 
 [compat]
 Aqua = "0.8"
-GBGCodingTools = "=2.1.0"
+GBGCodingTools = "=2.3.0"
 HDF5 = "0.17"

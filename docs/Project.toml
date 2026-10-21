@@ -5,8 +5,8 @@ GBGPeriodicFields = "f1da9c2b-0ac1-4736-96f9-af1c25aedab1"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 
 [sources]
-GBGCodingTools = {rev = "v2.1.0", url = "https://github.com/GrigorySarnitsky/GBGCodingTools.jl.git"}
+GBGCodingTools = {rev = "v2.3.0", url = "https://github.com/GrigorySarnitsky/GBGCodingTools.jl.git"}
 GBGPeriodicFields = {path = ".."}
 
 [compat]
-GBGCodingTools = "=2.1.0"
+GBGCodingTools = "=2.3.0"

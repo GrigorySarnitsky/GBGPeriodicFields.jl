@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.1.0 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.3.0 — rewritten by `gbg sync`; do not edit -->
 # /leak-scan
 
 Nothing secret or personal is published when a repository is made public; it records only accepted fingerprints.

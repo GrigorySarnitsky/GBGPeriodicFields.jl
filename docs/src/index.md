@@ -14,21 +14,17 @@ A few words of vocabulary, used throughout the docs. A *field* — and its off-g
 
 ## Installation
 
-This is an unregistered package, so it is not listed in the `General` Julia registry. To install it, run:
-
-```julia
-]add https://github.com/GrigorySarnitsky/GBGPeriodicFields.jl
-```
-
-or
+The package's releases are in its own registry, GBGRegistry. Add it with `General` once, then
+install by name, which gives the latest release:
 
 ```julia
 using Pkg
-
-Pkg.add(url="https://github.com/GrigorySarnitsky/GBGPeriodicFields.jl")
+Pkg.Registry.add("General")
+Pkg.Registry.add(url = "https://github.com/GrigorySarnitsky/GBGRegistry.git")
+Pkg.add("GBGPeriodicFields")
 ```
 
-Then you can use it as usual:
+Then load it:
 
 ```julia
 using GBGPeriodicFields
