@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1 — 2026-10-21
+
+The install instructions in the README and on the documentation's home page now add the fleet's
+registry, GBGRegistry, beside `General` and install the package by name, which gives its latest
+release; 0.1.0's installed it by URL, which gives the newest commit. The test and documentation
+environments now name the package's own path, so a fresh clone instantiates them, and the test
+environment resolves on Julia 1.13. The package's code is unchanged from 0.1.0.
+
 ## 0.1.0 — 2026-10-21
 
 The first release. GBGPeriodicFields provides real scalar, vector and second-order tensor fields on
